@@ -50,6 +50,8 @@ pub fn run() {
             modules::snippets::commands::get_snippets,
             modules::snippets::commands::save_snippet,
             modules::snippets::commands::delete_snippet,
+            modules::snippets::commands::expand_snippet_template,
+            modules::snippets::commands::copy_expanded_snippet,
             // Launcher Module
             modules::launcher::commands::get_launcher_items,
             modules::launcher::commands::save_launcher_item,

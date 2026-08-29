@@ -52,3 +52,15 @@ fn test_snippet_crud_and_favorites() {
     let empty_list = service.get_snippets().expect("get empty list");
     assert!(empty_list.is_empty());
 }
+
+#[test]
+fn test_snippet_template_expansion() {
+    use the_berry_lib::modules::snippets::template::TemplateEngine;
+
+    let raw = "Date: ${CURRENT_DATE}, UUID: ${UUID}";
+    let expanded = TemplateEngine::expand(raw);
+
+    assert!(!expanded.contains("${CURRENT_DATE}"));
+    assert!(!expanded.contains("${UUID}"));
+    assert!(expanded.contains("Date: 202"));
+}
