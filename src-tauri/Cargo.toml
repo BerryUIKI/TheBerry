@@ -32,6 +32,9 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 parking_lot = "0.12"
 arboard = "3.4"
 base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "stream"] }
+semver = "1.0"
+futures-util = "0.3"
 
 [dev-dependencies]
 tempfile = "3.17"

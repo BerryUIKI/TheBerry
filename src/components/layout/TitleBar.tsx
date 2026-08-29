@@ -1,11 +1,29 @@
-import { createSignal } from "solid-js";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useTheme } from "../../context/ThemeContext";
 import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../services/system";
-import { Sun, Moon, Minus, Square, Copy, X } from "lucide-solid";
+import { onUpdateAvailable } from "../../services/updater";
+import { UpdateInfo } from "../../types/updater";
+import { useApp } from "../../context/AppContext";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
+  const { setActiveView } = useApp();
   const [isMaximized, setIsMaximized] = createSignal(false);
+  const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
+
+  onMount(() => {
+    let unlistenFn: (() => void) | null = null;
+    onUpdateAvailable((info) => {
+      setAvailableUpdate(info);
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
+    onCleanup(() => {
+      if (unlistenFn) unlistenFn();
+    });
+  });
 
   const handleMinimize = async () => {
     try {
@@ -50,6 +68,17 @@ export function TitleBar() {
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
           v0.1.0-dev
         </span>
+
+        {/* Update Notification Pill */}
+        <Show when={availableUpdate()}>
+          <button
+            onClick={() => setActiveView("settings")}
+            class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-semibold flex items-center space-x-1 animate-pulse transition-colors"
+          >
+            <Sparkles size={10} />
+            <span>Update {availableUpdate()?.latest_version} Available</span>
+          </button>
+        </Show>
       </div>
 
       {/* Drag Region spacer */}
