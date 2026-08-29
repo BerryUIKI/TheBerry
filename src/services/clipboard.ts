@@ -26,6 +26,10 @@ export async function copyToSystemClipboard(content: string): Promise<void> {
   return safeInvoke<void>("copy_to_system_clipboard", { content });
 }
 
+export async function copyImageToSystemClipboard(imagePath: string): Promise<void> {
+  return safeInvoke<void>("copy_image_to_system_clipboard", { imagePath });
+}
+
 export async function onClipboardUpdated(callback: (item: ClipboardItem) => void): Promise<UnlistenFn> {
   return listen<ClipboardItem>("clipboard-updated", (event) => {
     callback(event.payload);

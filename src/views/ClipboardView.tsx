@@ -7,6 +7,7 @@ import {
   deleteClipboardItem,
   clearClipboardHistory,
   copyToSystemClipboard,
+  copyImageToSystemClipboard,
   onClipboardUpdated,
 } from "../services/clipboard";
 import {
@@ -19,16 +20,19 @@ import {
   Check,
   RotateCcw,
   Activity,
+  Image as ImageIcon,
+  ExternalLink,
 } from "lucide-solid";
 
 export function ClipboardView() {
   const [items, setItems] = createSignal<ClipboardItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
-  const [activeFilter, setActiveFilter] = createSignal<"all" | "pinned" | "links">("all");
+  const [activeFilter, setActiveFilter] = createSignal<"all" | "pinned" | "images" | "links">("all");
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
   const [newContent, setNewContent] = createSignal("");
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
+  const [previewImage, setPreviewImage] = createSignal<string | null>(null);
 
   const loadHistory = async () => {
     setLoading(true);
@@ -60,7 +64,11 @@ export function ClipboardView() {
 
   const handleCopy = async (item: ClipboardItem) => {
     try {
-      await copyToSystemClipboard(item.content);
+      if (item.content_type === "image" && item.media_path) {
+        await copyImageToSystemClipboard(item.media_path);
+      } else {
+        await copyToSystemClipboard(item.content);
+      }
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 1500);
     } catch (e) {
@@ -114,11 +122,18 @@ export function ClipboardView() {
     const filter = activeFilter();
 
     return items().filter((item) => {
-      const matchesSearch = !q || item.content.toLowerCase().includes(q);
+      const matchesSearch =
+        !q ||
+        item.content.toLowerCase().includes(q) ||
+        item.preview.toLowerCase().includes(q);
       if (!matchesSearch) return false;
 
       if (filter === "pinned") return item.is_pinned;
-      if (filter === "links") return item.content.startsWith("http://") || item.content.startsWith("https://");
+      if (filter === "images") return item.content_type === "image";
+      if (filter === "links")
+        return (
+          item.content.startsWith("http://") || item.content.startsWith("https://")
+        );
       return true;
     });
   };
@@ -135,7 +150,7 @@ export function ClipboardView() {
           <div class="flex items-center space-x-2 mt-0.5">
             <span class="flex items-center space-x-1 text-[11px] text-green-500 font-medium">
               <Activity size={12} class="animate-pulse" />
-              <span>Background Listener Active</span>
+              <span>Background Listener Active (Text & Images)</span>
             </span>
             <span class="text-xs text-muted-foreground">• {items().length} items in history</span>
           </div>
@@ -211,6 +226,7 @@ export function ClipboardView() {
             [
               { id: "all", label: "All" },
               { id: "pinned", label: "Pinned" },
+              { id: "images", label: "Images" },
               { id: "links", label: "URLs / Links" },
             ] as const
           ).map((f) => (
@@ -238,7 +254,7 @@ export function ClipboardView() {
               <p class="text-xs">
                 {loading()
                   ? "Loading history..."
-                  : "No clipboard entries. Any text you copy in Windows will appear here automatically."}
+                  : "No clipboard entries. Any text or screenshot you copy in Windows will appear here automatically."}
               </p>
             </div>
           }
@@ -246,21 +262,54 @@ export function ClipboardView() {
           <For each={filteredItems()}>
             {(item) => (
               <div class="p-3 bg-card hover:bg-secondary/40 border border-border rounded-lg transition-colors flex items-start justify-between space-x-3 group">
-                <div class="flex-1 min-w-0 space-y-1">
+                <div class="flex-1 min-w-0 space-y-1.5">
                   <div class="flex items-center space-x-2">
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase font-mono">
-                      {item.content.startsWith("http") ? "URL" : item.content_type}
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase font-mono flex items-center space-x-1">
+                      {item.content_type === "image" ? (
+                        <>
+                          <ImageIcon size={10} class="text-rose-500" />
+                          <span>IMAGE</span>
+                        </>
+                      ) : item.content.startsWith("http") ? (
+                        <span>URL</span>
+                      ) : (
+                        <span>TEXT</span>
+                      )}
                     </span>
-                    <span class="text-[11px] text-muted-foreground font-mono">
-                      {item.char_count} chars
-                    </span>
+
+                    {item.content_type === "image" ? (
+                      <span class="text-[11px] text-muted-foreground font-mono">
+                        {item.image_width}x{item.image_height} px
+                      </span>
+                    ) : (
+                      <span class="text-[11px] text-muted-foreground font-mono">
+                        {item.char_count} chars
+                      </span>
+                    )}
+
                     <span class="text-[11px] text-muted-foreground">
                       • {new Date(item.created_at).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p class="text-xs font-mono text-foreground whitespace-pre-wrap break-all line-clamp-3 leading-relaxed">
-                    {item.content}
-                  </p>
+
+                  {/* Render content: Image thumbnail or text */}
+                  {item.content_type === "image" && item.media_data_url ? (
+                    <div class="flex items-center space-x-3 pt-1">
+                      <img
+                        src={item.media_data_url}
+                        alt="Clipboard screenshot"
+                        onClick={() => setPreviewImage(item.media_data_url || null)}
+                        class="max-h-24 max-w-48 rounded border border-border object-contain bg-muted/20 cursor-zoom-in hover:opacity-90 transition-opacity shadow-sm"
+                      />
+                      <span class="text-xs text-muted-foreground font-mono">
+                        {item.preview}
+                      </span>
+                    </div>
+                  ) : (
+                    <p class="text-xs font-mono text-foreground whitespace-pre-wrap break-all line-clamp-3 leading-relaxed">
+                      {item.content}
+                    </p>
+                  )}
                 </div>
 
                 <div class="flex items-center space-x-1 flex-shrink-0">
@@ -299,6 +348,22 @@ export function ClipboardView() {
           </For>
         </Show>
       </div>
+
+      {/* Fullscreen Image Preview Modal */}
+      <Show when={previewImage()}>
+        <div
+          onClick={() => setPreviewImage(null)}
+          class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 cursor-zoom-out animate-in fade-in"
+        >
+          <div class="relative max-w-4xl max-h-[85vh] bg-card p-2 rounded-lg border border-border shadow-2xl">
+            <img
+              src={previewImage()!}
+              alt="Full preview"
+              class="max-w-full max-h-[80vh] rounded object-contain"
+            />
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }

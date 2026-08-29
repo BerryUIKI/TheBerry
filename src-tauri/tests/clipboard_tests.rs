@@ -64,3 +64,28 @@ fn test_clipboard_reject_empty() {
     let result = service.add_item("   ".to_string(), "text".to_string());
     assert!(result.is_err());
 }
+
+#[test]
+fn test_clipboard_add_image_item() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+
+    let service = ClipboardService::new(db_manager);
+
+    // Create 32x32 synthetic RGBA buffer (4096 bytes)
+    let rgba_bytes = vec![255u8; 32 * 32 * 4];
+    let img_item = service
+        .add_image_item(32, 32, &rgba_bytes, Some(temp.path()))
+        .expect("add image item");
+
+    assert_eq!(img_item.content_type, "image");
+    assert_eq!(img_item.image_width, Some(32));
+    assert_eq!(img_item.image_height, Some(32));
+    assert!(img_item.media_data_url.is_some());
+    assert!(img_item.media_path.is_some());
+
+    let history = service.get_history().expect("get history with image");
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].id, img_item.id);
+}
