@@ -58,3 +58,11 @@ fn test_launcher_crud_and_attributes() {
     assert_eq!(remaining.len(), 1);
     assert_eq!(remaining[0].id, batch_item.id);
 }
+
+#[test]
+fn test_start_menu_scanner() {
+    use the_berry_lib::modules::launcher::scanner::AppScanner;
+    let apps = AppScanner::scan_start_menu_apps();
+    // Verify scanner executes cleanly without panic
+    println!("Discovered {} apps", apps.len());
+}

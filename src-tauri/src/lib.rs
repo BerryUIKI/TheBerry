@@ -55,6 +55,8 @@ pub fn run() {
             modules::launcher::commands::save_launcher_item,
             modules::launcher::commands::delete_launcher_item,
             modules::launcher::commands::launch_item,
+            modules::launcher::commands::discover_system_apps,
+            modules::launcher::commands::batch_import_launcher_items,
             // Image Converter Module
             modules::image_converter::commands::convert_images,
             // File Search Module

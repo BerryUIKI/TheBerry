@@ -1,31 +1,38 @@
 import { createSignal, onMount, For, Show } from "solid-js";
-import { LauncherItem, LauncherPayload } from "../types/launcher";
+import { DiscoveredApp, LauncherItem, LauncherPayload } from "../types/launcher";
 import {
   getLauncherItems,
   saveLauncherItem,
   deleteLauncherItem,
   launchItem,
+  discoverSystemApps,
+  batchImportLauncherItems,
 } from "../services/launcher";
 import {
   Rocket,
-  Plus,
   Play,
-  Star,
+  Plus,
   Trash2,
-  Layers,
+  Star,
+  Search,
   Terminal,
   FolderOpen,
-  Search,
-  CheckCircle2,
+  Layers,
+  Sparkles,
+  Check,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-solid";
 
 export function LauncherView() {
   const [items, setItems] = createSignal<LauncherItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [selectedCategory, setSelectedCategory] = createSignal<string>("All");
-  const [showAddModal, setShowAddModal] = createSignal(false);
-  const [launchMessage, setLaunchMessage] = createSignal<string | null>(null);
+  const [showModal, setShowModal] = createSignal(false);
+  const [editingItem, setEditingItem] = createSignal<LauncherItem | null>(null);
 
+  // Form state
   const [formData, setFormData] = createSignal<LauncherPayload>({
     name: "",
     description: "",
@@ -37,8 +44,17 @@ export function LauncherView() {
     is_batch: false,
     batch_commands: [],
   });
+
   const [rawArgs, setRawArgs] = createSignal("");
-  const [rawBatchCmds, setRawBatchCmds] = createSignal("");
+  const [rawBatchCommands, setRawBatchCommands] = createSignal("");
+
+  // App Discovery state
+  const [showDiscoveryModal, setShowDiscoveryModal] = createSignal(false);
+  const [discoveredApps, setDiscoveredApps] = createSignal<DiscoveredApp[]>([]);
+  const [discoverySearch, setDiscoverySearch] = createSignal("");
+  const [selectedApps, setSelectedApps] = createSignal<Set<string>>(new Set());
+  const [scanning, setScanning] = createSignal(false);
+  const [importSuccessMessage, setImportSuccessMessage] = createSignal<string | null>(null);
 
   const loadItems = async () => {
     try {
@@ -53,14 +69,84 @@ export function LauncherView() {
     loadItems();
   });
 
-  const handleLaunch = async (item: LauncherItem) => {
+  const categories = () => {
+    const set = new Set<string>(["All"]);
+    items().forEach((i) => {
+      if (i.category) set.add(i.category);
+    });
+    return Array.from(set);
+  };
+
+  const filteredItems = () => {
+    const q = searchQuery().toLowerCase();
+    const cat = selectedCategory();
+
+    return items().filter((item) => {
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.description?.toLowerCase().includes(q) ||
+        item.category.toLowerCase().includes(q);
+      const matchesCat = cat === "All" || item.category === cat;
+      return matchesSearch && matchesCat;
+    });
+  };
+
+  const handleLaunch = async (id: string) => {
     try {
-      const msg = await launchItem(item.id);
-      setLaunchMessage(msg);
-      setTimeout(() => setLaunchMessage(null), 2500);
+      await launchItem(id);
       await loadItems();
-    } catch (e: unknown) {
-      alert(`Launch error: ${e instanceof Error ? e.message : String(e)}`);
+    } catch (e) {
+      console.error("Launch failed:", e);
+      alert(`Launch error: ${e}`);
+    }
+  };
+
+  const handleOpenAdd = () => {
+    setEditingItem(null);
+    setFormData({
+      name: "",
+      description: "",
+      exec_path: "",
+      arguments: [],
+      working_dir: "",
+      category: "Development",
+      is_favorite: false,
+      is_batch: false,
+      batch_commands: [],
+    });
+    setRawArgs("");
+    setRawBatchCommands("");
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (item: LauncherItem) => {
+    setEditingItem(item);
+    setFormData({
+      id: item.id,
+      name: item.name,
+      description: item.description,
+      exec_path: item.exec_path,
+      arguments: item.arguments,
+      working_dir: item.working_dir,
+      category: item.category,
+      is_favorite: item.is_favorite,
+      is_batch: item.is_batch,
+      batch_commands: item.batch_commands,
+    });
+    setRawArgs((item.arguments || []).join("\n"));
+    setRawBatchCommands((item.batch_commands || []).join("\n"));
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (confirm("Delete this launcher item?")) {
+      try {
+        await deleteLauncherItem(id);
+        await loadItems();
+      } catch (e) {
+        console.error("Delete failed:", e);
+      }
     }
   };
 
@@ -72,7 +158,7 @@ export function LauncherView() {
         description: item.description,
         exec_path: item.exec_path,
         arguments: item.arguments,
-        working_dir: item.working_dir || undefined,
+        working_dir: item.working_dir,
         category: item.category,
         is_favorite: !item.is_favorite,
         is_batch: item.is_batch,
@@ -84,27 +170,17 @@ export function LauncherView() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Remove this launcher item?")) {
-      try {
-        await deleteLauncherItem(id);
-        await loadItems();
-      } catch (e) {
-        console.error("Delete failed:", e);
-      }
-    }
-  };
-
-  const handleSave = async () => {
+  const handleSave = async (e: Event) => {
+    e.preventDefault();
     const data = formData();
     if (!data.name.trim()) return;
-    if (!data.is_batch && !data.exec_path.trim()) return;
 
-    const args = rawArgs()
+    const parsedArgs = rawArgs()
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
-    const batch = rawBatchCmds()
+
+    const parsedBatch = rawBatchCommands()
       .split("\n")
       .map((s) => s.trim())
       .filter(Boolean);
@@ -112,34 +188,76 @@ export function LauncherView() {
     try {
       await saveLauncherItem({
         ...data,
-        arguments: args,
-        batch_commands: batch,
+        arguments: parsedArgs,
+        batch_commands: parsedBatch,
       });
-      setShowAddModal(false);
+      setShowModal(false);
       await loadItems();
-    } catch (e) {
-      console.error("Save launcher item failed:", e);
+    } catch (err) {
+      console.error("Save error:", err);
+      alert(`Save error: ${err}`);
     }
   };
 
-  const categories = () => {
-    const set = new Set<string>(["All"]);
-    items().forEach((i) => set.add(i.category));
-    return Array.from(set);
+  // App Discovery handlers
+  const handleStartDiscovery = async () => {
+    setScanning(true);
+    setShowDiscoveryModal(true);
+    try {
+      const apps = await discoverSystemApps();
+      setDiscoveredApps(apps);
+      // Pre-select all by default
+      const initialSelected = new Set<string>();
+      apps.forEach((a) => initialSelected.add(a.exec_path));
+      setSelectedApps(initialSelected);
+    } catch (err) {
+      console.error("Discovery error:", err);
+    } finally {
+      setScanning(false);
+    }
   };
 
-  const filteredItems = () => {
-    const q = searchQuery().toLowerCase();
-    const cat = selectedCategory();
-    return items().filter((i) => {
-      const matchCat = cat === "All" || i.category === cat;
-      const matchQuery =
-        !q ||
-        i.name.toLowerCase().includes(q) ||
-        i.description.toLowerCase().includes(q) ||
-        i.exec_path.toLowerCase().includes(q);
-      return matchCat && matchQuery;
-    });
+  const toggleSelectApp = (path: string) => {
+    const current = new Set(selectedApps());
+    if (current.has(path)) {
+      current.delete(path);
+    } else {
+      current.add(path);
+    }
+    setSelectedApps(current);
+  };
+
+  const handleSelectAllApps = (select: boolean) => {
+    if (select) {
+      const all = new Set<string>();
+      filteredDiscoveredApps().forEach((a) => all.add(a.exec_path));
+      setSelectedApps(all);
+    } else {
+      setSelectedApps(new Set());
+    }
+  };
+
+  const filteredDiscoveredApps = () => {
+    const q = discoverySearch().toLowerCase();
+    return discoveredApps().filter(
+      (a) => !q || a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q)
+    );
+  };
+
+  const handleBatchImport = async () => {
+    const toImport = discoveredApps().filter((a) => selectedApps().has(a.exec_path));
+    if (toImport.length === 0) return;
+
+    try {
+      const count = await batchImportLauncherItems(toImport);
+      setShowDiscoveryModal(false);
+      await loadItems();
+      setImportSuccessMessage(`Successfully imported ${count} applications!`);
+      setTimeout(() => setImportSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Import error:", err);
+      alert(`Import error: ${err}`);
+    }
   };
 
   return (
@@ -149,55 +267,49 @@ export function LauncherView() {
         <div>
           <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
             <Rocket class="text-primary" size={20} />
-            <span>Application Launcher & Batch Organizer</span>
+            <span>App Launcher & Organizer</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Quickly trigger apps, multi-instances (e.g. WeChat), scripts, and batch workflows
+            Quick-launch apps, custom command flags, and multi-instance batch workflows
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setFormData({
-              name: "",
-              description: "",
-              exec_path: "",
-              arguments: [],
-              working_dir: "",
-              category: "Development",
-              is_favorite: false,
-              is_batch: false,
-              batch_commands: [],
-            });
-            setRawArgs("");
-            setRawBatchCmds("");
-            setShowAddModal(true);
-          }}
-          class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors"
-        >
-          <Plus size={14} />
-          <span>Add Program / Script</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          <button
+            onClick={handleStartDiscovery}
+            class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md flex items-center space-x-1.5 transition-colors border border-border"
+          >
+            <Sparkles size={14} class="text-amber-500" />
+            <span>Scan Installed Apps</span>
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm"
+          >
+            <Plus size={14} />
+            <span>Add Target</span>
+          </button>
+        </div>
       </div>
 
-      {/* Status banner */}
-      <Show when={launchMessage()}>
-        <div class="flex items-center space-x-2 p-2 bg-green-500/10 border border-green-500/30 text-green-500 rounded text-xs">
-          <CheckCircle2 size={14} />
-          <span>{launchMessage()}</span>
+      {/* Success banner */}
+      <Show when={importSuccessMessage()}>
+        <div class="p-2.5 bg-green-500/10 border border-green-500/30 text-green-500 rounded-md text-xs flex items-center space-x-2">
+          <Check size={14} />
+          <span>{importSuccessMessage()}</span>
         </div>
       </Show>
 
-      {/* Filter Toolbar */}
+      {/* Search & Category Filter */}
       <div class="flex items-center space-x-3">
         <div class="relative flex-1">
-          <Search size={13} class="absolute left-2.5 top-2.5 text-muted-foreground" />
+          <Search size={14} class="absolute left-3 top-2.5 text-muted-foreground" />
           <input
             type="text"
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            placeholder="Search programs and batch launchers..."
-            class="w-full pl-8 pr-3 py-1.5 bg-card border border-input rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            placeholder="Search targets or categories..."
+            class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
           />
         </div>
 
@@ -226,14 +338,14 @@ export function LauncherView() {
           fallback={
             <div class="h-48 flex flex-col items-center justify-center text-muted-foreground space-y-2 border border-dashed border-border rounded-lg">
               <Rocket size={32} class="opacity-40" />
-              <p class="text-xs">No launcher targets configured. Add your first app or batch script!</p>
+              <p class="text-xs">No launcher targets configured. Add your first app or click "Scan Installed Apps"!</p>
             </div>
           }
         >
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <For each={filteredItems()}>
               {(item) => (
-                <div class="p-3 bg-card border border-border hover:border-primary/40 rounded-lg transition-all flex flex-col justify-between space-y-3 group">
+                <div class="p-3 bg-card border border-border hover:border-primary/40 rounded-lg transition-all flex flex-col justify-between space-y-3 group shadow-sm">
                   <div class="space-y-1.5">
                     <div class="flex items-start justify-between">
                       <div class="flex items-center space-x-2">
@@ -244,7 +356,7 @@ export function LauncherView() {
                           <h3 class="text-xs font-semibold text-foreground truncate">
                             {item.name}
                           </h3>
-                          <span class="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground">
+                          <span class="text-[10px] px-1 py-0.5 rounded bg-muted text-muted-foreground font-medium">
                             {item.category}
                           </span>
                         </div>
@@ -270,22 +382,30 @@ export function LauncherView() {
                     </div>
 
                     <p class="text-[11px] text-muted-foreground line-clamp-2">
-                      {item.description || item.exec_path || "Custom batch routine"}
+                      {item.description || item.exec_path}
                     </p>
                   </div>
 
-                  <div class="flex items-center justify-between pt-2 border-t border-border/50">
+                  <div class="pt-2 border-t border-border/40 flex items-center justify-between">
                     <span class="text-[10px] text-muted-foreground font-mono">
-                      Launched {item.launch_count} times
+                      Launched {item.launch_count}x
                     </span>
 
-                    <button
-                      onClick={() => handleLaunch(item)}
-                      class="px-3 py-1 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium rounded flex items-center space-x-1 transition-colors"
-                    >
-                      <Play size={12} class="fill-primary-foreground" />
-                      <span>Launch</span>
-                    </button>
+                    <div class="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => handleOpenEdit(item)}
+                        class="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground rounded hover:bg-secondary transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleLaunch(item.id)}
+                        class="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1 transition-colors shadow-sm"
+                      >
+                        <Play size={11} />
+                        <span>Run</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -294,25 +414,25 @@ export function LauncherView() {
         </Show>
       </div>
 
-      {/* Add / Edit Modal */}
-      <Show when={showAddModal()}>
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div class="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden p-5 space-y-4">
-            <h2 class="text-sm font-semibold text-foreground flex items-center space-x-2">
-              <Rocket size={16} class="text-primary" />
-              <span>Configure Launcher Target</span>
+      {/* Add / Edit Target Modal */}
+      <Show when={showModal()}>
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-card border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
+            <h2 class="text-sm font-bold text-foreground">
+              {editingItem() ? "Edit Launcher Target" : "Add Launcher Target"}
             </h2>
 
-            <div class="space-y-3 text-xs">
+            <form onSubmit={handleSave} class="space-y-3 text-xs">
               <div class="grid grid-cols-2 gap-2">
                 <div>
                   <label class="block font-medium text-muted-foreground mb-1">Name</label>
                   <input
                     type="text"
+                    required
                     value={formData().name}
                     onInput={(e) => setFormData({ ...formData(), name: e.currentTarget.value })}
-                    placeholder="e.g. WeChat Multi-Instance"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground"
+                    placeholder="e.g. VS Code, WeChat"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -321,8 +441,8 @@ export function LauncherView() {
                     type="text"
                     value={formData().category || "Development"}
                     onInput={(e) => setFormData({ ...formData(), category: e.currentTarget.value })}
-                    placeholder="e.g. Tools, Social, Dev"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground"
+                    placeholder="e.g. Tools, Dev"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -334,7 +454,7 @@ export function LauncherView() {
                   value={formData().description || ""}
                   onInput={(e) => setFormData({ ...formData(), description: e.currentTarget.value })}
                   placeholder="Optional note or purpose"
-                  class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground"
+                  class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -363,7 +483,7 @@ export function LauncherView() {
                           value={formData().exec_path}
                           onInput={(e) => setFormData({ ...formData(), exec_path: e.currentTarget.value })}
                           placeholder="e.g. C:\Program Files\App\app.exe or code"
-                          class="flex-1 px-2.5 py-1.5 bg-background border border-input rounded font-mono text-foreground"
+                          class="flex-1 px-2.5 py-1.5 bg-background border border-input rounded font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <button
                           type="button"
@@ -405,7 +525,7 @@ export function LauncherView() {
                         onInput={(e) => setRawArgs(e.currentTarget.value)}
                         placeholder="--incognito&#10;--profile=dev"
                         rows={2}
-                        class="w-full p-2 bg-background border border-input rounded font-mono text-foreground resize-none"
+                        class="w-full p-2 bg-background border border-input rounded font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
                   </div>
@@ -413,32 +533,154 @@ export function LauncherView() {
               >
                 <div>
                   <label class="block font-medium text-muted-foreground mb-1">
-                    Batch Commands (one command line per line)
+                    Batch Commands (one command per line)
                   </label>
                   <textarea
-                    value={rawBatchCmds()}
-                    onInput={(e) => setRawBatchCmds(e.currentTarget.value)}
-                    placeholder="start WeChat.exe&#10;start WeChat.exe"
+                    value={rawBatchCommands()}
+                    onInput={(e) => setRawBatchCommands(e.currentTarget.value)}
+                    placeholder="start &quot;&quot; &quot;C:\WeChat\WeChat.exe&quot;&#10;start &quot;&quot; &quot;C:\WeChat\WeChat.exe&quot;"
                     rows={4}
-                    class="w-full p-2 bg-background border border-input rounded font-mono text-foreground resize-none"
+                    class="w-full p-2 bg-background border border-input rounded font-mono text-foreground resize-none focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                  <p class="text-[11px] text-muted-foreground mt-1">
+                    Commands execute sequentially via system shell.
+                  </p>
                 </div>
+              </Show>
+
+              <div class="flex justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  class="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  class="px-4 py-1.5 bg-primary text-primary-foreground font-medium rounded hover:bg-primary/90"
+                >
+                  Save Target
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </Show>
+
+      {/* Installed Apps Discovery Modal */}
+      <Show when={showDiscoveryModal()}>
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div class="bg-card border border-border rounded-lg max-w-2xl w-full h-[75vh] flex flex-col p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-sm font-bold text-foreground flex items-center space-x-2">
+                  <Sparkles size={16} class="text-amber-500" />
+                  <span>Discovered Installed Applications</span>
+                </h2>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                  Found {discoveredApps().length} applications from your Windows Start Menu
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDiscoveryModal(false)}
+                class="p-1 text-muted-foreground hover:text-foreground rounded"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Filter and Select Bar */}
+            <div class="flex items-center justify-between space-x-2 text-xs">
+              <div class="relative flex-1">
+                <Search size={13} class="absolute left-2.5 top-2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={discoverySearch()}
+                  onInput={(e) => setDiscoverySearch(e.currentTarget.value)}
+                  placeholder="Filter discovered apps..."
+                  class="w-full pl-8 pr-3 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <button
+                  onClick={() => handleSelectAllApps(true)}
+                  class="px-2 py-1 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-secondary"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => handleSelectAllApps(false)}
+                  class="px-2 py-1 text-xs text-muted-foreground hover:text-foreground rounded hover:bg-secondary"
+                >
+                  Deselect All
+                </button>
+              </div>
+            </div>
+
+            {/* List */}
+            <div class="flex-1 overflow-y-auto border border-border rounded divide-y divide-border/40">
+              <Show
+                when={!scanning()}
+                fallback={
+                  <div class="h-48 flex flex-col items-center justify-center text-muted-foreground space-y-2">
+                    <Sparkles size={24} class="animate-spin text-amber-500" />
+                    <p class="text-xs">Scanning Start Menu directories...</p>
+                  </div>
+                }
+              >
+                <For each={filteredDiscoveredApps()}>
+                  {(app) => (
+                    <div
+                      onClick={() => toggleSelectApp(app.exec_path)}
+                      class="px-3 py-2 flex items-center justify-between hover:bg-secondary/40 cursor-pointer transition-colors group text-xs"
+                    >
+                      <div class="flex items-center space-x-2.5 min-w-0">
+                        <button class="text-primary flex-shrink-0">
+                          {selectedApps().has(app.exec_path) ? (
+                            <CheckSquare size={15} class="text-primary" />
+                          ) : (
+                            <Square size={15} class="text-muted-foreground" />
+                          )}
+                        </button>
+                        <div class="min-w-0">
+                          <p class="font-medium text-foreground truncate">{app.name}</p>
+                          <p class="text-[10px] text-muted-foreground font-mono truncate">
+                            {app.exec_path}
+                          </p>
+                        </div>
+                      </div>
+                      <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium flex-shrink-0 ml-2">
+                        {app.category}
+                      </span>
+                    </div>
+                  )}
+                </For>
               </Show>
             </div>
 
-            <div class="flex justify-end space-x-2 pt-2 border-t border-border">
-              <button
-                onClick={() => setShowAddModal(false)}
-                class="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90"
-              >
-                Save Item
-              </button>
+            {/* Footer */}
+            <div class="flex items-center justify-between pt-2 border-t border-border">
+              <span class="text-xs text-muted-foreground">
+                {selectedApps().size} of {discoveredApps().length} selected
+              </span>
+
+              <div class="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowDiscoveryModal(false)}
+                  class="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={selectedApps().size === 0}
+                  onClick={handleBatchImport}
+                  class="px-4 py-1.5 bg-primary text-primary-foreground font-medium text-xs rounded hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  Import Selected ({selectedApps().size})
+                </button>
+              </div>
             </div>
           </div>
         </div>
