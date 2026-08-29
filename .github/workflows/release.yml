@@ -1,0 +1,121 @@
+name: Multi-Platform Release Build
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build (${{ matrix.platform.os }} - ${{ matrix.platform.arch }})
+    runs-on: ${{ matrix.platform.runs_on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os: windows
+            arch: x64
+            runs_on: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: linux
+            arch: x64
+            runs_on: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos
+            arch: aarch64
+            runs_on: macos-latest
+            target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+
+      - name: Install Linux build dependencies
+        if: matrix.platform.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Backend Tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Frontend Tests
+        run: pnpm test
+
+      - name: Build Tauri Application
+        run: pnpm tauri build
+
+      - name: Prepare and Normalize Artifact Names (Windows)
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-artifacts
+          $msi = Get-ChildItem -Path src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
+          if ($msi) {
+            Copy-Item -Path $msi.FullName -Destination "dist-artifacts/the-berry_windows_x64.msi"
+          }
+          $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          if (-not $exe) {
+            $exe = Get-ChildItem -Path src-tauri/target/release/*.exe | Where-Object { $_.Name -like "the-berry*" -and $_.Name -notlike "*.d" } | Select-Object -First 1
+          }
+          if ($exe) {
+            Copy-Item -Path $exe.FullName -Destination "dist-artifacts/the-berry_windows_x64.exe"
+          }
+
+      - name: Prepare and Normalize Artifact Names (Linux)
+        if: matrix.platform.os == 'linux'
+        run: |
+          mkdir -p dist-artifacts
+          appimage=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -n 1)
+          if [ -n "$appimage" ]; then
+            cp "$appimage" "dist-artifacts/the-berry_linux_x64.AppImage"
+          fi
+          deb=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -n 1)
+          if [ -n "$deb" ]; then
+            cp "$deb" "dist-artifacts/the-berry_linux_x64.deb"
+          fi
+
+      - name: Prepare and Normalize Artifact Names (macOS)
+        if: matrix.platform.os == 'macos'
+        run: |
+          mkdir -p dist-artifacts
+          dmg=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
+          if [ -n "$dmg" ]; then
+            cp "$dmg" "dist-artifacts/the-berry_macos_aarch64.dmg"
+          fi
+
+      - name: Upload Artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-artifacts/*
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
+          name: ${{ github.ref_type == 'tag' && github.ref_name || 'TheBerry Latest Release' }}
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

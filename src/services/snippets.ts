@@ -12,3 +12,11 @@ export async function saveSnippet(payload: SnippetPayload): Promise<SnippetItem>
 export async function deleteSnippet(id: string): Promise<void> {
   return safeInvoke<void>("delete_snippet", { id });
 }
+
+export async function expandSnippetTemplate(content: string): Promise<string> {
+  return safeInvoke<string>("expand_snippet_template", { content });
+}
+
+export async function copyExpandedSnippet(content: string): Promise<string> {
+  return safeInvoke<string>("copy_expanded_snippet", { content });
+}
