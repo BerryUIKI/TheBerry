@@ -1,0 +1,66 @@
+use std::sync::Arc;
+use tempfile::tempdir;
+use the_berry_lib::core::database::DatabaseManager;
+use the_berry_lib::modules::clipboard::service::ClipboardService;
+
+#[test]
+fn test_clipboard_add_and_get_history() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+
+    let service = ClipboardService::new(db_manager);
+
+    let item1 = service.add_item("Hello World".to_string(), "text".to_string()).expect("add item 1");
+    let item2 = service.add_item("https://github.com".to_string(), "text".to_string()).expect("add item 2");
+
+    let history = service.get_history().expect("get history");
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[0].id, item2.id); // Newest first
+
+    // Toggle pin on item1
+    let pinned = service.toggle_pin(&item1.id).expect("toggle pin");
+    assert!(pinned.is_pinned);
+
+    // Pinned should now be first
+    let history_after_pin = service.get_history().expect("get history after pin");
+    assert_eq!(history_after_pin[0].id, item1.id);
+}
+
+#[test]
+fn test_clipboard_delete_and_clear_unpinned() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+
+    let service = ClipboardService::new(db_manager);
+
+    let item1 = service.add_item("Pinned Item".to_string(), "text".to_string()).expect("add 1");
+    let _item2 = service.add_item("Unpinned Item".to_string(), "text".to_string()).expect("add 2");
+
+    service.toggle_pin(&item1.id).expect("pin item 1");
+
+    // Clear unpinned
+    let removed = service.clear_unpinned().expect("clear unpinned");
+    assert_eq!(removed, 1);
+
+    let history = service.get_history().expect("get history");
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].id, item1.id);
+
+    // Delete item1
+    service.delete_item(&item1.id).expect("delete item 1");
+    let empty_history = service.get_history().expect("get empty history");
+    assert!(empty_history.is_empty());
+}
+
+#[test]
+fn test_clipboard_reject_empty() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+
+    let service = ClipboardService::new(db_manager);
+    let result = service.add_item("   ".to_string(), "text".to_string());
+    assert!(result.is_err());
+}
