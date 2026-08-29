@@ -1,6 +1,13 @@
-import { createSignal, onMount } from "solid-js";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { AppConfig } from "../types/config";
 import { getConfig, updateConfig } from "../services/system";
+import {
+  checkForUpdates,
+  downloadAndInstallUpdate,
+  getAppVersion,
+  onDownloadProgress,
+} from "../services/updater";
+import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import {
@@ -12,6 +19,11 @@ import {
   CheckCircle2,
   HardDrive,
   Info,
+  Sparkles,
+  RefreshCw,
+  Download,
+  AlertCircle,
+  ExternalLink,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -27,13 +39,37 @@ export function SettingsView() {
   });
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
+  // Updater State
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.0");
+  const [checkingUpdate, setCheckingUpdate] = createSignal(false);
+  const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
+  const [updateError, setUpdateError] = createSignal<string | null>(null);
+  const [isDownloading, setIsDownloading] = createSignal(false);
+  const [downloadProgress, setDownloadProgress] = createSignal<DownloadProgress | null>(null);
+
   onMount(async () => {
     try {
       const cfg = await getConfig();
       setConfigState(cfg);
+      const ver = await getAppVersion();
+      setCurrentVersion(ver);
     } catch (e) {
-      console.warn("Failed to load settings:", e);
+      console.warn("Failed to load settings or version:", e);
     }
+
+    let unlistenFn: (() => void) | null = null;
+    onDownloadProgress((prog) => {
+      setDownloadProgress(prog);
+      if (prog.done) {
+        setIsDownloading(false);
+      }
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
+    onCleanup(() => {
+      if (unlistenFn) unlistenFn();
+    });
   });
 
   const handleSave = async (updated: Partial<AppConfig>) => {
@@ -48,6 +84,33 @@ export function SettingsView() {
     }
   };
 
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true);
+    setUpdateError(null);
+    try {
+      const info = await checkForUpdates();
+      setUpdateInfo(info);
+    } catch (err: any) {
+      setUpdateError(err.message || String(err));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  };
+
+  const handleStartUpdate = async () => {
+    const info = updateInfo();
+    if (!info?.download_url) return;
+
+    setIsDownloading(true);
+    setUpdateError(null);
+    try {
+      await downloadAndInstallUpdate(info.download_url);
+    } catch (err: any) {
+      setUpdateError(err.message || String(err));
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div class="h-full flex flex-col p-6 space-y-5 overflow-y-auto">
       {/* Header */}
@@ -57,17 +120,121 @@ export function SettingsView() {
           <span>Application Settings</span>
         </h1>
         <p class="text-xs text-muted-foreground mt-0.5">
-          Manage system preferences, persistence paths, and appearance
+          Manage system preferences, version updates, persistence paths, and appearance
         </p>
       </div>
 
       {/* Save alert */}
-      {savedMessage() && (
+      <Show when={savedMessage()}>
         <div class="flex items-center space-x-2 p-2.5 bg-green-500/10 border border-green-500/30 text-green-500 rounded-md text-xs">
           <CheckCircle2 size={14} />
           <span>{savedMessage()}</span>
         </div>
-      )}
+      </Show>
+
+      {/* Version & Auto-Update Card */}
+      <div class="p-4 bg-card border border-border rounded-lg space-y-4 shadow-sm">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xs font-semibold text-foreground flex items-center space-x-2">
+            <Sparkles size={15} class="text-primary" />
+            <span>Version & Automatic Updates</span>
+          </h2>
+          <button
+            disabled={checkingUpdate() || isDownloading()}
+            onClick={handleCheckUpdate}
+            class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-md text-xs font-medium flex items-center space-x-1.5 transition-colors border border-border disabled:opacity-50"
+          >
+            <RefreshCw size={13} class={checkingUpdate() ? "animate-spin" : ""} />
+            <span>{checkingUpdate() ? "Checking..." : "Check for Updates"}</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+          <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
+            <span class="text-muted-foreground">Installed Version:</span>
+            <span class="font-mono font-semibold text-foreground">v{currentVersion()}</span>
+          </div>
+
+          <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
+            <span class="text-muted-foreground">Update Status:</span>
+            <Show
+              when={updateInfo()}
+              fallback={<span class="text-muted-foreground">Daily silent check enabled</span>}
+            >
+              {updateInfo()?.has_update ? (
+                <span class="font-semibold text-primary flex items-center space-x-1">
+                  <span>v{updateInfo()?.latest_version} Available</span>
+                </span>
+              ) : (
+                <span class="text-green-500 font-medium">Up to date</span>
+              )}
+            </Show>
+          </div>
+        </div>
+
+        {/* Update Error */}
+        <Show when={updateError()}>
+          <div class="p-2.5 bg-destructive/10 border border-destructive/20 text-destructive rounded text-xs flex items-center space-x-2">
+            <AlertCircle size={14} class="flex-shrink-0" />
+            <span>{updateError()}</span>
+          </div>
+        </Show>
+
+        {/* Update Action Panel */}
+        <Show when={updateInfo()?.has_update}>
+          <div class="p-3.5 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-foreground flex items-center space-x-1.5">
+                  <Sparkles size={14} class="text-primary" />
+                  <span>New Release {updateInfo()?.latest_version} Available</span>
+                </h3>
+                <Show when={updateInfo()?.asset_name}>
+                  <p class="text-[11px] text-muted-foreground mt-0.5 font-mono">
+                    Package: {updateInfo()?.asset_name}
+                  </p>
+                </Show>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <a
+                  href={updateInfo()?.release_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  class="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center space-x-1"
+                >
+                  <span>Changelog</span>
+                  <ExternalLink size={11} />
+                </a>
+                <button
+                  disabled={isDownloading()}
+                  onClick={handleStartUpdate}
+                  class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
+                >
+                  <Download size={13} />
+                  <span>{isDownloading() ? "Downloading..." : "Update Now"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <Show when={downloadProgress()}>
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <span>{downloadProgress()?.status}</span>
+                  <span>{Math.round(downloadProgress()?.percent || 0)}%</span>
+                </div>
+                <div class="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    class="bg-primary h-full transition-all duration-150"
+                    style={{ width: `${downloadProgress()?.percent || 0}%` }}
+                  />
+                </div>
+              </div>
+            </Show>
+          </div>
+        </Show>
+      </div>
 
       {/* Persistence / Data Folder */}
       <div class="p-4 bg-card border border-border rounded-lg space-y-3">
@@ -175,10 +342,10 @@ export function SettingsView() {
           <span>About TheBerry</span>
         </h2>
         <p class="text-muted-foreground leading-relaxed">
-          <strong>TheBerry</strong> is a modern personal tool suite crafted with <strong>Tauri v2 + Rust</strong> on the backend and <strong>SolidJS + Tailwind CSS</strong> on the frontend.
+          <strong>TheBerry</strong> is a modern personal desktop tool suite crafted with <strong>Tauri v2 + Rust</strong> on the backend and <strong>SolidJS + Tailwind CSS</strong> on the frontend.
         </p>
         <div class="pt-2 flex items-center space-x-4 text-[11px] text-muted-foreground">
-          <span>Version: 0.1.0-dev</span>
+          <span>Version: v{currentVersion()}</span>
           <span>•</span>
           <span>Repository: github.com/BerryUIKI/TheBerry</span>
         </div>

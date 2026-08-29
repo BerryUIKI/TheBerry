@@ -25,6 +25,11 @@ pub fn run() {
                 app.handle().clone(),
             );
 
+            // Start background daily version check daemon
+            modules::updater::service::UpdaterService::start_daily_check_daemon(
+                app.handle().clone(),
+            );
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -66,6 +71,10 @@ pub fn run() {
             modules::file_search::commands::get_system_drives,
             modules::file_search::commands::reveal_in_explorer,
             modules::file_search::commands::open_file_path,
+            // Updater Module
+            modules::updater::commands::check_for_updates,
+            modules::updater::commands::download_and_install_update,
+            modules::updater::commands::get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");
