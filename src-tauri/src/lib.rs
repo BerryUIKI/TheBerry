@@ -65,6 +65,7 @@ pub fn run() {
             modules::file_search::commands::search_files,
             modules::file_search::commands::get_system_drives,
             modules::file_search::commands::reveal_in_explorer,
+            modules::file_search::commands::open_file_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");

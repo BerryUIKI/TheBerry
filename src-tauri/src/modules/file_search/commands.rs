@@ -16,3 +16,8 @@ pub fn get_system_drives() -> Vec<SystemDrive> {
 pub fn reveal_in_explorer(path: String) -> Result<(), String> {
     FileSearchEngine::reveal_in_explorer(&path)
 }
+
+#[tauri::command]
+pub fn open_file_path(path: String) -> Result<(), String> {
+    FileSearchEngine::open_file_or_folder(&path)
+}

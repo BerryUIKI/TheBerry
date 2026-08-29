@@ -215,11 +215,41 @@ impl FileSearchEngine {
         }
         #[cfg(target_os = "linux")]
         {
-            let parent = path.parent().unwrap_or(&path);
             Command::new("xdg-open")
-                .arg(parent)
+                .arg(if path.is_dir() { path.clone() } else { path.parent().unwrap_or(Path::new(".")).to_path_buf() })
                 .spawn()
-                .map_err(|e| format!("Failed to open directory: {}", e))?;
+                .map_err(|e| format!("Failed to open file manager: {}", e))?;
+        }
+
+        Ok(())
+    }
+
+    pub fn open_file_or_folder(path_str: &str) -> Result<(), String> {
+        let path = PathBuf::from(path_str);
+        if !path.exists() {
+            return Err("Target path does not exist".to_string());
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            Command::new("cmd")
+                .args(["/c", "start", "", path.to_str().unwrap_or_default()])
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+        }
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            Command::new("xdg-open")
+                .arg(&path)
+                .spawn()
+                .map_err(|e| format!("Failed to open file: {}", e))?;
         }
 
         Ok(())

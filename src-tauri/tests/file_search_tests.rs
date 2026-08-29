@@ -55,4 +55,9 @@ fn test_file_search_traversal_and_filters() {
     // Test drive scanner
     let drives = FileSearchEngine::get_available_drives();
     assert!(!drives.is_empty());
+
+    // Test non-existent path handling
+    let bad_path = root.join("missing_file.xyz").to_string_lossy().to_string();
+    assert!(FileSearchEngine::reveal_in_explorer(&bad_path).is_err());
+    assert!(FileSearchEngine::open_file_or_folder(&bad_path).is_err());
 }
