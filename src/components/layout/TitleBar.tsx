@@ -39,9 +39,11 @@ export function TitleBar() {
     >
       {/* App Branding & Logo */}
       <div data-tauri-drag-region class="flex items-center space-x-2">
-        <div class="w-4 h-4 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold text-[10px]">
-          B
-        </div>
+        <img
+          src="/berry.png"
+          alt="TheBerry Logo"
+          class="w-4 h-4 rounded-full object-cover shadow-sm ring-1 ring-border"
+        />
         <span class="text-xs font-semibold tracking-wider text-foreground uppercase opacity-90">
           TheBerry
         </span>
