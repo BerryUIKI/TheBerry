@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 14% 96%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 346 77% 49%;
+    --primary-foreground: 355 100% 97%;
+    --secondary: 220 14% 90%;
+    --secondary-foreground: 220 9% 15%;
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 8% 46%;
+    --accent: 220 14% 90%;
+    --accent-foreground: 220 9% 15%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
+    --ring: 346 77% 49%;
+    --radius: 0.5rem;
+    --sidebar-background: 220 14% 93%;
+    --sidebar-foreground: 220 9% 15%;
+    --sidebar-border: 220 13% 84%;
+  }
+
+  .dark {
+    --background: 224 25% 9%;
+    --foreground: 210 20% 96%;
+    --card: 224 25% 12%;
+    --card-foreground: 210 20% 96%;
+    --popover: 224 25% 12%;
+    --popover-foreground: 210 20% 96%;
+    --primary: 346 77% 55%;
+    --primary-foreground: 355 100% 97%;
+    --secondary: 224 20% 16%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 224 20% 16%;
+    --muted-foreground: 217 10% 64%;
+    --accent: 224 20% 18%;
+    --accent-foreground: 210 20% 96%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 224 20% 18%;
+    --input: 224 20% 18%;
+    --ring: 346 77% 55%;
+    --sidebar-background: 224 28% 7%;
+    --sidebar-foreground: 210 20% 96%;
+    --sidebar-border: 224 20% 15%;
+  }
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  margin: 0;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+/* Custom Scrollbar for utility aesthetic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}

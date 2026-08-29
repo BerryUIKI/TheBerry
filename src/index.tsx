@@ -1,0 +1,21 @@
+/* @refresh reload */
+import { render } from "solid-js/web";
+import { App } from "./App";
+import { ThemeProvider } from "./context/ThemeContext";
+import { AppProvider } from "./context/AppContext";
+import "./index.css";
+
+const root = document.getElementById("root");
+
+if (root) {
+  render(
+    () => (
+      <ThemeProvider>
+        <AppProvider>
+          <App />
+        </AppProvider>
+      </ThemeProvider>
+    ),
+    root
+  );
+}

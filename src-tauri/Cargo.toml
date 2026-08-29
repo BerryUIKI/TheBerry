@@ -1,0 +1,32 @@
+[package]
+name = "the-berry"
+version = "0.1.0"
+description = "TheBerry - Personal Desktop Utilities Suite"
+authors = ["BerryUIKI"]
+edition = "2021"
+
+[lib]
+name = "the_berry_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.5", features = [] }
+
+[dependencies]
+tauri = { version = "2.2.4", features = ["tray-icon", "image-ico", "image-png"] }
+tauri-plugin-dialog = "2.2.0"
+tauri-plugin-opener = "2.2.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+redb = "2.4"
+dirs = "6.0"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+walkdir = "2.5"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+thiserror = "2.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }
+parking_lot = "0.12"
