@@ -57,6 +57,16 @@ export function TitleBar() {
 
       {/* Window Controls & Theme Toggle */}
       <div class="flex items-center space-x-1">
+        {/* Spotlight Quick Search Trigger */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("open-spotlight"))}
+          title="Spotlight Search (Ctrl+K)"
+          class="h-6 px-2 flex items-center space-x-1.5 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary transition-colors border border-border/50 mr-1"
+        >
+          <span class="text-[11px] font-medium">Search</span>
+          <kbd class="text-[9px] px-1 py-0.2 rounded bg-muted font-mono">Ctrl+K</kbd>
+        </button>
+
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
