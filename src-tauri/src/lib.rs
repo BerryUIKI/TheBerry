@@ -45,6 +45,7 @@ pub fn run() {
             modules::clipboard::commands::delete_clipboard_item,
             modules::clipboard::commands::clear_clipboard_history,
             modules::clipboard::commands::copy_to_system_clipboard,
+            modules::clipboard::commands::copy_image_to_system_clipboard,
             // Snippets Module
             modules::snippets::commands::get_snippets,
             modules::snippets::commands::save_snippet,

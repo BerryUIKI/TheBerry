@@ -40,3 +40,8 @@ pub fn clear_clipboard_history(state: State<AppState>) -> Result<usize, String> 
 pub fn copy_to_system_clipboard(content: String) -> Result<(), String> {
     ClipboardService::copy_to_clipboard(&content)
 }
+
+#[tauri::command]
+pub fn copy_image_to_system_clipboard(image_path: String) -> Result<(), String> {
+    ClipboardService::copy_image_to_clipboard(&image_path)
+}
