@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { ClipboardItem } from "../types/clipboard";
 import {
   getClipboardHistory,
@@ -6,6 +6,8 @@ import {
   toggleClipboardPin,
   deleteClipboardItem,
   clearClipboardHistory,
+  copyToSystemClipboard,
+  onClipboardUpdated,
 } from "../services/clipboard";
 import {
   ClipboardList,
@@ -16,11 +18,13 @@ import {
   Search,
   Check,
   RotateCcw,
+  Activity,
 } from "lucide-solid";
 
 export function ClipboardView() {
   const [items, setItems] = createSignal<ClipboardItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
+  const [activeFilter, setActiveFilter] = createSignal<"all" | "pinned" | "links">("all");
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
   const [newContent, setNewContent] = createSignal("");
   const [showAddForm, setShowAddForm] = createSignal(false);
@@ -40,11 +44,23 @@ export function ClipboardView() {
 
   onMount(() => {
     loadHistory();
+
+    // Subscribe to live background clipboard events
+    let unlistenFn: (() => void) | null = null;
+    onClipboardUpdated((_newItem) => {
+      loadHistory();
+    }).then((unlisten) => {
+      unlistenFn = unlisten;
+    });
+
+    onCleanup(() => {
+      if (unlistenFn) unlistenFn();
+    });
   });
 
   const handleCopy = async (item: ClipboardItem) => {
     try {
-      await navigator.clipboard.writeText(item.content);
+      await copyToSystemClipboard(item.content);
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 1500);
     } catch (e) {
@@ -71,7 +87,7 @@ export function ClipboardView() {
   };
 
   const handleClear = async () => {
-    if (confirm("Are you sure you want to clear all unpinned items?")) {
+    if (confirm("Clear all unpinned clipboard items?")) {
       try {
         await clearClipboardHistory();
         await loadHistory();
@@ -95,8 +111,16 @@ export function ClipboardView() {
 
   const filteredItems = () => {
     const q = searchQuery().toLowerCase();
-    if (!q) return items();
-    return items().filter((item) => item.content.toLowerCase().includes(q));
+    const filter = activeFilter();
+
+    return items().filter((item) => {
+      const matchesSearch = !q || item.content.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
+
+      if (filter === "pinned") return item.is_pinned;
+      if (filter === "links") return item.content.startsWith("http://") || item.content.startsWith("https://");
+      return true;
+    });
   };
 
   return (
@@ -108,9 +132,13 @@ export function ClipboardView() {
             <ClipboardList class="text-primary" size={20} />
             <span>Clipboard History Manager</span>
           </h1>
-          <p class="text-xs text-muted-foreground mt-0.5">
-            Store, search, and pin your copied text, links, and code snippets
-          </p>
+          <div class="flex items-center space-x-2 mt-0.5">
+            <span class="flex items-center space-x-1 text-[11px] text-green-500 font-medium">
+              <Activity size={12} class="animate-pulse" />
+              <span>Background Listener Active</span>
+            </span>
+            <span class="text-xs text-muted-foreground">• {items().length} items in history</span>
+          </div>
         </div>
 
         <div class="flex items-center space-x-2">
@@ -119,7 +147,7 @@ export function ClipboardView() {
             class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors"
           >
             <Plus size={14} />
-            <span>New Item</span>
+            <span>Add Item</span>
           </button>
           <button
             onClick={loadHistory}
@@ -140,13 +168,13 @@ export function ClipboardView() {
 
       {/* Add Item Panel */}
       <Show when={showAddForm()}>
-        <div class="p-3 bg-card border border-border rounded-lg space-y-2">
+        <div class="p-3 bg-card border border-border rounded-lg space-y-2 animate-in fade-in duration-150">
           <textarea
             value={newContent()}
             onInput={(e) => setNewContent(e.currentTarget.value)}
             placeholder="Type or paste text content to save..."
             rows={3}
-            class="w-full p-2 bg-background border border-input rounded text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            class="w-full p-2.5 bg-background border border-input rounded text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
           />
           <div class="flex justify-end space-x-2">
             <button
@@ -165,16 +193,39 @@ export function ClipboardView() {
         </div>
       </Show>
 
-      {/* Search Bar */}
-      <div class="relative">
-        <Search size={14} class="absolute left-3 top-2.5 text-muted-foreground" />
-        <input
-          type="text"
-          value={searchQuery()}
-          onInput={(e) => setSearchQuery(e.currentTarget.value)}
-          placeholder="Filter clipboard history by keywords..."
-          class="w-full pl-9 pr-3 py-2 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
+      {/* Search & Filter Bar */}
+      <div class="flex items-center space-x-3">
+        <div class="relative flex-1">
+          <Search size={14} class="absolute left-3 top-2.5 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery()}
+            onInput={(e) => setSearchQuery(e.currentTarget.value)}
+            placeholder="Search clipboard history..."
+            class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div class="flex items-center space-x-1">
+          {(
+            [
+              { id: "all", label: "All" },
+              { id: "pinned", label: "Pinned" },
+              { id: "links", label: "URLs / Links" },
+            ] as const
+          ).map((f) => (
+            <button
+              onClick={() => setActiveFilter(f.id)}
+              class={`px-2.5 py-1 text-xs rounded-md transition-colors ${
+                activeFilter() === f.id
+                  ? "bg-secondary text-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* List Content */}
@@ -185,7 +236,9 @@ export function ClipboardView() {
             <div class="h-48 flex flex-col items-center justify-center text-muted-foreground space-y-2 border border-dashed border-border rounded-lg">
               <ClipboardList size={28} class="opacity-40" />
               <p class="text-xs">
-                {loading() ? "Loading history..." : "No clipboard entries found."}
+                {loading()
+                  ? "Loading history..."
+                  : "No clipboard entries. Any text you copy in Windows will appear here automatically."}
               </p>
             </div>
           }
@@ -196,16 +249,16 @@ export function ClipboardView() {
                 <div class="flex-1 min-w-0 space-y-1">
                   <div class="flex items-center space-x-2">
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase font-mono">
-                      {item.content_type}
+                      {item.content.startsWith("http") ? "URL" : item.content_type}
                     </span>
-                    <span class="text-[11px] text-muted-foreground">
+                    <span class="text-[11px] text-muted-foreground font-mono">
                       {item.char_count} chars
                     </span>
                     <span class="text-[11px] text-muted-foreground">
                       • {new Date(item.created_at).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p class="text-xs font-mono text-foreground whitespace-pre-wrap break-all line-clamp-3">
+                  <p class="text-xs font-mono text-foreground whitespace-pre-wrap break-all line-clamp-3 leading-relaxed">
                     {item.content}
                   </p>
                 </div>
@@ -213,7 +266,7 @@ export function ClipboardView() {
                 <div class="flex items-center space-x-1 flex-shrink-0">
                   <button
                     onClick={() => handleTogglePin(item.id)}
-                    title={item.is_pinned ? "Unpin" : "Pin"}
+                    title={item.is_pinned ? "Unpin" : "Pin to Top"}
                     class={`p-1.5 rounded transition-colors ${
                       item.is_pinned
                         ? "text-primary bg-primary/10"
@@ -224,7 +277,7 @@ export function ClipboardView() {
                   </button>
                   <button
                     onClick={() => handleCopy(item)}
-                    title="Copy Content"
+                    title="Copy to System Clipboard"
                     class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded transition-colors"
                   >
                     {copiedId() === item.id ? (

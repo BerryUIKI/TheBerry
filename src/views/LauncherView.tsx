@@ -357,13 +357,46 @@ export function LauncherView() {
                   <div class="space-y-2">
                     <div>
                       <label class="block font-medium text-muted-foreground mb-1">Executable Path</label>
-                      <input
-                        type="text"
-                        value={formData().exec_path}
-                        onInput={(e) => setFormData({ ...formData(), exec_path: e.currentTarget.value })}
-                        placeholder="e.g. C:\Program Files\App\app.exe or code"
-                        class="w-full px-2.5 py-1.5 bg-background border border-input rounded font-mono text-foreground"
-                      />
+                      <div class="flex items-center space-x-1.5">
+                        <input
+                          type="text"
+                          value={formData().exec_path}
+                          onInput={(e) => setFormData({ ...formData(), exec_path: e.currentTarget.value })}
+                          placeholder="e.g. C:\Program Files\App\app.exe or code"
+                          class="flex-1 px-2.5 py-1.5 bg-background border border-input rounded font-mono text-foreground"
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const { open } = await import("@tauri-apps/plugin-dialog");
+                              const selected = await open({
+                                multiple: false,
+                                filters: [
+                                  {
+                                    name: "Executables & Scripts",
+                                    extensions: ["exe", "bat", "cmd", "ps1", "lnk", "vbs"],
+                                  },
+                                  { name: "All Files", extensions: ["*"] },
+                                ],
+                              });
+                              if (selected && typeof selected === "string") {
+                                setFormData({ ...formData(), exec_path: selected });
+                                if (!formData().name) {
+                                  const name = selected.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "";
+                                  setFormData({ ...formData(), exec_path: selected, name });
+                                }
+                              }
+                            } catch (err) {
+                              console.warn("Picker error:", err);
+                            }
+                          }}
+                          class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded text-xs flex items-center space-x-1 font-medium"
+                        >
+                          <FolderOpen size={13} />
+                          <span>Browse</span>
+                        </button>
+                      </div>
                     </div>
                     <div>
                       <label class="block font-medium text-muted-foreground mb-1">Arguments (one per line)</label>

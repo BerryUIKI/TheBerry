@@ -78,9 +78,28 @@ export function SettingsView() {
 
         <div class="space-y-1 text-xs">
           <label class="text-muted-foreground">Configured Root Storage Directory:</label>
-          <div class="p-2.5 bg-background border border-input rounded font-mono text-foreground flex items-center space-x-2">
-            <FolderDot size={14} class="text-primary flex-shrink-0" />
-            <span class="truncate">{dataDir() || "Not configured yet"}</span>
+          <div class="flex items-center space-x-2">
+            <div class="flex-1 p-2.5 bg-background border border-input rounded font-mono text-foreground flex items-center space-x-2">
+              <FolderDot size={14} class="text-primary flex-shrink-0" />
+              <span class="truncate">{dataDir() || "Not configured yet"}</span>
+            </div>
+            <button
+              disabled={!dataDir()}
+              onClick={async () => {
+                const dir = dataDir();
+                if (dir) {
+                  try {
+                    const { revealInExplorer } = await import("../services/fileSearch");
+                    await revealInExplorer(dir);
+                  } catch (e) {
+                    console.warn("Reveal error:", e);
+                  }
+                }
+              }}
+              class="px-3 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded text-xs flex items-center space-x-1.5 font-medium transition-colors disabled:opacity-50"
+            >
+              <span>Open in Explorer</span>
+            </button>
           </div>
           <p class="text-[11px] text-muted-foreground">
             Contains <code>the_berry.redb</code> embedded database and <code>config.toml</code>. All tool tables and data remain local and offline.

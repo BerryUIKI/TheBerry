@@ -1,6 +1,6 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, onMount, For, Show } from "solid-js";
 import { SearchQuery, SearchResultItem } from "../types/fileSearch";
-import { searchFiles } from "../services/fileSearch";
+import { searchFiles, getSystemDrives, revealInExplorer, SystemDrive } from "../services/fileSearch";
 import {
   Search,
   Folder,
@@ -8,10 +8,10 @@ import {
   FileCode,
   FileText,
   FileImage,
-  FolderOpen,
   Copy,
   Check,
   ExternalLink,
+  HardDrive,
 } from "lucide-solid";
 
 export function FileSearchView() {
@@ -21,7 +21,20 @@ export function FileSearchView() {
   const [caseSensitive, setCaseSensitive] = createSignal(false);
   const [results, setResults] = createSignal<SearchResultItem[]>([]);
   const [searching, setSearching] = createSignal(false);
+  const [drives, setDrives] = createSignal<SystemDrive[]>([]);
   const [copiedPath, setCopiedPath] = createSignal<string | null>(null);
+
+  onMount(async () => {
+    try {
+      const list = await getSystemDrives();
+      setDrives(list);
+      if (list.length > 0) {
+        setSearchRoot(list[0].path);
+      }
+    } catch (e) {
+      console.warn("Failed to load drives:", e);
+    }
+  });
 
   const handleSearch = async () => {
     const p = pattern().trim();
@@ -32,7 +45,7 @@ export function FileSearchView() {
       const res = await searchFiles({
         pattern: p,
         search_root: searchRoot().trim() || undefined,
-        max_results: 250,
+        max_results: 300,
         file_type_filter: filterType(),
         case_sensitive: caseSensitive(),
       });
@@ -41,22 +54,6 @@ export function FileSearchView() {
       console.error("Search error:", e);
     } finally {
       setSearching(false);
-    }
-  };
-
-  const handlePickRoot = async () => {
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        title: "Select Directory to Search",
-      });
-      if (selected && typeof selected === "string") {
-        setSearchRoot(selected);
-      }
-    } catch (e) {
-      console.warn("Picker not available:", e);
     }
   };
 
@@ -70,12 +67,11 @@ export function FileSearchView() {
     }
   };
 
-  const handleOpenPath = async (path: string) => {
+  const handleReveal = async (path: string) => {
     try {
-      const { openPath } = await import("@tauri-apps/plugin-opener");
-      await openPath(path);
+      await revealInExplorer(path);
     } catch (e) {
-      console.warn("Opener failed:", e);
+      console.warn("Reveal failed:", e);
     }
   };
 
@@ -90,11 +86,11 @@ export function FileSearchView() {
   const getFileIcon = (item: SearchResultItem) => {
     if (item.is_dir) return <Folder size={14} class="text-yellow-500" />;
     const ext = item.extension;
-    if (["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext))
+    if (["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico"].includes(ext))
       return <FileImage size={14} class="text-rose-500" />;
-    if (["rs", "ts", "js", "py", "go", "cpp", "json"].includes(ext))
+    if (["rs", "ts", "js", "py", "go", "cpp", "json", "toml"].includes(ext))
       return <FileCode size={14} class="text-blue-500" />;
-    if (["md", "txt", "pdf", "docx"].includes(ext))
+    if (["md", "txt", "pdf", "docx", "xlsx"].includes(ext))
       return <FileText size={14} class="text-emerald-500" />;
     return <File size={14} class="text-muted-foreground" />;
   };
@@ -109,14 +105,32 @@ export function FileSearchView() {
             <span>Everything Fast File Search</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            High-speed local file indexing & instant wildcard search in Rust
+            High-speed local file indexing & instant wildcard search across drives
           </p>
         </div>
       </div>
 
-      {/* Search Input Bar */}
+      {/* Drive Selector + Search Input */}
       <div class="space-y-2">
         <div class="flex items-center space-x-2">
+          {/* Drive Scope Selector */}
+          <div class="w-44 flex items-center space-x-1.5 px-2.5 py-2 bg-card border border-input rounded-md text-xs">
+            <HardDrive size={14} class="text-primary flex-shrink-0" />
+            <select
+              value={searchRoot()}
+              onChange={(e) => {
+                setSearchRoot(e.currentTarget.value);
+                if (pattern().trim()) handleSearch();
+              }}
+              class="w-full bg-transparent text-foreground text-xs focus:outline-none cursor-pointer truncate"
+            >
+              <For each={drives()}>
+                {(d) => <option value={d.path}>{d.name}</option>}
+              </For>
+            </select>
+          </div>
+
+          {/* Search Box */}
           <div class="relative flex-1">
             <Search size={15} class="absolute left-3 top-2.5 text-muted-foreground" />
             <input
@@ -131,23 +145,23 @@ export function FileSearchView() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSearch();
               }}
-              placeholder="Type filename, extension, or pattern to search immediately..."
+              placeholder="Search filename or extension across selected drive..."
               class="w-full pl-9 pr-3 py-2 bg-card border border-input rounded-md text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
             />
           </div>
 
           <button
             onClick={handleSearch}
-            class="px-4 py-2 bg-primary text-primary-foreground font-medium text-xs rounded-md hover:bg-primary/90 transition-colors"
+            class="px-4 py-2 bg-primary text-primary-foreground font-medium text-xs rounded-md hover:bg-primary/90 transition-colors shadow-sm"
           >
             {searching() ? "Searching..." : "Search"}
           </button>
         </div>
 
-        {/* Filter Toolbar */}
+        {/* Filters */}
         <div class="flex items-center justify-between text-xs text-muted-foreground">
           <div class="flex items-center space-x-2">
-            <span class="font-medium text-foreground">Filter:</span>
+            <span class="font-medium text-foreground">Type:</span>
             {(
               [
                 { id: "all", label: "All" },
@@ -155,7 +169,7 @@ export function FileSearchView() {
                 { id: "dir", label: "Folders" },
                 { id: "code", label: "Code" },
                 { id: "image", label: "Images" },
-                { id: "doc", label: "Docs" },
+                { id: "doc", label: "Documents" },
               ] as const
             ).map((f) => (
               <button
@@ -163,7 +177,7 @@ export function FileSearchView() {
                   setFilterType(f.id);
                   if (pattern().trim()) handleSearch();
                 }}
-                class={`px-2 py-0.5 rounded text-[11px] transition-colors ${
+                class={`px-2.5 py-0.5 rounded text-[11px] transition-colors ${
                   filterType() === f.id
                     ? "bg-secondary text-foreground font-semibold"
                     : "hover:text-foreground"
@@ -174,44 +188,28 @@ export function FileSearchView() {
             ))}
           </div>
 
-          <div class="flex items-center space-x-3">
-            <label class="flex items-center space-x-1.5 cursor-pointer text-[11px]">
-              <input
-                type="checkbox"
-                checked={caseSensitive()}
-                onChange={(e) => {
-                  setCaseSensitive(e.currentTarget.checked);
-                  if (pattern().trim()) handleSearch();
-                }}
-                class="rounded"
-              />
-              <span>Match Case</span>
-            </label>
-
-            <div class="flex items-center space-x-1">
-              <span class="text-[11px]">Root:</span>
-              <span class="text-[11px] font-mono text-foreground truncate max-w-[150px]">
-                {searchRoot() ? searchRoot().split(/[\\/]/).pop() : "User Home"}
-              </span>
-              <button
-                onClick={handlePickRoot}
-                title="Change Search Root"
-                class="p-1 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
-              >
-                <FolderOpen size={12} />
-              </button>
-            </div>
-          </div>
+          <label class="flex items-center space-x-1.5 cursor-pointer text-[11px]">
+            <input
+              type="checkbox"
+              checked={caseSensitive()}
+              onChange={(e) => {
+                setCaseSensitive(e.currentTarget.checked);
+                if (pattern().trim()) handleSearch();
+              }}
+              class="rounded"
+            />
+            <span>Match Case</span>
+          </label>
         </div>
       </div>
 
       {/* Results Table */}
       <div class="flex-1 bg-card border border-border rounded-lg overflow-hidden flex flex-col">
         <div class="px-3 py-2 bg-muted/40 border-b border-border flex items-center justify-between text-[11px] font-medium text-muted-foreground">
-          <span class="w-1/2">Name & Path</span>
+          <span class="w-1/2">Name & File Location</span>
           <span class="w-24 text-right">Size</span>
-          <span class="w-36 text-right">Modified</span>
-          <span class="w-16 text-right">Actions</span>
+          <span class="w-36 text-right">Date Modified</span>
+          <span class="w-20 text-right">Actions</span>
         </div>
 
         <div class="flex-1 overflow-y-auto divide-y divide-border/40">
@@ -222,10 +220,10 @@ export function FileSearchView() {
                 <Search size={32} class="opacity-40" />
                 <p class="text-xs">
                   {searching()
-                    ? "Searching directory..."
+                    ? "Scanning directories..."
                     : pattern()
                     ? "No files matched your search."
-                    : "Enter a search query above to find files across your system."}
+                    : "Type a filename or extension above to find files instantly."}
                 </p>
               </div>
             }
@@ -233,7 +231,7 @@ export function FileSearchView() {
             <For each={results()}>
               {(item) => (
                 <div class="px-3 py-1.5 hover:bg-secondary/40 flex items-center justify-between text-xs transition-colors group">
-                  <div class="w-1/2 flex items-center space-x-2 min-w-0 pr-2">
+                  <div class="w-1/2 flex items-center space-x-2.5 min-w-0 pr-2">
                     {getFileIcon(item)}
                     <div class="min-w-0">
                       <p class="font-medium text-foreground truncate">{item.name}</p>
@@ -253,11 +251,11 @@ export function FileSearchView() {
                       : "-"}
                   </span>
 
-                  <div class="w-16 flex items-center justify-end space-x-1">
+                  <div class="w-20 flex items-center justify-end space-x-1">
                     <button
                       onClick={() => handleCopyPath(item.path)}
                       title="Copy Full Path"
-                      class="p-1 text-muted-foreground hover:text-foreground rounded"
+                      class="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-secondary"
                     >
                       {copiedPath() === item.path ? (
                         <Check size={13} class="text-green-500" />
@@ -266,9 +264,9 @@ export function FileSearchView() {
                       )}
                     </button>
                     <button
-                      onClick={() => handleOpenPath(item.path)}
-                      title="Open in System Explorer"
-                      class="p-1 text-muted-foreground hover:text-foreground rounded"
+                      onClick={() => handleReveal(item.path)}
+                      title="Open in File Explorer"
+                      class="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-secondary"
                     >
                       <ExternalLink size={13} />
                     </button>
