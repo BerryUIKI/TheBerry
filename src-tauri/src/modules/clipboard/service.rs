@@ -156,34 +156,37 @@ impl ClipboardService {
 
     /// Background listener daemon that monitors OS clipboard changes
     pub fn start_listener(db_manager: Arc<DatabaseManager>, app_handle: AppHandle) {
-        tokio::spawn(async move {
-            let mut last_text = String::new();
-            let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
+        std::thread::Builder::new()
+            .name("clipboard-daemon".to_string())
+            .spawn(move || {
+                let mut last_text = String::new();
+                let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
 
-            loop {
-                tokio::time::sleep(tokio::time::Duration::from_millis(600)).await;
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(600));
 
-                if !db_manager.is_ready() {
-                    continue;
-                }
+                    if !db_manager.is_ready() {
+                        continue;
+                    }
 
-                if clipboard_opt.is_none() {
-                    clipboard_opt = arboard::Clipboard::new().ok();
-                }
+                    if clipboard_opt.is_none() {
+                        clipboard_opt = arboard::Clipboard::new().ok();
+                    }
 
-                if let Some(ref mut clip) = clipboard_opt {
-                    if let Ok(current_text) = clip.get_text() {
-                        let trimmed = current_text.trim().to_string();
-                        if !trimmed.is_empty() && trimmed != last_text {
-                            last_text = trimmed.clone();
-                            let service = ClipboardService::new(db_manager.clone());
-                            if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
-                                let _ = app_handle.emit("clipboard-updated", item);
+                    if let Some(ref mut clip) = clipboard_opt {
+                        if let Ok(current_text) = clip.get_text() {
+                            let trimmed = current_text.trim().to_string();
+                            if !trimmed.is_empty() && trimmed != last_text {
+                                last_text = trimmed.clone();
+                                let service = ClipboardService::new(db_manager.clone());
+                                if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
+                                    let _ = app_handle.emit("clipboard-updated", item);
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            })
+            .expect("Failed to spawn clipboard listener thread");
     }
 }
