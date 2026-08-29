@@ -35,3 +35,8 @@ pub fn clear_clipboard_history(state: State<AppState>) -> Result<usize, String> 
     let service = ClipboardService::new(state.db_manager.clone());
     service.clear_unpinned()
 }
+
+#[tauri::command]
+pub fn copy_to_system_clipboard(content: String) -> Result<(), String> {
+    ClipboardService::copy_to_clipboard(&content)
+}

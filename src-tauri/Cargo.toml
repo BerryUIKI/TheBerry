@@ -30,3 +30,4 @@ thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 parking_lot = "0.12"
+arboard = "3.4"

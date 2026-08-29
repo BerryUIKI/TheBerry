@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use redb::ReadableTable;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 use crate::core::database::{DatabaseManager, CLIPBOARD_TABLE};
@@ -50,17 +51,22 @@ impl ClipboardService {
     }
 
     pub fn add_item(&self, content: String, content_type: String) -> Result<ClipboardItem, String> {
+        let trimmed = content.trim().to_string();
+        if trimmed.is_empty() {
+            return Err("Cannot add empty clipboard content".to_string());
+        }
+
         let db = self.db_manager.get_db()?;
-        let preview = if content.len() > 120 {
-            format!("{}...", &content[..120])
+        let preview = if trimmed.len() > 140 {
+            format!("{}...", &trimmed[..140])
         } else {
-            content.clone()
+            trimmed.clone()
         };
 
         let item = ClipboardItem {
             id: Uuid::new_v4().to_string(),
             content_type,
-            content: content.clone(),
+            content: trimmed,
             preview,
             is_pinned: false,
             char_count: content.chars().count(),
@@ -137,5 +143,50 @@ impl ClipboardService {
         }
         write_txn.commit().map_err(|e| e.to_string())?;
         Ok(removed)
+    }
+
+    pub fn copy_to_clipboard(content: &str) -> Result<(), String> {
+        let mut clipboard = arboard::Clipboard::new()
+            .map_err(|e| format!("Failed to access OS clipboard: {}", e))?;
+        clipboard
+            .set_text(content.to_string())
+            .map_err(|e| format!("Failed to set OS clipboard text: {}", e))?;
+        Ok(())
+    }
+
+    /// Background listener daemon that monitors OS clipboard changes
+    pub fn start_listener(db_manager: Arc<DatabaseManager>, app_handle: AppHandle) {
+        std::thread::Builder::new()
+            .name("clipboard-daemon".to_string())
+            .spawn(move || {
+                let mut last_text = String::new();
+                let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
+
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(600));
+
+                    if !db_manager.is_ready() {
+                        continue;
+                    }
+
+                    if clipboard_opt.is_none() {
+                        clipboard_opt = arboard::Clipboard::new().ok();
+                    }
+
+                    if let Some(ref mut clip) = clipboard_opt {
+                        if let Ok(current_text) = clip.get_text() {
+                            let trimmed = current_text.trim().to_string();
+                            if !trimmed.is_empty() && trimmed != last_text {
+                                last_text = trimmed.clone();
+                                let service = ClipboardService::new(db_manager.clone());
+                                if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
+                                    let _ = app_handle.emit("clipboard-updated", item);
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            .expect("Failed to spawn clipboard listener thread");
     }
 }

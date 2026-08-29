@@ -8,15 +8,23 @@ use core::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = AppState::new();
+    let db_manager_for_listener = app_state.db_manager.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(app_state)
-        .setup(|app| {
+        .setup(move |app| {
             if let Err(e) = tray::setup_tray(app.handle()) {
                 tracing::warn!("Failed to setup tray icon: {}", e);
             }
+
+            // Start background system clipboard monitoring daemon
+            modules::clipboard::service::ClipboardService::start_listener(
+                db_manager_for_listener,
+                app.handle().clone(),
+            );
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +44,7 @@ pub fn run() {
             modules::clipboard::commands::toggle_clipboard_pin,
             modules::clipboard::commands::delete_clipboard_item,
             modules::clipboard::commands::clear_clipboard_history,
+            modules::clipboard::commands::copy_to_system_clipboard,
             // Snippets Module
             modules::snippets::commands::get_snippets,
             modules::snippets::commands::save_snippet,
@@ -49,6 +58,8 @@ pub fn run() {
             modules::image_converter::commands::convert_images,
             // File Search Module
             modules::file_search::commands::search_files,
+            modules::file_search::commands::get_system_drives,
+            modules::file_search::commands::reveal_in_explorer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");

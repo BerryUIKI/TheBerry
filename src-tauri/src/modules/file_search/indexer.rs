@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
@@ -22,16 +23,59 @@ pub struct SearchQuery {
     pub case_sensitive: Option<bool>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct SystemDrive {
+    pub name: String,
+    pub path: String,
+}
+
 pub struct FileSearchEngine;
 
 impl FileSearchEngine {
+    pub fn get_available_drives() -> Vec<SystemDrive> {
+        let mut drives = Vec::new();
+
+        #[cfg(target_os = "windows")]
+        {
+            for letter in b'A'..=b'Z' {
+                let drive_str = format!("{}:\\", letter as char);
+                let path = PathBuf::from(&drive_str);
+                if path.exists() {
+                    drives.push(SystemDrive {
+                        name: format!("Drive ({}:)", letter as char),
+                        path: drive_str,
+                    });
+                }
+            }
+        }
+
+        if let Some(user_home) = dirs::home_dir() {
+            drives.insert(
+                0,
+                SystemDrive {
+                    name: "User Home".to_string(),
+                    path: user_home.to_string_lossy().to_string(),
+                },
+            );
+        }
+
+        if let Some(doc_dir) = dirs::document_dir() {
+            drives.push(SystemDrive {
+                name: "Documents".to_string(),
+                path: doc_dir.to_string_lossy().to_string(),
+            });
+        }
+
+        drives
+    }
+
     pub fn search(query: SearchQuery) -> Vec<SearchResultItem> {
         let pattern_trimmed = query.pattern.trim();
         if pattern_trimmed.is_empty() {
             return Vec::new();
         }
 
-        let max_results = query.max_results.unwrap_or(200);
+        let max_results = query.max_results.unwrap_or(250);
         let case_sensitive = query.case_sensitive.unwrap_or(false);
         let pattern_cmp = if case_sensitive {
             pattern_trimmed.to_string()
@@ -58,16 +102,17 @@ impl FileSearchEngine {
 
         let walker = WalkDir::new(&root_path)
             .follow_links(false)
-            .max_depth(8)
+            .max_depth(9)
             .into_iter()
             .filter_entry(|e| {
                 let file_name = e.file_name().to_string_lossy();
-                // Skip heavy cache or hidden system folders
+                // Skip system hidden/recycle folders and heavy package directories
                 !file_name.starts_with('$')
                     && file_name != "node_modules"
                     && file_name != ".git"
                     && file_name != "target"
                     && file_name != "AppData"
+                    && file_name != "System Volume Information"
             });
 
         for entry in walker.filter_map(|e| e.ok()) {
@@ -102,17 +147,17 @@ impl FileSearchEngine {
                         "dir" if !is_dir => continue,
                         "file" if is_dir => continue,
                         "image" => {
-                            if !["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico"].contains(&ext.as_str()) {
+                            if !["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "avif"].contains(&ext.as_str()) {
                                 continue;
                             }
                         }
                         "code" => {
-                            if !["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md"].contains(&ext.as_str()) {
+                            if !["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md", "sql", "sh", "ps1", "bat"].contains(&ext.as_str()) {
                                 continue;
                             }
                         }
                         "doc" => {
-                            if !["pdf", "docx", "doc", "xlsx", "pptx", "txt", "md", "csv"].contains(&ext.as_str()) {
+                            if !["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv"].contains(&ext.as_str()) {
                                 continue;
                             }
                         }
@@ -139,5 +184,44 @@ impl FileSearchEngine {
         }
 
         results
+    }
+
+    pub fn reveal_in_explorer(path_str: &str) -> Result<(), String> {
+        let path = PathBuf::from(path_str);
+        if !path.exists() {
+            return Err("Target path does not exist".to_string());
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if path.is_dir() {
+                Command::new("explorer")
+                    .arg(&path)
+                    .spawn()
+                    .map_err(|e| format!("Failed to open folder: {}", e))?;
+            } else {
+                Command::new("explorer")
+                    .args(["/select,", path.to_str().unwrap_or_default()])
+                    .spawn()
+                    .map_err(|e| format!("Failed to select file in explorer: {}", e))?;
+            }
+        }
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .args(["-R", path_str])
+                .spawn()
+                .map_err(|e| format!("Failed to reveal file: {}", e))?;
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let parent = path.parent().unwrap_or(&path);
+            Command::new("xdg-open")
+                .arg(parent)
+                .spawn()
+                .map_err(|e| format!("Failed to open directory: {}", e))?;
+        }
+
+        Ok(())
     }
 }

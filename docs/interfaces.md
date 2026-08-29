@@ -77,6 +77,10 @@ interface ClipboardItem {
 - `toggle_clipboard_pin(id: string)`: `ClipboardItem`
 - `delete_clipboard_item(id: string)`: `void`
 - `clear_clipboard_history()`: `number` (count of cleared items)
+- `copy_to_system_clipboard(content: string)`: `void` (writes text directly into OS clipboard)
+
+### Events
+- `clipboard-updated`: Emitted whenever background OS clipboard change is captured.
 
 ---
 
@@ -208,3 +212,5 @@ interface SearchResultItem {
 
 ### Commands
 - `search_files(query: SearchQuery)`: `Promise<SearchResultItem[]>`
+- `get_system_drives()`: `Promise<SystemDrive[]>`
+- `reveal_in_explorer(path: string)`: `Promise<void>`
