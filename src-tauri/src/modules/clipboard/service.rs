@@ -60,6 +60,44 @@ impl ClipboardService {
         Ok(items)
     }
 
+    pub fn search_history(
+        &self,
+        query: &str,
+        content_type: Option<&str>,
+        is_pinned: Option<bool>,
+        limit: Option<usize>,
+    ) -> Result<Vec<ClipboardItem>, String> {
+        let q = query.trim().to_lowercase();
+        let items = self.get_history()?;
+
+        let filtered: Vec<ClipboardItem> = items
+            .into_iter()
+            .filter(|item| {
+                if let Some(pinned) = is_pinned {
+                    if item.is_pinned != pinned {
+                        return false;
+                    }
+                }
+                if let Some(ct) = content_type {
+                    if ct != "all" && item.content_type != ct {
+                        return false;
+                    }
+                }
+                if !q.is_empty() {
+                    let content_match = item.content.to_lowercase().contains(&q);
+                    let preview_match = item.preview.to_lowercase().contains(&q);
+                    if !content_match && !preview_match {
+                        return false;
+                    }
+                }
+                true
+            })
+            .take(limit.unwrap_or(200))
+            .collect();
+
+        Ok(filtered)
+    }
+
     pub fn add_item(&self, content: String, content_type: String) -> Result<ClipboardItem, String> {
         let trimmed = content.trim().to_string();
         if trimmed.is_empty() {

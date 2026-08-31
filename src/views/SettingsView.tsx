@@ -8,6 +8,7 @@ import {
   getAppVersion,
   onDownloadProgress,
 } from "../services/updater";
+import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
@@ -26,6 +27,7 @@ import {
   Download,
   AlertCircle,
   ExternalLink,
+  Power,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -40,6 +42,7 @@ export function SettingsView() {
     clipboard_history_limit: 200,
     custom_data_dir: "",
   });
+  const [autostartActive, setAutostartActive] = createSignal(false);
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
@@ -56,6 +59,8 @@ export function SettingsView() {
       setConfigState(cfg);
       const ver = await getAppVersion();
       setCurrentVersion(ver);
+      const autoStatus = await isAutostartEnabled();
+      setAutostartActive(autoStatus);
     } catch (e) {
       console.warn("Failed to load settings or version:", e);
     }
@@ -74,6 +79,21 @@ export function SettingsView() {
       if (unlistenFn) unlistenFn();
     });
   });
+
+  const handleToggleAutostart = async (checked: boolean) => {
+    try {
+      const result = await setAutostart(checked);
+      setAutostartActive(result);
+      await handleSave({ autostart: result });
+      if (result) {
+        success("Autostart Enabled", "TheBerry will automatically launch on system boot");
+      } else {
+        info("Autostart Disabled", "Removed from system startup");
+      }
+    } catch (err: any) {
+      error("Autostart Failed", err.message || String(err));
+    }
+  };
 
   const handleSave = async (updated: Partial<AppConfig>) => {
     const current = { ...config(), ...updated };
@@ -327,20 +347,34 @@ export function SettingsView() {
             </div>
           </div>
 
-          {/* Close to tray */}
-          <div class="space-y-2">
-            <label class="font-medium text-foreground block">System Tray Behavior</label>
-            <label class="flex items-center space-x-2 cursor-pointer mt-3">
-              <input
-                type="checkbox"
-                checked={config().close_to_tray}
-                onChange={(e) => handleSave({ close_to_tray: e.currentTarget.checked })}
-                class="rounded"
-              />
-              <span class="text-muted-foreground">
-                Minimize / close to system tray instead of exiting
-              </span>
-            </label>
+          {/* System Startup & Tray Behavior */}
+          <div class="space-y-3">
+            <label class="font-medium text-foreground block">System & Startup Behavior</label>
+            <div class="space-y-2">
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autostartActive()}
+                  onChange={(e) => handleToggleAutostart(e.currentTarget.checked)}
+                  class="rounded"
+                />
+                <span class="text-muted-foreground">
+                  Launch TheBerry automatically on system startup (Boot)
+                </span>
+              </label>
+
+              <label class="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={config().close_to_tray}
+                  onChange={(e) => handleSave({ close_to_tray: e.currentTarget.checked })}
+                  class="rounded"
+                />
+                <span class="text-muted-foreground">
+                  Minimize / close to system tray instead of exiting
+                </span>
+              </label>
+            </div>
           </div>
         </div>
       </div>
