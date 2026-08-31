@@ -89,3 +89,33 @@ fn test_clipboard_add_image_item() {
     assert_eq!(history.len(), 1);
     assert_eq!(history[0].id, img_item.id);
 }
+
+#[test]
+fn test_clipboard_search_history() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+
+    let service = ClipboardService::new(db_manager);
+
+    let item1 = service.add_item("SELECT * FROM users;".to_string(), "text".to_string()).unwrap();
+    let item2 = service.add_item("https://tauri.app/docs".to_string(), "text".to_string()).unwrap();
+    let _item3 = service.add_item("rustc --version".to_string(), "text".to_string()).unwrap();
+
+    service.toggle_pin(&item1.id).unwrap();
+
+    // Query 'users'
+    let hits = service.search_history("users", None, None, None).unwrap();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].id, item1.id);
+
+    // Query 'https'
+    let url_hits = service.search_history("https", None, None, None).unwrap();
+    assert_eq!(url_hits.len(), 1);
+    assert_eq!(url_hits[0].id, item2.id);
+
+    // Query pinned only
+    let pinned_hits = service.search_history("", None, Some(true), None).unwrap();
+    assert_eq!(pinned_hits.len(), 1);
+    assert_eq!(pinned_hits[0].id, item1.id);
+}

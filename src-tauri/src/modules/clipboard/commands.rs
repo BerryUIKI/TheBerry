@@ -9,6 +9,18 @@ pub fn get_clipboard_history(state: State<AppState>) -> Result<Vec<ClipboardItem
 }
 
 #[tauri::command]
+pub fn search_clipboard_history(
+    query: String,
+    content_type: Option<String>,
+    is_pinned: Option<bool>,
+    limit: Option<usize>,
+    state: State<AppState>,
+) -> Result<Vec<ClipboardItem>, String> {
+    let service = ClipboardService::new(state.db_manager.clone());
+    service.search_history(&query, content_type.as_deref(), is_pinned, limit)
+}
+
+#[tauri::command]
 pub fn add_clipboard_item(
     content: String,
     content_type: Option<String>,

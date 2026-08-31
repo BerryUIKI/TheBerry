@@ -45,12 +45,16 @@ pub fn run() {
             commands::window::show_main_window,
             // Clipboard Module
             modules::clipboard::commands::get_clipboard_history,
+            modules::clipboard::commands::search_clipboard_history,
             modules::clipboard::commands::add_clipboard_item,
             modules::clipboard::commands::toggle_clipboard_pin,
             modules::clipboard::commands::delete_clipboard_item,
             modules::clipboard::commands::clear_clipboard_history,
             modules::clipboard::commands::copy_to_system_clipboard,
             modules::clipboard::commands::copy_image_to_system_clipboard,
+            // Autostart Module
+            modules::autostart::commands::is_autostart_enabled,
+            modules::autostart::commands::set_autostart,
             // Snippets Module
             modules::snippets::commands::get_snippets,
             modules::snippets::commands::save_snippet,
