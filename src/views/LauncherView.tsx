@@ -8,6 +8,7 @@ import {
   discoverSystemApps,
   batchImportLauncherItems,
 } from "../services/launcher";
+import { useToast } from "../context/ToastContext";
 import {
   Rocket,
   Play,
@@ -26,6 +27,7 @@ import {
 } from "lucide-solid";
 
 export function LauncherView() {
+  const { success, error, info } = useToast();
   const [items, setItems] = createSignal<LauncherItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [selectedCategory, setSelectedCategory] = createSignal<string>("All");
@@ -93,12 +95,13 @@ export function LauncherView() {
   };
 
   const handleLaunch = async (id: string) => {
+    const target = items().find((i) => i.id === id);
     try {
       await launchItem(id);
+      success("Launched Successfully", target ? target.name : undefined);
       await loadItems();
     } catch (e) {
-      console.error("Launch failed:", e);
-      alert(`Launch error: ${e}`);
+      error("Launch Failed", String(e));
     }
   };
 
@@ -140,13 +143,12 @@ export function LauncherView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this launcher item?")) {
-      try {
-        await deleteLauncherItem(id);
-        await loadItems();
-      } catch (e) {
-        console.error("Delete failed:", e);
-      }
+    try {
+      await deleteLauncherItem(id);
+      success("Item Removed");
+      await loadItems();
+    } catch (e) {
+      error("Delete Failed", String(e));
     }
   };
 
@@ -166,7 +168,7 @@ export function LauncherView() {
       });
       await loadItems();
     } catch (e) {
-      console.error("Toggle favorite failed:", e);
+      error("Toggle Favorite Failed", String(e));
     }
   };
 
@@ -192,10 +194,10 @@ export function LauncherView() {
         batch_commands: parsedBatch,
       });
       setShowModal(false);
+      success(editingItem() ? "Item Updated" : "Item Added", data.name);
       await loadItems();
     } catch (err) {
-      console.error("Save error:", err);
-      alert(`Save error: ${err}`);
+      error("Save Error", String(err));
     }
   };
 
@@ -211,7 +213,7 @@ export function LauncherView() {
       apps.forEach((a) => initialSelected.add(a.exec_path));
       setSelectedApps(initialSelected);
     } catch (err) {
-      console.error("Discovery error:", err);
+      error("Discovery Failed", String(err));
     } finally {
       setScanning(false);
     }
@@ -252,11 +254,9 @@ export function LauncherView() {
       const count = await batchImportLauncherItems(toImport);
       setShowDiscoveryModal(false);
       await loadItems();
-      setImportSuccessMessage(`Successfully imported ${count} applications!`);
-      setTimeout(() => setImportSuccessMessage(null), 3000);
+      success("Applications Imported", `Successfully imported ${count} system application(s)`);
     } catch (err) {
-      console.error("Import error:", err);
-      alert(`Import error: ${err}`);
+      error("Import Error", String(err));
     }
   };
 

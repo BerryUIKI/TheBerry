@@ -4,7 +4,7 @@ import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../service
 import { onUpdateAvailable } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
-import { Sun, Moon, Minus, Square, Copy, X, Sparkles } from "lucide-solid";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
@@ -86,11 +86,21 @@ export function TitleBar() {
 
       {/* Window Controls & Theme Toggle */}
       <div class="flex items-center space-x-1">
+        {/* Shortcuts Cheat Sheet Trigger */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("open-shortcuts"))}
+          title="Keyboard Shortcuts (? / F1)"
+          class="h-6 px-1.5 flex items-center space-x-1 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/40 hover:bg-secondary transition-all active:scale-95 border border-border/40 mr-0.5"
+        >
+          <Keyboard size={12} class="text-primary" />
+          <kbd class="text-[9px] px-1 py-0.2 rounded bg-muted font-mono">?</kbd>
+        </button>
+
         {/* Spotlight Quick Search Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("open-spotlight"))}
           title="Spotlight Search (Ctrl+K)"
-          class="h-6 px-2 flex items-center space-x-1.5 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary transition-colors border border-border/50 mr-1"
+          class="h-6 px-2 flex items-center space-x-1.5 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary transition-all active:scale-95 border border-border/50 mr-1"
         >
           <span class="text-[11px] font-medium">Search</span>
           <kbd class="text-[9px] px-1 py-0.2 rounded bg-muted font-mono">Ctrl+K</kbd>
@@ -100,7 +110,7 @@ export function TitleBar() {
         <button
           onClick={toggleTheme}
           title={theme() === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           {theme() === "dark" ? <Sun size={14} /> : <Moon size={14} />}
         </button>
@@ -111,7 +121,7 @@ export function TitleBar() {
         <button
           onClick={handleMinimize}
           title="Minimize"
-          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           <Minus size={13} />
         </button>
@@ -120,7 +130,7 @@ export function TitleBar() {
         <button
           onClick={handleToggleMaximize}
           title={isMaximized() ? "Restore" : "Maximize"}
-          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           {isMaximized() ? <Copy size={12} /> : <Square size={12} />}
         </button>
@@ -129,7 +139,7 @@ export function TitleBar() {
         <button
           onClick={handleClose}
           title="Close (Hide to Tray)"
-          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive-foreground hover:bg-destructive transition-colors"
+          class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive-foreground hover:bg-destructive transition-all active:scale-90"
         >
           <X size={14} />
         </button>
