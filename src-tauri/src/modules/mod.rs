@@ -1,4 +1,5 @@
 pub mod autostart;
+pub mod backup;
 pub mod clipboard;
 pub mod file_search;
 pub mod image_converter;
