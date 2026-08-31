@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { AppConfig } from "../types/config";
 import { getConfig, updateConfig } from "../services/system";
+import { revealInExplorer } from "../services/fileSearch";
 import {
   checkForUpdates,
   downloadAndInstallUpdate,
@@ -10,6 +11,7 @@ import {
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
+import { useToast } from "../context/ToastContext";
 import {
   Settings,
   FolderDot,
@@ -27,6 +29,7 @@ import {
 } from "lucide-solid";
 
 export function SettingsView() {
+  const { success, error, info } = useToast();
   const { dataDir } = useApp();
   const { theme, setTheme } = useTheme();
   const [config, setConfigState] = createSignal<AppConfig>({
@@ -78,9 +81,10 @@ export function SettingsView() {
     try {
       await updateConfig(current);
       setSavedMessage("Settings saved successfully");
+      success("Settings Saved");
       setTimeout(() => setSavedMessage(null), 2000);
     } catch (e) {
-      console.error("Failed to update config:", e);
+      error("Failed to save settings", String(e));
     }
   };
 
@@ -88,10 +92,17 @@ export function SettingsView() {
     setCheckingUpdate(true);
     setUpdateError(null);
     try {
-      const info = await checkForUpdates();
-      setUpdateInfo(info);
+      const releaseInfo = await checkForUpdates();
+      setUpdateInfo(releaseInfo);
+      if (releaseInfo.has_update) {
+        success("Update Available", `Version ${releaseInfo.latest_version} is ready to install!`);
+      } else {
+        info("Up to Date", `TheBerry v${releaseInfo.current_version} is the latest version.`);
+      }
     } catch (err: any) {
-      setUpdateError(err.message || String(err));
+      const msg = err.message || String(err);
+      setUpdateError(msg);
+      error("Update Check Failed", msg);
     } finally {
       setCheckingUpdate(false);
     }
@@ -256,14 +267,13 @@ export function SettingsView() {
                 const dir = dataDir();
                 if (dir) {
                   try {
-                    const { revealInExplorer } = await import("../services/fileSearch");
                     await revealInExplorer(dir);
                   } catch (e) {
                     console.warn("Reveal error:", e);
                   }
                 }
               }}
-              class="px-3 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded text-xs flex items-center space-x-1.5 font-medium transition-colors disabled:opacity-50"
+              class="px-3 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg text-xs flex items-center space-x-1.5 font-medium transition-colors disabled:opacity-50 border border-border"
             >
               <span>Open in Explorer</span>
             </button>

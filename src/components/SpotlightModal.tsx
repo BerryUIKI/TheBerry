@@ -2,7 +2,8 @@ import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { getClipboardHistory, copyToSystemClipboard } from "../services/clipboard";
 import { getSnippets, copyExpandedSnippet } from "../services/snippets";
-import { searchFiles, openFilePath } from "../services/fileSearch";
+import { searchFiles, openFilePath, revealInExplorer } from "../services/fileSearch";
+import { useToast } from "../context/ToastContext";
 import {
   Search,
   Rocket,
@@ -12,6 +13,8 @@ import {
   ArrowRight,
   Sparkles,
   Command,
+  Copy,
+  FolderOpen,
 } from "lucide-solid";
 
 export interface SpotlightItem {
@@ -22,8 +25,12 @@ export interface SpotlightItem {
   rawPayload: any;
 }
 
+type FilterTag = "all" | "app" | "clipboard" | "snippet" | "file";
+
 export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) {
+  const { success, info } = useToast();
   const [query, setQuery] = createSignal("");
+  const [activeFilter, setActiveFilter] = createSignal<FilterTag>("all");
   const [selectedIndex, setSelectedIndex] = createSignal(0);
   const [results, setResults] = createSignal<SpotlightItem[]>([]);
   const [loading, setLoading] = createSignal(false);
@@ -52,10 +59,29 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     refreshCaches();
   });
 
-  const performSearch = async (text: string) => {
-    const q = text.trim().toLowerCase();
-    if (!q) {
-      // Return top favorite apps and latest clips
+  const performSearch = async (text: string, filterOverride?: FilterTag) => {
+    let rawText = text.trim();
+    let effectiveFilter = filterOverride ?? activeFilter();
+
+    // Check for prefix shortcuts like @app, @clip, @snip, @file
+    if (rawText.startsWith("@app")) {
+      effectiveFilter = "app";
+      rawText = rawText.replace(/^@app\s*/, "");
+    } else if (rawText.startsWith("@clip")) {
+      effectiveFilter = "clipboard";
+      rawText = rawText.replace(/^@clip\s*/, "");
+    } else if (rawText.startsWith("@snip")) {
+      effectiveFilter = "snippet";
+      rawText = rawText.replace(/^@snip\s*/, "");
+    } else if (rawText.startsWith("@file")) {
+      effectiveFilter = "file";
+      rawText = rawText.replace(/^@file\s*/, "");
+    }
+
+    const q = rawText.toLowerCase();
+
+    if (!q && effectiveFilter === "all") {
+      // Default top suggestions
       const initial: SpotlightItem[] = [
         ...launcherCache.slice(0, 4).map((a) => ({
           id: `app_${a.id}`,
@@ -81,53 +107,59 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     const matches: SpotlightItem[] = [];
 
     // 1. Match Apps
-    launcherCache
-      .filter((a) => a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q))
-      .slice(0, 4)
-      .forEach((a) => {
-        matches.push({
-          id: `app_${a.id}`,
-          category: "app",
-          title: a.name,
-          subtitle: `Launch Application (${a.category})`,
-          rawPayload: a,
+    if (effectiveFilter === "all" || effectiveFilter === "app") {
+      launcherCache
+        .filter((a) => !q || a.name.toLowerCase().includes(q) || a.category.toLowerCase().includes(q))
+        .slice(0, 5)
+        .forEach((a) => {
+          matches.push({
+            id: `app_${a.id}`,
+            category: "app",
+            title: a.name,
+            subtitle: `Launch Application (${a.category})`,
+            rawPayload: a,
+          });
         });
-      });
+    }
 
     // 2. Match Snippets
-    snippetCache
-      .filter((s) => s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q))
-      .slice(0, 3)
-      .forEach((s) => {
-        matches.push({
-          id: `snip_${s.id}`,
-          category: "snippet",
-          title: s.title,
-          subtitle: `Snippet (${s.language})`,
-          rawPayload: s,
+    if (effectiveFilter === "all" || effectiveFilter === "snippet") {
+      snippetCache
+        .filter((s) => !q || s.title.toLowerCase().includes(q) || s.content.toLowerCase().includes(q))
+        .slice(0, 4)
+        .forEach((s) => {
+          matches.push({
+            id: `snip_${s.id}`,
+            category: "snippet",
+            title: s.title,
+            subtitle: `Snippet (${s.language})`,
+            rawPayload: s,
+          });
         });
-      });
+    }
 
     // 3. Match Clipboard
-    clipboardCache
-      .filter((c) => c.content.toLowerCase().includes(q))
-      .slice(0, 3)
-      .forEach((c) => {
-        matches.push({
-          id: `clip_${c.id}`,
-          category: "clipboard",
-          title: c.preview || c.content.slice(0, 60),
-          subtitle: "Copy clipboard history",
-          rawPayload: c,
+    if (effectiveFilter === "all" || effectiveFilter === "clipboard") {
+      clipboardCache
+        .filter((c) => !q || c.content.toLowerCase().includes(q))
+        .slice(0, 4)
+        .forEach((c) => {
+          matches.push({
+            id: `clip_${c.id}`,
+            category: "clipboard",
+            title: c.preview || c.content.slice(0, 60),
+            subtitle: "Clipboard item",
+            rawPayload: c,
+          });
         });
-      });
+    }
 
-    // 4. Match Files (if query >= 2 chars)
-    if (q.length >= 2) {
+    // 4. Match Files (if query >= 2 chars or explicit @file filter)
+    if ((effectiveFilter === "file" && q.length >= 1) || (effectiveFilter === "all" && q.length >= 2)) {
       try {
         const fileHits = await searchFiles({
-          pattern: q,
-          limit: 4,
+          query: q,
+          limit: 5,
           file_type: "all",
           case_sensitive: false,
         });
@@ -154,7 +186,12 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     if (!props.isOpen) return;
 
     if (e.key === "Escape") {
-      props.onClose();
+      if (query().length > 0) {
+        setQuery("");
+        performSearch("");
+      } else {
+        props.onClose();
+      }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex((prev) => (prev + 1) % Math.max(1, results().length));
@@ -165,6 +202,18 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
       e.preventDefault();
       const current = results()[selectedIndex()];
       if (current) executeItem(current);
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+      const current = results()[selectedIndex()];
+      if (current) {
+        e.preventDefault();
+        copyItemContent(current);
+      }
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") {
+      const current = results()[selectedIndex()];
+      if (current) {
+        e.preventDefault();
+        revealCurrentItem(current);
+      }
     }
   };
 
@@ -178,15 +227,46 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     try {
       if (item.category === "app") {
         await launchItem(item.rawPayload.id);
+        success("Application Launched", item.title);
       } else if (item.category === "clipboard") {
         await copyToSystemClipboard(item.rawPayload.content);
+        success("Copied to Clipboard", item.title);
       } else if (item.category === "snippet") {
         await copyExpandedSnippet(item.rawPayload.content);
+        success("Expanded Snippet Copied", item.title);
       } else if (item.category === "file") {
         await openFilePath(item.rawPayload.path);
+        info("Opening File", item.title);
       }
     } catch (err) {
       console.error("Spotlight execution error:", err);
+    }
+  };
+
+  const copyItemContent = async (item: SpotlightItem) => {
+    try {
+      let text = item.title;
+      if (item.category === "file") text = item.rawPayload.path;
+      else if (item.category === "app") text = item.rawPayload.exec_path;
+      else if (item.category === "clipboard" || item.category === "snippet") {
+        text = item.rawPayload.content;
+      }
+      await copyToSystemClipboard(text);
+      success("Copied to Clipboard", text.slice(0, 40));
+    } catch (err) {
+      console.warn("Copy error:", err);
+    }
+  };
+
+  const revealCurrentItem = async (item: SpotlightItem) => {
+    try {
+      if (item.category === "file") {
+        await revealInExplorer(item.rawPayload.path);
+      } else if (item.category === "app" && item.rawPayload.exec_path) {
+        await revealInExplorer(item.rawPayload.exec_path);
+      }
+    } catch (err) {
+      console.warn("Reveal error:", err);
     }
   };
 
@@ -203,18 +283,26 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     }
   };
 
+  const filterTabs: { id: FilterTag; label: string; prefix: string }[] = [
+    { id: "all", label: "All", prefix: "" },
+    { id: "app", label: "Apps", prefix: "@app " },
+    { id: "clipboard", label: "Clipboard", prefix: "@clip " },
+    { id: "snippet", label: "Snippets", prefix: "@snip " },
+    { id: "file", label: "Files", prefix: "@file " },
+  ];
+
   return (
     <Show when={props.isOpen}>
       <div
         onClick={props.onClose}
-        class="fixed inset-0 bg-background/80 backdrop-blur-md z-50 flex items-start justify-center pt-24 px-4 animate-in fade-in"
+        class="fixed inset-0 bg-background/70 backdrop-blur-md z-50 flex items-start justify-center pt-20 px-4 animate-in fade-in"
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          class="bg-card border border-border/80 rounded-xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col divide-y divide-border/60 animate-in zoom-in-95 duration-150"
+          class="bg-card/95 border border-border rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col backdrop-blur-2xl animate-in zoom-in-95 duration-150"
         >
           {/* Search Header */}
-          <div class="flex items-center px-4 py-3 space-x-3 bg-secondary/20">
+          <div class="flex items-center px-4 py-3.5 space-x-3 bg-secondary/30 border-b border-border/70">
             <Search size={18} class="text-primary flex-shrink-0" />
             <input
               type="text"
@@ -224,22 +312,50 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
                 setQuery(e.currentTarget.value);
                 performSearch(e.currentTarget.value);
               }}
-              placeholder="Spotlight: search apps, clipboard, snippets, or files..."
+              placeholder="Search or type @app, @clip, @snip, @file..."
               class="w-full bg-transparent border-none text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
             />
-            <div class="flex items-center space-x-1 text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60 font-mono">
+            <div class="flex items-center space-x-1 text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted font-mono border border-border/60">
               <Command size={11} />
               <span>ESC</span>
             </div>
           </div>
 
+          {/* Filter Pills */}
+          <div class="flex items-center space-x-1.5 px-3.5 py-2 border-b border-border/50 bg-muted/20 text-xs">
+            <For each={filterTabs}>
+              {(tab) => (
+                <button
+                  onClick={() => {
+                    setActiveFilter(tab.id);
+                    performSearch(query(), tab.id);
+                  }}
+                  class={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
+                    activeFilter() === tab.id
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/70"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              )}
+            </For>
+          </div>
+
           {/* Results List */}
-          <div class="max-h-80 overflow-y-auto p-1.5 space-y-1">
+          <div class="max-h-80 overflow-y-auto p-2 space-y-1">
             <Show
               when={results().length > 0}
               fallback={
-                <div class="py-8 text-center text-xs text-muted-foreground">
-                  {loading() ? "Searching federated indexes..." : "No matching items found."}
+                <div class="py-10 text-center space-y-2">
+                  <p class="text-xs text-muted-foreground">
+                    {loading() ? "Searching federated indexes..." : "No matching items found."}
+                  </p>
+                  <p class="text-[11px] text-muted-foreground/70">
+                    Try prefixing with <code class="px-1 py-0.5 rounded bg-muted">@app</code>,{" "}
+                    <code class="px-1 py-0.5 rounded bg-muted">@file</code> or{" "}
+                    <code class="px-1 py-0.5 rounded bg-muted">@snip</code>
+                  </p>
                 </div>
               }
             >
@@ -247,14 +363,20 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
                 {(item, idx) => (
                   <div
                     onClick={() => executeItem(item)}
-                    class={`px-3 py-2 rounded-lg flex items-center justify-between cursor-pointer transition-colors text-xs ${
+                    class={`px-3 py-2.5 rounded-xl flex items-center justify-between cursor-pointer transition-all text-xs ${
                       selectedIndex() === idx()
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "hover:bg-secondary/60 text-foreground"
+                        ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                        : "hover:bg-secondary/70 text-foreground"
                     }`}
                   >
                     <div class="flex items-center space-x-3 min-w-0">
-                      <div class="p-1 rounded bg-muted/40">{getItemIcon(item.category)}</div>
+                      <div
+                        class={`p-1.5 rounded-lg ${
+                          selectedIndex() === idx() ? "bg-primary-foreground/20" : "bg-muted"
+                        }`}
+                      >
+                        {getItemIcon(item.category)}
+                      </div>
                       <div class="min-w-0">
                         <p class="font-medium truncate">{item.title}</p>
                         <p
@@ -269,12 +391,17 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
                       </div>
                     </div>
 
-                    <ArrowRight
-                      size={14}
-                      class={`flex-shrink-0 transition-opacity ${
-                        selectedIndex() === idx() ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                      <Show when={selectedIndex() === idx()}>
+                        <span class="text-[10px] opacity-75 font-mono">↵ Run</span>
+                      </Show>
+                      <ArrowRight
+                        size={14}
+                        class={`transition-opacity ${
+                          selectedIndex() === idx() ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    </div>
                   </div>
                 )}
               </For>
@@ -282,14 +409,16 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
           </div>
 
           {/* Footer Hints */}
-          <div class="px-4 py-2 bg-secondary/10 flex items-center justify-between text-[11px] text-muted-foreground">
-            <div class="flex items-center space-x-3">
+          <div class="px-4 py-2.5 bg-secondary/30 border-t border-border/70 flex items-center justify-between text-[11px] text-muted-foreground">
+            <div class="flex items-center space-x-3 font-medium">
               <span>↑↓ Navigate</span>
-              <span>↵ Run / Copy</span>
+              <span>↵ Open</span>
+              <span>Ctrl+C Copy</span>
+              <span>Ctrl+E Reveal</span>
             </div>
             <div class="flex items-center space-x-1 text-primary">
               <Sparkles size={12} />
-              <span class="font-medium">Federated Instant Search</span>
+              <span class="font-semibold tracking-tight">Federated Search</span>
             </div>
           </div>
         </div>

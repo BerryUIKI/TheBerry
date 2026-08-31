@@ -7,6 +7,7 @@ import {
   copyExpandedSnippet,
 } from "../services/snippets";
 import { copyToSystemClipboard } from "../services/clipboard";
+import { useToast } from "../context/ToastContext";
 import {
   Code,
   Plus,
@@ -17,16 +18,23 @@ import {
   Search,
   Tag,
   Sparkles,
-  Layers,
+  Download,
+  Upload,
+  Eye,
+  FileJson,
+  X,
 } from "lucide-solid";
 
 export function SnippetsView() {
+  const { success, error, info } = useToast();
   const [snippets, setSnippets] = createSignal<SnippetItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [selectedCategory, setSelectedCategory] = createSignal<string>("All");
   const [selectedLanguage, setSelectedLanguage] = createSignal<string>("All");
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
   const [showModal, setShowModal] = createSignal(false);
+  const [showImportModal, setShowImportModal] = createSignal(false);
+  const [importJsonText, setImportJsonText] = createSignal("");
   const [editingSnippet, setEditingSnippet] = createSignal<SnippetItem | null>(null);
 
   // Form State
@@ -94,9 +102,10 @@ export function SnippetsView() {
     try {
       await copyToSystemClipboard(s.content);
       setCopiedId(s.id);
+      success("Copied to Clipboard", s.title);
       setTimeout(() => setCopiedId(null), 1500);
     } catch (e) {
-      console.error("Copy failed:", e);
+      error("Copy Failed", String(e));
     }
   };
 
@@ -104,9 +113,10 @@ export function SnippetsView() {
     try {
       await copyExpandedSnippet(s.content);
       setCopiedId(s.id + "_expanded");
+      success("Dynamic Snippet Copied", `${s.title} (variables resolved)`);
       setTimeout(() => setCopiedId(null), 1500);
     } catch (e) {
-      console.error("Expanded copy failed:", e);
+      error("Expanded Copy Failed", String(e));
     }
   };
 
@@ -124,18 +134,17 @@ export function SnippetsView() {
       });
       await loadSnippets();
     } catch (e) {
-      console.error("Toggle favorite error:", e);
+      error("Toggle Favorite Failed", String(e));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this code snippet?")) {
-      try {
-        await deleteSnippet(id);
-        await loadSnippets();
-      } catch (e) {
-        console.error("Delete error:", e);
-      }
+    try {
+      await deleteSnippet(id);
+      success("Snippet Deleted");
+      await loadSnippets();
+    } catch (e) {
+      error("Delete Error", String(e));
     }
   };
 
@@ -175,6 +184,24 @@ export function SnippetsView() {
     setFormData({ ...formData(), content: current + placeholder });
   };
 
+  // Real-time live template preview helper
+  const computeLivePreview = (text: string) => {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = now.toTimeString().slice(0, 8);
+    const fakeUuid = "e4eaaaf2-d142-11e1-b3e4-080027620cdd";
+
+    return text
+      .replace(/\$\{CURRENT_DATE\}/g, dateStr)
+      .replace(/\$\{DATE\}/g, dateStr)
+      .replace(/\$\{CURRENT_TIME\}/g, timeStr)
+      .replace(/\$\{TIME\}/g, timeStr)
+      .replace(/\$\{CURRENT_DATETIME\}/g, `${dateStr} ${timeStr}`)
+      .replace(/\$\{UUID\}/g, fakeUuid)
+      .replace(/\$\{CLIPBOARD_TEXT\}/g, "[Current Clipboard Text]")
+      .replace(/\$\{CLIPBOARD\}/g, "[Current Clipboard Text]");
+  };
+
   const handleSave = async (e: Event) => {
     e.preventDefault();
     const data = formData();
@@ -191,10 +218,50 @@ export function SnippetsView() {
         tags: parsedTags,
       });
       setShowModal(false);
+      success(editingSnippet() ? "Snippet Updated" : "Snippet Created", data.title);
       await loadSnippets();
     } catch (err) {
-      console.error("Save error:", err);
-      alert(`Save error: ${err}`);
+      error("Save Error", String(err));
+    }
+  };
+
+  const handleExportJson = async () => {
+    try {
+      const data = JSON.stringify(snippets(), null, 2);
+      await copyToSystemClipboard(data);
+      success("Exported to Clipboard", `${snippets().length} snippets in JSON format`);
+    } catch (err) {
+      error("Export Failed", String(err));
+    }
+  };
+
+  const handleImportJson = async () => {
+    try {
+      const parsed = JSON.parse(importJsonText());
+      if (!Array.isArray(parsed)) throw new Error("JSON root must be an array of snippets");
+
+      let count = 0;
+      for (const item of parsed) {
+        if (item.title && item.content) {
+          await saveSnippet({
+            title: item.title,
+            description: item.description || "",
+            content: item.content,
+            language: item.language || "text",
+            category: item.category || "Imported",
+            tags: Array.isArray(item.tags) ? item.tags : [],
+            is_favorite: Boolean(item.is_favorite),
+          });
+          count++;
+        }
+      }
+
+      setShowImportModal(false);
+      setImportJsonText("");
+      success("Import Completed", `Successfully imported ${count} snippets`);
+      await loadSnippets();
+    } catch (err: any) {
+      error("Import Failed", err.message || "Invalid JSON structure");
     }
   };
 
@@ -206,7 +273,8 @@ export function SnippetsView() {
       content.includes("${TIME}") ||
       content.includes("${CURRENT_DATETIME}") ||
       content.includes("${UUID}") ||
-      content.includes("${CLIPBOARD}")
+      content.includes("${CLIPBOARD}") ||
+      content.includes("${CLIPBOARD_TEXT}")
     );
   };
 
@@ -224,13 +292,36 @@ export function SnippetsView() {
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm"
-        >
-          <Plus size={14} />
-          <span>New Snippet</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          {/* Export JSON Button */}
+          <button
+            onClick={handleExportJson}
+            title="Export all snippets to JSON on clipboard"
+            class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-lg flex items-center space-x-1.5 transition-all border border-border/60 active:scale-95 shadow-xs"
+          >
+            <Download size={13} class="text-muted-foreground" />
+            <span>Export</span>
+          </button>
+
+          {/* Import JSON Button */}
+          <button
+            onClick={() => setShowImportModal(true)}
+            title="Import snippets from JSON"
+            class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-lg flex items-center space-x-1.5 transition-all border border-border/60 active:scale-95 shadow-xs"
+          >
+            <Upload size={13} class="text-muted-foreground" />
+            <span>Import</span>
+          </button>
+
+          {/* New Snippet Button */}
+          <button
+            onClick={handleOpenAdd}
+            class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
+          >
+            <Plus size={14} />
+            <span>New Snippet</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Bar */}
@@ -242,7 +333,7 @@ export function SnippetsView() {
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
             placeholder="Search snippets by title, content, or tags..."
-            class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+            class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
         </div>
 
@@ -251,7 +342,7 @@ export function SnippetsView() {
           <select
             value={selectedCategory()}
             onChange={(e) => setSelectedCategory(e.currentTarget.value)}
-            class="px-2.5 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none cursor-pointer"
+            class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
           >
             <For each={categories()}>
               {(cat) => <option value={cat}>Category: {cat}</option>}
@@ -262,7 +353,7 @@ export function SnippetsView() {
           <select
             value={selectedLanguage()}
             onChange={(e) => setSelectedLanguage(e.currentTarget.value)}
-            class="px-2.5 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none cursor-pointer"
+            class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
           >
             <For each={languages()}>
               {(lang) => <option value={lang}>Language: {lang}</option>}
@@ -276,7 +367,7 @@ export function SnippetsView() {
         <Show
           when={filteredSnippets().length > 0}
           fallback={
-            <div class="h-48 flex flex-col items-center justify-center text-muted-foreground space-y-2 border border-dashed border-border rounded-lg">
+            <div class="h-48 flex flex-col items-center justify-center text-muted-foreground space-y-2 border border-dashed border-border rounded-xl">
               <Code size={32} class="opacity-40" />
               <p class="text-xs">No code snippets found. Add your first snippet or template!</p>
             </div>
@@ -285,7 +376,7 @@ export function SnippetsView() {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <For each={filteredSnippets()}>
               {(s) => (
-                <div class="p-4 bg-card border border-border hover:border-primary/40 rounded-lg flex flex-col justify-between space-y-3 transition-all group shadow-sm">
+                <div class="p-4 bg-card border border-border hover:border-primary/40 rounded-xl flex flex-col justify-between space-y-3 transition-all group shadow-sm hover:shadow-md">
                   <div class="space-y-2">
                     {/* Card Header */}
                     <div class="flex items-start justify-between">
@@ -314,7 +405,7 @@ export function SnippetsView() {
                       <div class="flex items-center space-x-1">
                         <button
                           onClick={() => handleToggleFavorite(s)}
-                          class="p-1 text-muted-foreground hover:text-foreground rounded"
+                          class="p-1 text-muted-foreground hover:text-foreground rounded transition-transform active:scale-90"
                         >
                           <Star
                             size={13}
@@ -323,7 +414,7 @@ export function SnippetsView() {
                         </button>
                         <button
                           onClick={() => handleDelete(s.id)}
-                          class="p-1 text-muted-foreground hover:text-destructive rounded"
+                          class="p-1 text-muted-foreground hover:text-destructive rounded transition-transform active:scale-90"
                         >
                           <Trash2 size={13} />
                         </button>
@@ -331,7 +422,7 @@ export function SnippetsView() {
                     </div>
 
                     {/* Code Content Block */}
-                    <div class="relative bg-background border border-border/80 rounded p-2.5 font-mono text-xs text-foreground/90 max-h-36 overflow-y-auto whitespace-pre-wrap select-text">
+                    <div class="relative bg-background border border-border/80 rounded-lg p-2.5 font-mono text-xs text-foreground/90 max-h-36 overflow-y-auto whitespace-pre-wrap select-text">
                       {s.content}
                     </div>
 
@@ -359,7 +450,7 @@ export function SnippetsView() {
                     <div class="flex items-center space-x-1.5">
                       <button
                         onClick={() => handleOpenEdit(s)}
-                        class="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground rounded hover:bg-secondary transition-colors"
+                        class="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors"
                       >
                         Edit
                       </button>
@@ -369,10 +460,10 @@ export function SnippetsView() {
                         <button
                           onClick={() => handleCopyExpanded(s)}
                           title="Expand template variables and copy to clipboard"
-                          class="px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded hover:bg-secondary/80 flex items-center space-x-1 transition-colors border border-border"
+                          class="px-2.5 py-1 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/80 flex items-center space-x-1 transition-all border border-border active:scale-95"
                         >
                           {copiedId() === s.id + "_expanded" ? (
-                            <Check size={12} class="text-green-500" />
+                            <Check size={12} class="text-emerald-500" />
                           ) : (
                             <Sparkles size={12} class="text-primary" />
                           )}
@@ -382,10 +473,10 @@ export function SnippetsView() {
 
                       <button
                         onClick={() => handleCopyRaw(s)}
-                        class="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1 transition-colors shadow-sm"
+                        class="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1 transition-all shadow-xs active:scale-95"
                       >
                         {copiedId() === s.id ? (
-                          <Check size={12} class="text-green-500" />
+                          <Check size={12} class="text-emerald-500" />
                         ) : (
                           <Copy size={12} />
                         )}
@@ -402,11 +493,20 @@ export function SnippetsView() {
 
       {/* Add / Edit Modal */}
       <Show when={showModal()}>
-        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-card border border-border rounded-lg max-w-lg w-full p-5 space-y-4 shadow-xl">
-            <h2 class="text-sm font-bold text-foreground">
-              {editingSnippet() ? "Edit Snippet" : "New Code Snippet & Template"}
-            </h2>
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div class="bg-card border border-border rounded-2xl max-w-xl w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-border pb-3">
+              <h2 class="text-sm font-bold text-foreground flex items-center space-x-2">
+                <Code size={16} class="text-primary" />
+                <span>{editingSnippet() ? "Edit Snippet" : "New Code Snippet & Template"}</span>
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                class="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                <X size={15} />
+              </button>
+            </div>
 
             <form onSubmit={handleSave} class="space-y-3 text-xs">
               <div class="grid grid-cols-2 gap-2">
@@ -418,7 +518,7 @@ export function SnippetsView() {
                     value={formData().title}
                     onInput={(e) => setFormData({ ...formData(), title: e.currentTarget.value })}
                     placeholder="e.g. React useAsync Hook"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -428,7 +528,7 @@ export function SnippetsView() {
                     value={formData().language || "typescript"}
                     onInput={(e) => setFormData({ ...formData(), language: e.currentTarget.value })}
                     placeholder="typescript, rust, sql, python"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -441,7 +541,7 @@ export function SnippetsView() {
                     value={formData().category || "General"}
                     onInput={(e) => setFormData({ ...formData(), category: e.currentTarget.value })}
                     placeholder="e.g. Frontend, DB, DevOps"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
@@ -451,7 +551,7 @@ export function SnippetsView() {
                     value={rawTags()}
                     onInput={(e) => setRawTags(e.currentTarget.value)}
                     placeholder="react, hooks, async"
-                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    class="w-full px-2.5 py-1.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -463,7 +563,7 @@ export function SnippetsView() {
                   value={formData().description || ""}
                   onInput={(e) => setFormData({ ...formData(), description: e.currentTarget.value })}
                   placeholder="Brief summary or usage instructions"
-                  class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  class="w-full px-2.5 py-1.5 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
@@ -471,9 +571,9 @@ export function SnippetsView() {
               <div class="space-y-1">
                 <div class="flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>Code / Template Content:</span>
-                  <span>Insert dynamic placeholders:</span>
+                  <span class="text-primary font-medium">Insert dynamic placeholders:</span>
                 </div>
-                <div class="flex items-center space-x-1.5 flex-wrap">
+                <div class="flex items-center space-x-1.5 flex-wrap gap-y-1">
                   {[
                     { label: "${CURRENT_DATE}", code: "${CURRENT_DATE}" },
                     { label: "${CURRENT_TIME}", code: "${CURRENT_TIME}" },
@@ -483,7 +583,7 @@ export function SnippetsView() {
                     <button
                       type="button"
                       onClick={() => insertVariable(v.code)}
-                      class="px-1.5 py-0.5 rounded bg-muted hover:bg-primary/20 text-foreground font-mono text-[10px] transition-colors border border-border"
+                      class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground font-mono text-[10px] transition-colors border border-border active:scale-95"
                     >
                       + {v.label}
                     </button>
@@ -496,26 +596,94 @@ export function SnippetsView() {
                 value={formData().content}
                 onInput={(e) => setFormData({ ...formData(), content: e.currentTarget.value })}
                 placeholder="Paste code or template content here..."
-                rows={6}
-                class="w-full p-2.5 bg-background border border-input rounded font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                rows={5}
+                class="w-full p-2.5 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
               />
+
+              {/* Live Preview Box */}
+              <Show when={formData().content.trim().length > 0}>
+                <div class="p-3 bg-muted/40 border border-border/80 rounded-xl space-y-1.5">
+                  <div class="flex items-center space-x-1.5 text-[11px] font-semibold text-foreground/80">
+                    <Eye size={12} class="text-primary" />
+                    <span>Live Output Preview</span>
+                    <Show when={hasTemplateVars(formData().content)}>
+                      <span class="text-[10px] px-1.5 rounded bg-primary/20 text-primary font-mono ml-auto">
+                        Variables Evaluated
+                      </span>
+                    </Show>
+                  </div>
+                  <pre class="font-mono text-[11px] text-muted-foreground bg-background/60 p-2 rounded-lg whitespace-pre-wrap max-h-24 overflow-y-auto">
+                    {computeLivePreview(formData().content)}
+                  </pre>
+                </div>
+              </Show>
 
               <div class="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  class="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  class="px-3.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  class="px-4 py-1.5 bg-primary text-primary-foreground font-medium rounded hover:bg-primary/90 shadow-sm"
+                  class="px-4 py-1.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 shadow-sm active:scale-95"
                 >
                   Save Snippet
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      </Show>
+
+      {/* JSON Import Modal */}
+      <Show when={showImportModal()}>
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div class="bg-card border border-border rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95">
+            <div class="flex items-center justify-between border-b border-border pb-3">
+              <h2 class="text-sm font-bold text-foreground flex items-center space-x-2">
+                <FileJson size={16} class="text-primary" />
+                <span>Import Snippets from JSON</span>
+              </h2>
+              <button
+                onClick={() => setShowImportModal(false)}
+                class="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <p class="text-xs text-muted-foreground">
+              Paste an exported JSON array of snippets below to import them into your library:
+            </p>
+
+            <textarea
+              value={importJsonText()}
+              onInput={(e) => setImportJsonText(e.currentTarget.value)}
+              placeholder="[ { &quot;title&quot;: &quot;...&quot;, &quot;content&quot;: &quot;...&quot; } ]"
+              rows={8}
+              class="w-full p-2.5 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+            />
+
+            <div class="flex justify-end space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowImportModal(false)}
+                class="px-3.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImportJson}
+                disabled={!importJsonText().trim()}
+                class="px-4 py-1.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                Run Import
+              </button>
+            </div>
           </div>
         </div>
       </Show>

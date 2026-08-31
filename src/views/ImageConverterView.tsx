@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { ConvertResult, ConvertTask } from "../types/imageConverter";
 import { convertImages } from "../services/imageConverter";
+import { useToast } from "../context/ToastContext";
 import {
   Image,
   FolderOpen,
@@ -10,11 +11,12 @@ import {
   AlertCircle,
   Sparkles,
   Sliders,
-  Maximize2,
   UploadCloud,
+  Layers,
 } from "lucide-solid";
 
 export function ImageConverterView() {
+  const { success, error, info } = useToast();
   const [fileList, setFileList] = createSignal<string[]>([]);
   const [targetFormat, setTargetFormat] = createSignal<"webp" | "jpeg" | "png">("webp");
   const [quality, setQuality] = createSignal<number>(85);
@@ -28,6 +30,41 @@ export function ImageConverterView() {
   const [resizeWidth, setResizeWidth] = createSignal<number | undefined>(undefined);
   const [resizeHeight, setResizeHeight] = createSignal<number | undefined>(undefined);
   const [preserveAspect, setPreserveAspect] = createSignal<boolean>(true);
+
+  const applyPreset = (preset: "web" | "lossless" | "thumbnail" | "mobile") => {
+    switch (preset) {
+      case "web":
+        setTargetFormat("webp");
+        setQuality(80);
+        setEnableResize(false);
+        info("Preset Applied", "Web Optimizer (WebP @ 80%)");
+        break;
+      case "lossless":
+        setTargetFormat("png");
+        setQuality(100);
+        setEnableResize(false);
+        info("Preset Applied", "Lossless Archival (PNG @ 100%)");
+        break;
+      case "thumbnail":
+        setTargetFormat("webp");
+        setQuality(75);
+        setEnableResize(true);
+        setResizeWidth(600);
+        setResizeHeight(undefined);
+        setPreserveAspect(true);
+        info("Preset Applied", "Thumbnail (WebP @ 600px width)");
+        break;
+      case "mobile":
+        setTargetFormat("jpeg");
+        setQuality(85);
+        setEnableResize(true);
+        setResizeWidth(1280);
+        setResizeHeight(undefined);
+        setPreserveAspect(true);
+        info("Preset Applied", "Mobile Friendly (JPEG @ 1280px width)");
+        break;
+    }
+  };
 
   const handleSelectFiles = async () => {
     try {
@@ -44,6 +81,7 @@ export function ImageConverterView() {
 
       if (selected && Array.isArray(selected)) {
         setFileList((prev) => Array.from(new Set([...prev, ...selected])));
+        success("Images Added", `Added ${selected.length} image file(s) to queue`);
       }
     } catch (err) {
       console.warn("Picker error:", err);
@@ -60,6 +98,7 @@ export function ImageConverterView() {
 
       if (selected && typeof selected === "string") {
         setOutputDir(selected);
+        success("Output Directory Set", selected);
       }
     } catch (err) {
       console.warn("Folder picker error:", err);
@@ -93,8 +132,10 @@ export function ImageConverterView() {
     try {
       const res = await convertImages(tasks);
       setResults(res);
+      const successfulCount = res.filter((r) => r.success).length;
+      success("Conversion Complete", `Successfully processed ${successfulCount}/${tasks.length} images`);
     } catch (err) {
-      console.error("Batch conversion failed:", err);
+      error("Conversion Failed", String(err));
     } finally {
       setConverting(false);
     }
@@ -127,7 +168,7 @@ export function ImageConverterView() {
             <span>Batch Image Compressor & Converter</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Bulk convert PNG, JPG, and WebP images with resizing and quality optimization
+            Bulk convert PNG, JPG, and WebP images with resizing and Lanczos3 quality optimization
           </p>
         </div>
 
@@ -141,7 +182,7 @@ export function ImageConverterView() {
           </button>
           <button
             onClick={handleSelectFiles}
-            class="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-md hover:bg-secondary/80 flex items-center space-x-1.5 transition-colors border border-border"
+            class="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/80 flex items-center space-x-1.5 transition-all border border-border active:scale-95 shadow-xs"
           >
             <FolderOpen size={14} />
             <span>Add Files</span>
@@ -149,7 +190,7 @@ export function ImageConverterView() {
           <button
             disabled={fileList().length === 0 || converting()}
             onClick={handleConvert}
-            class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
+            class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-sm disabled:opacity-50 active:scale-95"
           >
             <Play size={13} />
             <span>{converting() ? "Converting..." : `Convert (${fileList().length})`}</span>
@@ -158,8 +199,42 @@ export function ImageConverterView() {
       </div>
 
       {/* Control Panel */}
-      <div class="p-3.5 bg-card border border-border rounded-lg space-y-3 shadow-sm">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+      <div class="p-4 bg-card border border-border rounded-xl space-y-3.5 shadow-sm">
+        {/* Presets Row */}
+        <div class="flex items-center space-x-2 text-xs border-b border-border/50 pb-2.5">
+          <span class="text-[11px] font-medium text-muted-foreground flex items-center space-x-1">
+            <Layers size={13} class="text-primary" />
+            <span>Quick Presets:</span>
+          </span>
+          <div class="flex items-center space-x-1.5 flex-wrap">
+            <button
+              onClick={() => applyPreset("web")}
+              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
+            >
+              Web Optimized (WebP 80%)
+            </button>
+            <button
+              onClick={() => applyPreset("lossless")}
+              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
+            >
+              Lossless (PNG)
+            </button>
+            <button
+              onClick={() => applyPreset("thumbnail")}
+              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
+            >
+              Thumbnail (600px)
+            </button>
+            <button
+              onClick={() => applyPreset("mobile")}
+              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
+            >
+              Mobile (1280px JPG)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
           {/* Format Selection */}
           <div>
             <label class="block font-medium text-muted-foreground mb-1">Target Format</label>
@@ -167,9 +242,9 @@ export function ImageConverterView() {
               {(["webp", "jpeg", "png"] as const).map((fmt) => (
                 <button
                   onClick={() => setTargetFormat(fmt)}
-                  class={`flex-1 py-1.5 rounded uppercase font-semibold text-xs transition-colors ${
+                  class={`flex-1 py-1.5 rounded-lg uppercase font-semibold text-xs transition-all active:scale-95 ${
                     targetFormat() === fmt
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-primary text-primary-foreground shadow-xs"
                       : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                   }`}
                 >
@@ -204,11 +279,11 @@ export function ImageConverterView() {
                 value={outputDir()}
                 placeholder="Same folder as original"
                 readOnly
-                class="flex-1 px-2.5 py-1 bg-background border border-input rounded text-[11px] text-muted-foreground truncate"
+                class="flex-1 px-2.5 py-1.5 bg-background border border-input rounded-lg text-[11px] text-muted-foreground truncate"
               />
               <button
                 onClick={handleSelectOutputDir}
-                class="px-2 py-1 bg-secondary text-secondary-foreground rounded text-xs hover:bg-secondary/80"
+                class="px-2.5 py-1.5 bg-secondary text-secondary-foreground rounded-lg text-xs hover:bg-secondary/80 transition-colors border border-border"
               >
                 Browse
               </button>
@@ -228,7 +303,7 @@ export function ImageConverterView() {
             />
             <label for="enable_resize" class="font-medium text-foreground cursor-pointer flex items-center space-x-1">
               <Sliders size={13} class="text-primary" />
-              <span>Enable Image Resizing & Scaling</span>
+              <span>Enable Lanczos3 Resizing</span>
             </label>
           </div>
 
@@ -243,7 +318,7 @@ export function ImageConverterView() {
                   onInput={(e) =>
                     setResizeWidth(e.currentTarget.value ? parseInt(e.currentTarget.value) : undefined)
                   }
-                  class="w-20 px-2 py-0.5 bg-background border border-input rounded text-xs text-foreground font-mono"
+                  class="w-20 px-2 py-0.5 bg-background border border-input rounded-md text-xs text-foreground font-mono"
                 />
                 <span class="text-muted-foreground text-[10px]">px</span>
               </div>
@@ -257,7 +332,7 @@ export function ImageConverterView() {
                   onInput={(e) =>
                     setResizeHeight(e.currentTarget.value ? parseInt(e.currentTarget.value) : undefined)
                   }
-                  class="w-20 px-2 py-0.5 bg-background border border-input rounded text-xs text-foreground font-mono"
+                  class="w-20 px-2 py-0.5 bg-background border border-input rounded-md text-xs text-foreground font-mono"
                 />
                 <span class="text-muted-foreground text-[10px]">px</span>
               </div>
@@ -281,18 +356,20 @@ export function ImageConverterView() {
 
       {/* Summary Banner if results exist */}
       <Show when={results().length > 0}>
-        <div class="p-3 bg-card border border-border rounded-lg flex items-center justify-between text-xs shadow-sm">
+        <div class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-sm animate-in fade-in">
           <div class="flex items-center space-x-2">
-            <Sparkles size={16} class="text-green-500" />
+            <Sparkles size={16} class="text-emerald-500" />
             <span class="font-medium text-foreground">
               Processed {results().filter((r) => r.success).length} of {results().length} images
             </span>
           </div>
 
           <div class="flex items-center space-x-3 font-mono">
-            <span class="text-muted-foreground">{formatBytes(totalOriginalBytes())} → {formatBytes(totalConvertedBytes())}</span>
+            <span class="text-muted-foreground">
+              {formatBytes(totalOriginalBytes())} → {formatBytes(totalConvertedBytes())}
+            </span>
             <Show when={totalSavingsPercent() > 0}>
-              <span class="px-2 py-0.5 rounded bg-green-500/10 text-green-500 font-bold">
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 font-bold">
                 -{totalSavingsPercent()}% Saved
               </span>
             </Show>
@@ -307,19 +384,19 @@ export function ImageConverterView() {
           fallback={
             <div
               onClick={handleSelectFiles}
-              class={`h-56 flex flex-col items-center justify-center space-y-3 border-2 border-dashed rounded-lg transition-colors cursor-pointer ${
+              class={`h-56 flex flex-col items-center justify-center space-y-3 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${
                 isDragOver()
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50 bg-card/40"
+                  ? "border-primary bg-primary/5 shadow-md"
+                  : "border-border hover:border-primary/50 bg-card/40 hover:bg-card/70"
               }`}
             >
-              <UploadCloud size={36} class="text-muted-foreground/60" />
+              <UploadCloud size={38} class="text-muted-foreground/60" />
               <div class="text-center">
                 <p class="text-xs font-semibold text-foreground">
                   Click to select images or drag and drop files here
                 </p>
                 <p class="text-[11px] text-muted-foreground mt-0.5">
-                  Supports batch converting PNG, JPG, JPEG, and WebP files
+                  Supports batch converting PNG, JPG, JPEG, and WebP files with Lanczos3 scaling
                 </p>
               </div>
             </div>
@@ -332,7 +409,7 @@ export function ImageConverterView() {
                 const filename = path.split(/[\\/]/).pop();
 
                 return (
-                  <div class="p-3 bg-card border border-border rounded-lg flex items-center justify-between text-xs shadow-sm group">
+                  <div class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-primary/30 transition-all group">
                     <div class="flex items-center space-x-3 min-w-0">
                       <Image size={16} class="text-primary flex-shrink-0" />
                       <div class="min-w-0">
@@ -357,7 +434,7 @@ export function ImageConverterView() {
                               <span class="text-[11px] font-mono text-muted-foreground">
                                 {result().width}x{result().height} px • {formatBytes(result().converted_size_bytes)}
                               </span>
-                              <span class="flex items-center space-x-1 text-green-500 font-semibold text-[11px]">
+                              <span class="flex items-center space-x-1 text-emerald-500 font-semibold text-[11px]">
                                 <CheckCircle2 size={13} />
                                 <span>Done</span>
                               </span>
@@ -368,7 +445,7 @@ export function ImageConverterView() {
 
                       <button
                         onClick={() => handleRemoveFile(path)}
-                        class="p-1 text-muted-foreground hover:text-destructive rounded"
+                        class="p-1 text-muted-foreground hover:text-destructive rounded-md hover:bg-secondary transition-colors"
                       >
                         <Trash2 size={14} />
                       </button>
