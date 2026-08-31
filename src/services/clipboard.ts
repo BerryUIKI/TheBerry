@@ -6,6 +6,20 @@ export async function getClipboardHistory(): Promise<ClipboardItem[]> {
   return safeInvoke<ClipboardItem[]>("get_clipboard_history");
 }
 
+export async function searchClipboardHistory(
+  query: string,
+  contentType?: string,
+  isPinned?: boolean,
+  limit?: number
+): Promise<ClipboardItem[]> {
+  return safeInvoke<ClipboardItem[]>("search_clipboard_history", {
+    query,
+    contentType: contentType || null,
+    isPinned: isPinned !== undefined ? isPinned : null,
+    limit: limit || null,
+  });
+}
+
 export async function addClipboardItem(content: string, contentType = "text"): Promise<ClipboardItem> {
   return safeInvoke<ClipboardItem>("add_clipboard_item", { content, contentType });
 }
