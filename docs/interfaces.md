@@ -39,6 +39,8 @@ This document defines the Tauri IPC commands, request payloads, and return data 
     language: "en" | "zh";
     close_to_tray: boolean;
     autostart: boolean;
+    global_shortcuts_enabled: boolean;
+    hud_shortcut: string;
     clipboard_history_limit: number;
     custom_data_dir: string;
   }
@@ -54,6 +56,8 @@ This document defines the Tauri IPC commands, request payloads, and return data 
 | `toggle_maximize_window` | None | `boolean` | Toggles window maximize/restore state |
 | `close_window` | None | `void` | Hides to tray or exits depending on config |
 | `show_main_window` | None | `void` | Focuses and reveals main window from tray |
+| `toggle_hud_window` | `show?: boolean` | `void` | Toggles or sets visibility of the global HUD window |
+| `set_global_shortcuts_enabled` | `enabled: boolean` | `void` | Enables or disables all registered global shortcuts dynamically |
 
 ---
 

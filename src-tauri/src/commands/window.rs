@@ -37,3 +37,23 @@ pub async fn show_main_window(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn toggle_hud_window(app: AppHandle, show: Option<bool>) -> Result<bool, String> {
+    if let Some(window) = app.get_webview_window("hud") {
+        let is_visible = window.is_visible().unwrap_or(false);
+        let should_show = show.unwrap_or(!is_visible);
+        if should_show {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.center();
+            let _ = window.set_focus();
+            Ok(true)
+        } else {
+            let _ = window.hide();
+            Ok(false)
+        }
+    } else {
+        Err("HUD window not found".to_string())
+    }
+}

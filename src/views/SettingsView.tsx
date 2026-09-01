@@ -12,6 +12,7 @@ import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
+import { setGlobalShortcutsEnabled, setHudShortcut } from "../services/shortcuts";
 import { GooseConfigModal } from "../components/goose/GooseConfigModal";
 import { getAIConfig, saveAIConfig } from "../services/goose";
 import { QuickLookStatus } from "../types/quicklook";
@@ -42,6 +43,7 @@ import {
   Copy,
   Check,
   Languages,
+  Keyboard,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -612,6 +614,47 @@ export function SettingsView() {
                 </a>
               </div>
             </Show>
+          </div>
+
+          {/* Global Shortcuts & Quick Access HUD */}
+          <div class="pt-3 border-t border-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-foreground flex items-center space-x-1.5">
+                <Keyboard size={14} class="text-primary" />
+                <span>{t("settings.shortcuts_hud")}</span>
+              </label>
+              <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-1">
+                  <kbd class="px-2 py-0.5 rounded bg-secondary text-foreground border border-border text-[11px] font-mono font-semibold shadow-xs">
+                    {config().hud_shortcut || "Alt+Space"}
+                  </kbd>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const nextVal = !config().global_shortcuts_enabled;
+                    await handleSave({ global_shortcuts_enabled: nextVal });
+                    await setGlobalShortcutsEnabled(nextVal);
+                    info(
+                      nextVal ? "Global Shortcuts Enabled" : "Global Shortcuts Disabled",
+                      nextVal ? "Press Alt+Space to open Quick Access HUD" : "Global hotkeys unregistered"
+                    );
+                  }}
+                  class={`w-8 h-4 rounded-full transition-colors relative ${
+                    config().global_shortcuts_enabled ? "bg-primary" : "bg-muted"
+                  }`}
+                >
+                  <div
+                    class={`w-3 h-3 rounded-full bg-white transition-transform ${
+                      config().global_shortcuts_enabled ? "translate-x-4" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-relaxed">
+              {t("settings.shortcuts_hud_desc")}
+            </p>
           </div>
 
           {/* AI Assistant Configuration (Goose / TheBerry) */}
