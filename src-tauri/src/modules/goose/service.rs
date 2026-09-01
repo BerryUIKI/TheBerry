@@ -479,7 +479,14 @@ impl GooseService {
             .unwrap_or("")
             .to_lowercase();
 
-        if content_type.contains("text/event-stream") {
+        let is_stream_request = req_body.get("stream").and_then(|v| v.as_bool()).unwrap_or(false);
+        let is_stream_response = content_type.contains("text/event-stream")
+            || content_type.contains("application/x-ndjson")
+            || content_type.contains("application/jsonl")
+            || format == "ollama"
+            || is_stream_request;
+
+        if is_stream_response {
             self.consume_sse_stream(app_handle, response, session_id, message_id).await
         } else {
             // Whole JSON or text REST response (e.g. Gemini :generateContent or non-streaming endpoints)
@@ -525,21 +532,27 @@ impl GooseService {
         message_id: String,
     ) -> Result<(), String> {
         let mut stream = response.bytes_stream();
+        let mut buffer = String::new();
+
         while let Some(chunk_result) = stream.next().await {
             match chunk_result {
                 Ok(bytes) => {
                     if let Ok(text) = std::str::from_utf8(&bytes) {
-                        for line in text.lines() {
-                            let line = line.trim();
-                            if line.is_empty() {
+                        buffer.push_str(text);
+
+                        while let Some(newline_pos) = buffer.find('\n') {
+                            let raw_line = buffer[..newline_pos].trim().to_string();
+                            buffer = buffer[newline_pos + 1..].to_string();
+
+                            if raw_line.is_empty() {
                                 continue;
                             }
 
-                            // Handle raw SSE or NDJSON lines
-                            let data_str = if line.starts_with("data:") {
-                                line.trim_start_matches("data:").trim()
+                            // Handle raw SSE (data: ...) or raw NDJSON lines ({"message":...})
+                            let data_str = if raw_line.starts_with("data:") {
+                                raw_line.trim_start_matches("data:").trim()
                             } else {
-                                line
+                                &raw_line
                             };
 
                             if data_str == "[DONE]" {
@@ -555,6 +568,8 @@ impl GooseService {
                             }
 
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
+                                let is_done = json.get("done").and_then(|v| v.as_bool()).unwrap_or(false);
+
                                 if let Some(delta) = Self::extract_text_from_value(&json) {
                                     if !delta.is_empty() {
                                         let stream_chunk = GooseStreamChunk {
@@ -566,6 +581,18 @@ impl GooseService {
                                         };
                                         let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
                                     }
+                                }
+
+                                if is_done {
+                                    let end_chunk = GooseStreamChunk {
+                                        session_id: session_id.clone(),
+                                        message_id: message_id.clone(),
+                                        delta: String::new(),
+                                        is_finished: true,
+                                        error: None,
+                                    };
+                                    let _ = app_handle.emit("goose://stream-chunk", end_chunk);
+                                    return Ok(());
                                 }
                             }
                         }
@@ -581,6 +608,31 @@ impl GooseService {
                     };
                     let _ = app_handle.emit("goose://stream-chunk", err_chunk);
                     return Err(format!("Stream error: {}", e));
+                }
+            }
+        }
+
+        // Process any remaining bytes in buffer
+        let remaining = buffer.trim();
+        if !remaining.is_empty() {
+            let data_str = if remaining.starts_with("data:") {
+                remaining.trim_start_matches("data:").trim()
+            } else {
+                remaining
+            };
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
+                if let Some(delta) = Self::extract_text_from_value(&json) {
+                    if !delta.is_empty() {
+                        let stream_chunk = GooseStreamChunk {
+                            session_id: session_id.clone(),
+                            message_id: message_id.clone(),
+                            delta,
+                            is_finished: false,
+                            error: None,
+                        };
+                        let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+                    }
                 }
             }
         }
