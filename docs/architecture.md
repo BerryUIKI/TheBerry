@@ -23,12 +23,13 @@ graph TD
         Redb[(redb Embedded KV/Table DB)]
         TomlConfig[(config.toml Storage)]
         
-        subgraph Modules [MVP Modules]
+        subgraph Modules [Application Modules]
             M1[Clipboard History]
             M2[Code Snippets]
             M3[Launcher & Batch Scripts]
             M4[Image Converter Engine]
             M5[File Search Indexer]
+            M6[Goose AI Client & Drawer]
         end
     end
 

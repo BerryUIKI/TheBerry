@@ -4,7 +4,7 @@ import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../service
 import { onUpdateAvailable } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
-import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard } from "lucide-solid";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard, Bot } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
@@ -86,6 +86,16 @@ export function TitleBar() {
 
       {/* Window Controls & Theme Toggle */}
       <div class="flex items-center space-x-1">
+        {/* Goose AI Assistant Trigger */}
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent("toggle-goose-sidebar"))}
+          title="Toggle Goose AI Assistant (Ctrl+J)"
+          class="h-6 px-2 flex items-center space-x-1 rounded text-xs text-primary hover:text-primary-foreground hover:bg-primary transition-all active:scale-95 border border-primary/30 mr-1 shadow-sm"
+        >
+          <Bot size={13} class="animate-pulse" />
+          <span class="text-[11px] font-semibold">AI Chat</span>
+        </button>
+
         {/* Shortcuts Cheat Sheet Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("open-shortcuts"))}
