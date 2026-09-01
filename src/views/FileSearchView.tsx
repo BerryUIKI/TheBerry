@@ -6,6 +6,7 @@ import {
   revealInExplorer,
   openFilePath,
 } from "../services/fileSearch";
+import { previewWithQuickLook } from "../services/quicklook";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
 import {
@@ -24,6 +25,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Eye,
 } from "lucide-solid";
 
 type SortField = "name" | "size" | "path";
@@ -335,6 +337,16 @@ export function FileSearchView() {
                     </span>
 
                     <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          previewWithQuickLook(item.path);
+                        }}
+                        title="Quick Look Preview (Space)"
+                        class="p-1 text-muted-foreground hover:text-primary rounded-md hover:bg-secondary transition-colors"
+                      >
+                        <Eye size={13} />
+                      </button>
                       <button
                         onClick={() => handleOpen(item)}
                         title="Open File"

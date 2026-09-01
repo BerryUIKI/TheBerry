@@ -257,3 +257,30 @@ interface GooseStreamChunk {
 - `goose://stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
 - `goose://status-change`: Emitted when the Goose daemon state changes.
 
+---
+
+## 9. QuickLook Preview Module (`modules::quicklook` - Windows Only)
+
+### Data Structures
+```typescript
+interface QuickLookStatus {
+  is_supported_os: boolean; // true on Windows, false on macOS/Linux
+  is_installed: boolean;
+  is_running: boolean;
+  binary_path: string | null;
+  pipe_name: string | null;
+  error_message: string | null;
+}
+
+interface QuickLookPreviewPayload {
+  path: string;
+  mode?: "toggle" | "switch" | "preview";
+}
+```
+
+### Commands
+- `get_quicklook_status()`: `Promise<QuickLookStatus>`
+- `quicklook_preview(payload: QuickLookPreviewPayload)`: `Promise<boolean>`
+- `quicklook_close()`: `Promise<void>`
+
+

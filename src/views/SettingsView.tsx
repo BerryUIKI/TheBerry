@@ -11,6 +11,8 @@ import {
 import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
+import { getQuickLookStatus } from "../services/quicklook";
+import { QuickLookStatus } from "../types/quicklook";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
@@ -23,6 +25,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   HardDrive,
+  Eye,
   Info,
   Sparkles,
   RefreshCw,
@@ -61,6 +64,7 @@ export function SettingsView() {
   const [updateError, setUpdateError] = createSignal<string | null>(null);
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal<DownloadProgress | null>(null);
+  const [qlStatus, setQlStatus] = createSignal<QuickLookStatus | null>(null);
 
   onMount(async () => {
     try {
@@ -70,6 +74,8 @@ export function SettingsView() {
       setCurrentVersion(ver);
       const autoStatus = await isAutostartEnabled();
       setAutostartActive(autoStatus);
+      const ql = await getQuickLookStatus();
+      setQlStatus(ql);
     } catch (e) {
       console.warn("Failed to load settings or version:", e);
     }
@@ -485,6 +491,51 @@ export function SettingsView() {
                 </span>
               </label>
             </div>
+          </div>
+
+          {/* QuickLook Integration (Windows Only) */}
+          <div class="pt-3 border-t border-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-foreground flex items-center space-x-1.5">
+                <Eye size={14} class="text-primary" />
+                <span>QuickLook File Preview (Windows)</span>
+              </label>
+              <Show when={qlStatus()}>
+                <span
+                  class={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                    qlStatus()?.is_running
+                      ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                      : qlStatus()?.is_installed
+                      ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {qlStatus()?.is_running
+                    ? "Running (Named Pipe Active)"
+                    : qlStatus()?.is_installed
+                    ? "Installed (Standby)"
+                    : qlStatus()?.is_supported_os
+                    ? "Not Detected"
+                    : "Not Supported on this OS"}
+                </span>
+              </Show>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-relaxed">
+              Press <kbd class="px-1.5 py-0.5 rounded bg-muted font-mono">Space</kbd> on any file in File Search or Spotlight HUD to launch instant native previews.
+            </p>
+            <Show when={qlStatus()?.is_supported_os && !qlStatus()?.is_installed}>
+              <div class="pt-1">
+                <a
+                  href="https://github.com/QL-Win/QuickLook"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex items-center space-x-1 text-xs text-primary hover:underline font-medium"
+                >
+                  <span>Download QuickLook from GitHub / Store</span>
+                  <ExternalLink size={11} />
+                </a>
+              </div>
+            </Show>
           </div>
         </div>
       </div>

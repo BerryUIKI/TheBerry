@@ -25,13 +25,15 @@ const shortcutSections: ShortcutSection[] = [
       { keys: ["@file"], description: "Filter only file search" },
       { keys: ["↑", "↓"], description: "Navigate search results" },
       { keys: ["Enter"], description: "Launch app / Copy snippet / Open file" },
+      { keys: ["Shift", "Space"], description: "QuickLook native file preview (Windows)" },
       { keys: ["Ctrl", "C"], description: "Copy item path / content" },
       { keys: ["Ctrl", "E"], description: "Reveal file/app in Explorer" },
     ],
   },
   {
-    title: "Clipboard & Snippets",
+    title: "File Search & Clipboard",
     items: [
+      { keys: ["Space"], description: "QuickLook preview selected file (Windows)" },
       { keys: ["Ctrl", "Shift", "C"], description: "Quick copy expanded snippet" },
       { keys: ["Click Thumb"], description: "Zoom full image modal" },
     ],
