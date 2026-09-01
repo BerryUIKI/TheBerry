@@ -216,6 +216,8 @@ export function GooseSidebar(props: GooseSidebarProps) {
     setSessionId("sess_" + Math.random().toString(36).substring(2, 9));
   };
 
+  const assistantName = () => (aiConfig()?.language === "zh" ? "豆花" : "TheBerry");
+
   return (
     <>
       <aside
@@ -230,11 +232,11 @@ export function GooseSidebar(props: GooseSidebarProps) {
         <div class="h-14 border-b border-border px-3.5 flex items-center justify-between bg-muted/40 flex-shrink-0 select-none">
           <div class="flex items-center space-x-3">
             <div class="w-9 h-9 rounded-xl overflow-hidden shadow-sm ring-1 ring-border bg-black/10 flex-shrink-0 flex items-center justify-center">
-              <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
+              <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
             </div>
             <div>
               <div class="flex items-center space-x-1.5">
-                <span class="text-xs font-bold tracking-tight text-foreground">TheBerry AI</span>
+                <span class="text-xs font-bold tracking-tight text-foreground">{assistantName()} AI</span>
                 <span
                   class={`w-2 h-2 rounded-full transition-colors ${
                     status()?.is_running
@@ -254,7 +256,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
             {/* Settings Modal Button */}
             <button
               onClick={() => setShowConfigModal(true)}
-              title="Configure AI & Providers"
+              title="Configure AI & User Profile"
               class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-95"
             >
               <Settings size={14} />
@@ -287,10 +289,10 @@ export function GooseSidebar(props: GooseSidebarProps) {
           {messages().length === 0 ? (
             <div class="h-full flex flex-col items-center justify-center text-center px-4 text-muted-foreground space-y-3.5 select-none">
               <div class="w-18 h-18 rounded-2xl overflow-hidden shadow-md ring-1 ring-border bg-black/10 flex-shrink-0 flex items-center justify-center">
-                <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
+                <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
               </div>
               <div class="space-y-1">
-                <p class="text-sm font-bold text-foreground">TheBerry AI Assistant</p>
+                <p class="text-sm font-bold text-foreground">{assistantName()} AI Assistant</p>
                 <p class="text-xs leading-relaxed max-w-[280px]">
                   Ask coding questions, refactor snippets, summarize files, or automate desktop operations.
                 </p>
@@ -317,12 +319,18 @@ export function GooseSidebar(props: GooseSidebarProps) {
                   {/* Avatar */}
                   <div class="flex-shrink-0 mt-0.5">
                     {msg.sender === "user" ? (
-                      <div class="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
-                        <User size={14} />
+                      <div class="w-7 h-7 rounded-full overflow-hidden bg-primary text-primary-foreground flex items-center justify-center shadow-xs ring-1 ring-border">
+                        <Show when={aiConfig()?.user_avatar} fallback={<User size={14} />}>
+                          <img
+                            src={aiConfig()!.user_avatar}
+                            alt={aiConfig()?.user_name || "You"}
+                            class="w-full h-full object-cover"
+                          />
+                        </Show>
                       </div>
                     ) : (
                       <div class="w-7 h-7 rounded-full overflow-hidden shadow-xs ring-1 ring-border bg-black/10 flex items-center justify-center">
-                        <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
+                        <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
                       </div>
                     )}
                   </div>
@@ -335,7 +343,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
                   >
                     <div class="flex items-center space-x-1.5 text-[10px] text-muted-foreground px-0.5">
                       <span class="font-semibold text-foreground">
-                        {msg.sender === "user" ? "You" : "TheBerry"}
+                        {msg.sender === "user" ? (aiConfig()?.user_name || "You") : assistantName()}
                       </span>
                       <span>•</span>
                       <span>{msg.timestamp}</span>
@@ -399,8 +407,8 @@ export function GooseSidebar(props: GooseSidebarProps) {
               onKeyDown={handleKeyDown}
               placeholder={
                 aiConfig()?.model
-                  ? `Ask TheBerry (${aiConfig()?.model})...`
-                  : "Ask TheBerry anything..."
+                  ? `Ask ${assistantName()} (${aiConfig()?.model})...`
+                  : `Ask ${assistantName()} anything...`
               }
               disabled={isGenerating()}
               class="flex-1 bg-background border border-input rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 transition-all shadow-inner"

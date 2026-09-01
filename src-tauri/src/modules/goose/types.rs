@@ -83,6 +83,12 @@ pub struct AIConfig {
     pub temperature: f32,
     pub max_tokens: u32,
     pub system_prompt: String,
+    #[serde(default = "default_language")]
+    pub language: String, // "en" | "zh"
+    #[serde(default = "default_user_name")]
+    pub user_name: String,
+    #[serde(default)]
+    pub user_avatar: String,
     pub enable_developer_tools: bool,
     pub enable_web_fetch: bool,
     pub custom_mcp_servers: Vec<CustomMcpServer>,
@@ -92,6 +98,14 @@ pub struct AIConfig {
 
 fn default_request_format() -> String {
     "openai".to_string()
+}
+
+fn default_language() -> String {
+    "en".to_string()
+}
+
+fn default_user_name() -> String {
+    "You".to_string()
 }
 
 impl Default for AIConfig {
@@ -105,6 +119,9 @@ impl Default for AIConfig {
             temperature: 0.7,
             max_tokens: 4096,
             system_prompt: "You are TheBerry, an intelligent, helpful, and concise AI desktop assistant integrated into TheBerry utility suite.".to_string(),
+            language: "en".to_string(),
+            user_name: "You".to_string(),
+            user_avatar: String::new(),
             enable_developer_tools: true,
             enable_web_fetch: true,
             custom_mcp_servers: Vec::new(),

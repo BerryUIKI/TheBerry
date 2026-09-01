@@ -311,7 +311,49 @@ impl GooseService {
             return Err(format!("HTTP Error {}: {}", status_code, err_text));
         }
 
-        self.consume_sse_stream(app_handle, response, session_id, message_id).await
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if content_type.contains("text/event-stream") {
+            self.consume_sse_stream(app_handle, response, session_id, message_id).await
+        } else {
+            // Whole JSON or text REST response (e.g. Gemini :generateContent or non-streaming endpoints)
+            let text = response.text().await.unwrap_or_default();
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
+                let delta = Self::extract_text_from_value(&json).unwrap_or_default();
+                let stream_chunk = GooseStreamChunk {
+                    session_id,
+                    message_id,
+                    delta,
+                    is_finished: true,
+                    error: None,
+                };
+                let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+            } else if !text.trim().is_empty() {
+                let stream_chunk = GooseStreamChunk {
+                    session_id,
+                    message_id,
+                    delta: text.trim().to_string(),
+                    is_finished: true,
+                    error: None,
+                };
+                let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+            } else {
+                let stream_chunk = GooseStreamChunk {
+                    session_id,
+                    message_id,
+                    delta: String::new(),
+                    is_finished: true,
+                    error: None,
+                };
+                let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+            }
+            Ok(())
+        }
     }
 
     async fn consume_sse_stream(
@@ -364,15 +406,6 @@ impl GooseService {
                                         let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
                                     }
                                 }
-                            } else if !data_str.is_empty() && !data_str.starts_with("event:") && !data_str.starts_with(':') && !data_str.starts_with('{') && !data_str.starts_with('[') {
-                                let stream_chunk = GooseStreamChunk {
-                                    session_id: session_id.clone(),
-                                    message_id: message_id.clone(),
-                                    delta: data_str.to_string(),
-                                    is_finished: false,
-                                    error: None,
-                                };
-                                let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
                             }
                         }
                     }

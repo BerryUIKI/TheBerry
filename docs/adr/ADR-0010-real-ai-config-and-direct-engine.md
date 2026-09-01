@@ -18,12 +18,17 @@ We define a persistent configuration structure stored in `config.toml` (and Redb
 - `base_url`: Customizable endpoint URL with smart deduplication (e.g. `http://localhost:11434/v1`, `https://api.openai.com/v1`, `https://api.deepseek.com/v1`)
 - `model`: Selected LLM model identifier (e.g. `gpt-4o`, `claude-3-5-sonnet`, `gemini-1.5-pro`, `llama3.2`, `deepseek-chat`)
 - `temperature` & `max_tokens`: Generation hyper-parameters
-- `system_prompt`: Custom persona and instructions
+- `system_prompt`: Custom persona and instructions (defaulting to bilingual assistant identity: TheBerry in English, 豆花 in Chinese)
+- `user_name`: Customizable user display name (default: "You")
+- `user_avatar`: Customizable user avatar image (Data URI / URL / local path)
 - `extensions`: MCP tool extensions and custom server configurations
 
-### 2. Dual-Engine Dispatcher & Multi-Protocol Resolution in Rust Backend
+### 2. Dual-Engine Dispatcher, Multi-Protocol Resolution & Dual Response Parser in Rust Backend
 In `src-tauri/src/modules/goose/service.rs`:
 - **Native TLS & System Proxy Compatibility**: Replaced bare `rustls-tls` with `default-tls` (Windows native Schannel / OpenSSL) and environment proxy resolution (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`), ensuring secure connections to Google AI Studio and global LLM providers from any network or proxy setup.
+- **Content-Type Aware Dual Response Parser**:
+  - For `text/event-stream` SSE responses: Streams tokens line-by-line using `extract_text_from_value`.
+  - For `application/json` REST responses (such as Gemini `:generateContent` or non-streaming endpoints): Reads the full response JSON and extracts `candidates[0].content.parts[0].text` in one atomic operation, completely preventing multi-line JSON fragmentation and raw token leakage.
 - **Smart URL Deduplication**: Checks whether `base_url` already contains endpoints like `/chat/completions`, `/messages`, `/api/chat`, or `:generateContent` / `:streamGenerateContent` to completely eliminate duplicate path segments and 404 errors.
 - **Multi-Protocol Handlers**:
   - `openai`: POST `/chat/completions` with Bearer auth and `choices[0].delta.content` SSE parser.
@@ -34,10 +39,11 @@ In `src-tauri/src/modules/goose/service.rs`:
 - If `GooseProcessManager` is actively running, requests route through Goose's MCP server.
 - Real tokens are streamed chunk-by-chunk via Tauri's `goose://stream-chunk` event bus.
 
-### 3. Assistant Avatar, Non-Colliding Layout & Language Integrity
+### 3. Assistant Avatar, Bilingual Identity & User Profile Configuration
 - Assistant messages display the app icon `/berry.png` with a rounded-full border.
-- Assistant title is strictly **TheBerry**.
-- User messages display user indicator **You**.
+- Assistant branding is **TheBerry (豆花)** (TheBerry in English, 豆花 in Chinese).
+- User Profile: Users can configure their **User Name** (`user_name`) and **User Avatar** (`user_avatar`) in the settings/modal.
+- User messages display the custom user avatar (or fallback icon) and custom user name.
 - **UI Layout & Word Wrapping**: Chat bubbles feature `min-w-0`, `break-words`, `break-all`, and inline action controls preventing element stacking or horizontal overflow.
 - **Language Consistency**: The user interface strictly adheres to the active application language (English) with no mixed or stray untranslated labels.
 

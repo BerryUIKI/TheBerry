@@ -17,6 +17,8 @@ import {
   Trash2,
   ExternalLink,
   Check,
+  User,
+  Image as ImageIcon,
 } from "lucide-solid";
 
 interface ProviderPreset {
@@ -63,13 +65,13 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "ollama",
-    name: "Ollama (Local Models)",
+    name: "Ollama (Local)",
     defaultBaseUrl: "http://localhost:11434/v1",
     defaultRequestFormat: "ollama",
     defaultModel: "llama3.2",
-    models: ["llama3.2", "qwen2.5-coder", "deepseek-r1", "mistral", "phi3"],
+    models: ["llama3.2", "qwen2.5:7b", "deepseek-r1:8b", "mistral", "phi3"],
     requiresApiKey: false,
-    helpUrl: "https://ollama.com",
+    helpUrl: "https://ollama.com/",
   },
   {
     id: "deepseek",
@@ -79,11 +81,11 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     defaultModel: "deepseek-chat",
     models: ["deepseek-chat", "deepseek-reasoner"],
     requiresApiKey: true,
-    helpUrl: "https://platform.deepseek.com",
+    helpUrl: "https://platform.deepseek.com/api_keys",
   },
   {
     id: "groq",
-    name: "Groq Cloud (Fast)",
+    name: "Groq",
     defaultBaseUrl: "https://api.groq.com/openai/v1",
     defaultRequestFormat: "openai",
     defaultModel: "llama-3.3-70b-versatile",
@@ -115,7 +117,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 
 export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, error } = useToast();
-  const [activeTab, setActiveTab] = createSignal<"provider" | "params" | "extensions" | "daemon">("provider");
+  const [activeTab, setActiveTab] = createSignal<"provider" | "params" | "profile" | "extensions" | "daemon">("provider");
   const [showApiKey, setShowApiKey] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
 
@@ -129,6 +131,9 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     temperature: 0.7,
     max_tokens: 4096,
     system_prompt: "You are TheBerry, an intelligent, helpful, and concise AI desktop assistant integrated into TheBerry utility suite.",
+    language: "en",
+    user_name: "You",
+    user_avatar: "",
     enable_developer_tools: true,
     enable_web_fetch: true,
     custom_mcp_servers: [],
@@ -148,6 +153,9 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
         setConfig({
           ...cfg,
           request_format: cfg.request_format || "openai",
+          language: cfg.language || "en",
+          user_name: cfg.user_name || "You",
+          user_avatar: cfg.user_avatar || "",
         });
       }
     } catch (e) {
@@ -185,12 +193,28 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     }
   };
 
+  const handleAvatarFileUpload = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setConfig((prev) => ({ ...prev, user_avatar: dataUrl }));
+        success("Avatar Updated", "User avatar loaded from file");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleAddMcpServer = () => {
     if (!mcpName().trim() || !mcpCommand().trim()) return;
     const newServer: CustomMcpServer = {
       name: mcpName().trim(),
       command: mcpCommand().trim(),
-      args: mcpArgs() ? mcpArgs().split(" ").filter(Boolean) : [],
+      args: mcpArgs().trim() ? mcpArgs().trim().split(" ") : [],
       env: {},
     };
     setConfig((prev) => ({
@@ -202,7 +226,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     setMcpArgs("");
   };
 
-  const handleDeleteMcpServer = (index: number) => {
+  const handleRemoveMcpServer = (index: number) => {
     setConfig((prev) => ({
       ...prev,
       custom_mcp_servers: prev.custom_mcp_servers.filter((_, i) => i !== index),
@@ -242,14 +266,14 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
           class="bg-card border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
         >
           {/* Modal Header */}
-          <div class="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/30">
-            <div class="flex items-center space-x-3">
-              <div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-border bg-black/10 flex items-center justify-center flex-shrink-0">
+          <div class="p-4 border-b border-border flex items-center justify-between bg-card/80">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-10 h-10 rounded-xl overflow-hidden shadow-xs ring-1 ring-border bg-black/10 flex items-center justify-center">
                 <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
               </div>
               <div>
-                <h2 class="text-sm font-bold text-foreground">TheBerry AI & Goose Settings</h2>
-                <p class="text-[11px] text-muted-foreground">Configure LLM providers, model parameters, and MCP tools</p>
+                <h2 class="font-semibold text-sm text-foreground">AI Engine & Identity Settings</h2>
+                <p class="text-[11px] text-muted-foreground">Configure LLM providers, user identity & MCP tools</p>
               </div>
             </div>
             <button
@@ -260,8 +284,8 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
             </button>
           </div>
 
-          {/* Navigation Tabs */}
-          <div class="flex items-center space-x-1 px-4 py-2 border-b border-border bg-muted/20 text-xs">
+          {/* Tab Navigation */}
+          <div class="px-5 pt-3 pb-2 border-b border-border flex space-x-1 text-xs bg-muted/20">
             <button
               onClick={() => setActiveTab("provider")}
               class={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 font-medium transition-all ${
@@ -272,6 +296,18 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
             >
               <Key size={13} />
               <span>Providers & Keys</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("profile")}
+              class={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 font-medium transition-all ${
+                activeTab() === "profile"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              <User size={13} />
+              <span>User Profile</span>
             </button>
 
             <button
@@ -444,7 +480,134 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               </div>
             </Show>
 
-            {/* 2. Parameters */}
+            {/* 2. User Profile */}
+            <Show when={activeTab() === "profile"}>
+              <div class="space-y-5">
+                {/* User Name */}
+                <div class="space-y-1.5">
+                  <label class="font-semibold text-foreground flex items-center justify-between">
+                    <span>User Display Name</span>
+                    <span class="text-[10px] text-muted-foreground">Displayed in chat headers & context</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={config().user_name}
+                    onInput={(e) => setConfig({ ...config(), user_name: e.currentTarget.value })}
+                    placeholder="Enter your name (e.g. Art, Alex, You)..."
+                    class="w-full px-3 py-2 bg-background border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* User Avatar */}
+                <div class="space-y-2">
+                  <label class="font-semibold text-foreground">User Avatar</label>
+                  <div class="flex items-center space-x-4 p-3 bg-secondary/30 border border-border rounded-xl">
+                    <div class="w-14 h-14 rounded-full overflow-hidden ring-2 ring-primary/40 bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Show
+                        when={config().user_avatar}
+                        fallback={<User size={24} />}
+                      >
+                        <img
+                          src={config().user_avatar}
+                          alt={config().user_name}
+                          class="w-full h-full object-cover"
+                        />
+                      </Show>
+                    </div>
+
+                    <div class="flex-1 space-y-2">
+                      <div class="flex items-center space-x-2">
+                        <label class="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium cursor-pointer hover:bg-primary/90 transition-colors flex items-center space-x-1.5 shadow-xs">
+                          <ImageIcon size={13} />
+                          <span>Upload Image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarFileUpload}
+                            class="hidden"
+                          />
+                        </label>
+
+                        <Show when={config().user_avatar}>
+                          <button
+                            type="button"
+                            onClick={() => setConfig({ ...config(), user_avatar: "" })}
+                            class="px-2.5 py-1.5 rounded-lg bg-secondary border border-border text-xs text-muted-foreground hover:text-destructive hover:border-destructive/30 transition-colors flex items-center space-x-1"
+                          >
+                            <Trash2 size={12} />
+                            <span>Reset</span>
+                          </button>
+                        </Show>
+                      </div>
+
+                      <input
+                        type="text"
+                        value={config().user_avatar}
+                        onInput={(e) => setConfig({ ...config(), user_avatar: e.currentTarget.value })}
+                        placeholder="Or enter image URL / Data URI..."
+                        class="w-full px-2.5 py-1 bg-background border border-input rounded-md font-mono text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Language & Assistant Identity */}
+                <div class="space-y-2">
+                  <label class="font-semibold text-foreground flex items-center justify-between">
+                    <span>Language & Assistant Name</span>
+                    <span class="text-[10px] text-muted-foreground">Sets assistant name and language context</span>
+                  </label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config(), language: "en" })}
+                      class={`p-2.5 rounded-xl border text-left transition-all ${
+                        config().language !== "zh"
+                          ? "bg-primary/10 border-primary text-foreground shadow-xs"
+                          : "bg-secondary/30 border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <p class="font-semibold text-xs text-foreground">English</p>
+                      <p class="text-[10px] text-muted-foreground mt-0.5">Assistant name: TheBerry</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setConfig({ ...config(), language: "zh" })}
+                      class={`p-2.5 rounded-xl border text-left transition-all ${
+                        config().language === "zh"
+                          ? "bg-primary/10 border-primary text-foreground shadow-xs"
+                          : "bg-secondary/30 border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <p class="font-semibold text-xs text-foreground">简体中文</p>
+                      <p class="text-[10px] text-muted-foreground mt-0.5">助手名称: 豆花</p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Assistant Branding Preview */}
+                <div class="p-3 bg-muted/40 border border-border/60 rounded-xl space-y-2">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-full overflow-hidden shadow-xs ring-1 ring-border bg-black/10 flex items-center justify-center">
+                      <img src="/berry.png" alt={config().language === "zh" ? "豆花" : "TheBerry"} class="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p class="font-semibold text-xs text-foreground">
+                        {config().language === "zh" ? "豆花" : "TheBerry"}
+                      </p>
+                      <p class="text-[10px] text-muted-foreground">
+                        {config().language === "zh"
+                          ? "当前语言为中文，助手称呼为“豆花”"
+                          : "Active language is English. Assistant name displays as \"TheBerry\"."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Show>
+
+            {/* 3. Parameters */}
             <Show when={activeTab() === "params"}>
               <div class="space-y-4">
                 {/* Temperature */}

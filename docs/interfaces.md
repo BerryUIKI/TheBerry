@@ -255,6 +255,8 @@ interface AIConfig {
   temperature: number;
   max_tokens: number;
   system_prompt: string;
+  user_name: string;
+  user_avatar: string;
   enable_developer_tools: boolean;
   enable_web_fetch: boolean;
   custom_mcp_servers: Array<{
