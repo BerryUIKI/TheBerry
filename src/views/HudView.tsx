@@ -494,9 +494,9 @@ export function HudView() {
           </div>
         </Show>
 
-        {/* 3. Footer Shortcuts Bar (h-9 / 36px) */}
+        {/* 3. Footer Shortcuts Bar (h-9 / 36px) with 4px lift */}
         <div class="h-9 px-4 border-t border-border/80 bg-muted/40 flex items-center justify-between text-[11px] text-muted-foreground flex-shrink-0">
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-3 -translate-y-1">
             <div class="flex items-center space-x-1">
               <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
                 Enter
@@ -523,7 +523,7 @@ export function HudView() {
             </Show>
           </div>
 
-          <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-3 -translate-y-1">
             <div class="flex items-center space-x-1">
               <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
                 Alt Space
