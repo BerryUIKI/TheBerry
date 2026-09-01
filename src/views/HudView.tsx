@@ -1,5 +1,6 @@
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import {
   Search,
   Sparkles,
@@ -54,6 +55,23 @@ export function HudView() {
     const q = query().trimStart();
     return q.startsWith("/fin") || q.startsWith("/f ");
   };
+
+  const isExpanded = () => {
+    if (isSearchMode()) {
+      return Boolean(getCleanSearchQuery());
+    }
+    return Boolean(aiResponse() || lastPrompt() || isGenerating() || aiError());
+  };
+
+  createEffect(async () => {
+    const expanded = isExpanded();
+    try {
+      const win = getCurrentWebviewWindow();
+      await win.setSize(new LogicalSize(640, expanded ? 440 : 84));
+    } catch (e) {
+      console.warn("Resize error:", e);
+    }
+  });
 
   const getCleanSearchQuery = () => {
     const q = query().trimStart();
