@@ -4,11 +4,13 @@ import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../service
 import { onUpdateAvailable } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
-import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard, Bot } from "lucide-solid";
+import { useI18n } from "../../context/I18nContext";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
   const { setActiveView } = useApp();
+  const { t, assistantName } = useI18n();
   const [isMaximized, setIsMaximized] = createSignal(false);
   const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
 
@@ -89,19 +91,19 @@ export function TitleBar() {
         {/* Goose AI Assistant Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("toggle-goose-sidebar"))}
-          title="Toggle TheBerry AI Assistant (Ctrl+J)"
+          title={`Toggle ${assistantName()} AI Assistant (Ctrl+J)`}
           class="h-6 px-2 flex items-center space-x-1.5 rounded-lg text-xs text-primary hover:text-primary-foreground hover:bg-primary transition-all active:scale-95 border border-primary/30 mr-1 shadow-sm"
         >
           <div class="w-3.5 h-3.5 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center">
-            <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
+            <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
           </div>
-          <span class="text-[11px] font-semibold">TheBerry AI</span>
+          <span class="text-[11px] font-semibold">{t("titlebar.ai_assistant")}</span>
         </button>
 
         {/* Shortcuts Cheat Sheet Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("open-shortcuts"))}
-          title="Keyboard Shortcuts (? / F1)"
+          title={`${t("titlebar.shortcuts")} (? / F1)`}
           class="h-6 px-1.5 flex items-center space-x-1 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/40 hover:bg-secondary transition-all active:scale-95 border border-border/40 mr-0.5"
         >
           <Keyboard size={12} class="text-primary" />
@@ -111,10 +113,10 @@ export function TitleBar() {
         {/* Spotlight Quick Search Trigger */}
         <button
           onClick={() => window.dispatchEvent(new CustomEvent("open-spotlight"))}
-          title="Spotlight Search (Ctrl+K)"
+          title={`${t("titlebar.search")} (Ctrl+K)`}
           class="h-6 px-2 flex items-center space-x-1.5 rounded text-xs text-muted-foreground hover:text-foreground bg-secondary/50 hover:bg-secondary transition-all active:scale-95 border border-border/50 mr-1"
         >
-          <span class="text-[11px] font-medium">Search</span>
+          <span class="text-[11px] font-medium">{t("titlebar.search")}</span>
           <kbd class="text-[9px] px-1 py-0.2 rounded bg-muted font-mono">Ctrl+K</kbd>
         </button>
 

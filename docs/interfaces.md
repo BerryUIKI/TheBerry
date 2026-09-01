@@ -36,6 +36,7 @@ This document defines the Tauri IPC commands, request payloads, and return data 
   interface AppConfig {
     version: string;
     theme: "dark" | "light" | "system";
+    language: "en" | "zh";
     close_to_tray: boolean;
     autostart: boolean;
     clipboard_history_limit: number;

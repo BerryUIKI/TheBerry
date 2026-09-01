@@ -1,4 +1,5 @@
 import { useApp, ViewType } from "../../context/AppContext";
+import { useI18n, TranslationKey } from "../../context/I18nContext";
 import {
   ClipboardList,
   Code2,
@@ -9,23 +10,23 @@ import {
   FolderDot,
 } from "lucide-solid";
 
-interface NavItem {
+interface NavItemDef {
   id: ViewType;
-  label: string;
+  key: TranslationKey;
   icon: typeof ClipboardList;
-  badge?: string;
 }
 
-const navItems: NavItem[] = [
-  { id: "clipboard", label: "Clipboard", icon: ClipboardList },
-  { id: "snippets", label: "Snippets", icon: Code2 },
-  { id: "launcher", label: "Launcher", icon: Rocket },
-  { id: "image_converter", label: "Image Converter", icon: ImageIcon },
-  { id: "file_search", label: "File Search", icon: Search },
+const navDefs: NavItemDef[] = [
+  { id: "clipboard", key: "nav.clipboard", icon: ClipboardList },
+  { id: "snippets", key: "nav.snippets", icon: Code2 },
+  { id: "launcher", key: "nav.launcher", icon: Rocket },
+  { id: "image_converter", key: "nav.image_converter", icon: ImageIcon },
+  { id: "file_search", key: "nav.file_search", icon: Search },
 ];
 
 export function Sidebar() {
   const { activeView, setActiveView, dataDir } = useApp();
+  const { t } = useI18n();
 
   return (
     <aside class="w-56 h-full bg-sidebar border-r border-sidebar-border flex flex-col justify-between select-none flex-shrink-0">
@@ -34,7 +35,7 @@ export function Sidebar() {
           Utilities Suite
         </div>
 
-        {navItems.map((item) => {
+        {navDefs.map((item) => {
           const isActive = activeView() === item.id;
           const Icon = item.icon;
           return (
@@ -47,7 +48,7 @@ export function Sidebar() {
               }`}
             >
               <Icon size={16} class={isActive ? "text-primary-foreground" : "text-muted-foreground"} />
-              <span class="truncate">{item.label}</span>
+              <span class="truncate">{t(item.key)}</span>
             </button>
           );
         })}
@@ -74,7 +75,7 @@ export function Sidebar() {
           }`}
         >
           <Settings size={16} class={activeView() === "settings" ? "text-primary-foreground" : "text-muted-foreground"} />
-          <span>Settings</span>
+          <span>{t("nav.settings")}</span>
         </button>
       </div>
     </aside>

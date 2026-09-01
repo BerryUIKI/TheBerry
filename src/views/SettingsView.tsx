@@ -13,13 +13,14 @@ import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
 import { GooseConfigModal } from "../components/goose/GooseConfigModal";
-import { getAIConfig } from "../services/goose";
+import { getAIConfig, saveAIConfig } from "../services/goose";
 import { QuickLookStatus } from "../types/quicklook";
 import { AIConfig } from "../types/goose";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Settings,
   FolderDot,
@@ -40,15 +41,18 @@ import {
   Upload,
   Copy,
   Check,
+  Languages,
 } from "lucide-solid";
 
 export function SettingsView() {
   const { success, error, info } = useToast();
   const { dataDir } = useApp();
   const { theme, setTheme } = useTheme();
+  const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
     version: "0.1.2",
     theme: "dark",
+    language: "en",
     close_to_tray: true,
     autostart: false,
     clipboard_history_limit: 200,
@@ -435,13 +439,74 @@ export function SettingsView() {
       <div class="p-4 bg-card border border-border rounded-lg space-y-4">
         <h2 class="text-xs font-semibold text-foreground flex items-center space-x-2">
           <ShieldCheck size={15} class="text-primary" />
-          <span>Window & System Behavior</span>
+          <span>{t("settings.general")}</span>
         </h2>
+
+        {/* Global Interface Language Selector */}
+        <div class="space-y-2 p-3 bg-secondary/20 border border-border rounded-lg">
+          <div class="flex items-center justify-between">
+            <label class="font-semibold text-foreground flex items-center space-x-1.5">
+              <Languages size={15} class="text-primary" />
+              <span>{t("settings.language")}</span>
+            </label>
+            <span class="text-[10px] text-muted-foreground">{t("settings.language_desc")}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                await setLanguage("en");
+                if (aiConfig()) {
+                  await saveAIConfig({ ...aiConfig()!, language: "en" });
+                }
+                success(t("settings.saved_success"), "Interface language set to English (TheBerry AI)");
+              }}
+              class={`p-2.5 rounded-lg border text-left transition-all ${
+                language() === "en"
+                  ? "bg-primary/10 border-primary text-foreground font-semibold shadow-xs"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-foreground">English</span>
+                <Show when={language() === "en"}>
+                  <Check size={12} class="text-primary ml-auto" />
+                </Show>
+              </div>
+              <p class="text-[10px] text-muted-foreground mt-0.5">Assistant name: TheBerry AI</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await setLanguage("zh");
+                if (aiConfig()) {
+                  await saveAIConfig({ ...aiConfig()!, language: "zh" });
+                }
+                success(t("settings.saved_success"), "界面语言已切换为简体中文 (豆花 AI)");
+              }}
+              class={`p-2.5 rounded-lg border text-left transition-all ${
+                language() === "zh"
+                  ? "bg-primary/10 border-primary text-foreground font-semibold shadow-xs"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-foreground">简体中文</span>
+                <Show when={language() === "zh"}>
+                  <Check size={12} class="text-primary ml-auto" />
+                </Show>
+              </div>
+              <p class="text-[10px] text-muted-foreground mt-0.5">助手名称: 豆花 AI</p>
+            </button>
+          </div>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           {/* Theme */}
           <div class="space-y-2">
-            <label class="font-medium text-foreground block">Appearance Theme</label>
+            <label class="font-medium text-foreground block">{t("settings.theme")}</label>
             <div class="flex space-x-2">
               <button
                 onClick={() => {
@@ -455,7 +520,7 @@ export function SettingsView() {
                 }`}
               >
                 <Moon size={14} />
-                <span>Dark Mode</span>
+                <span>{t("settings.theme_dark")}</span>
               </button>
               <button
                 onClick={() => {
@@ -469,7 +534,7 @@ export function SettingsView() {
                 }`}
               >
                 <Sun size={14} />
-                <span>Light Mode</span>
+                <span>{t("settings.theme_light")}</span>
               </button>
             </div>
           </div>
@@ -486,7 +551,7 @@ export function SettingsView() {
                   class="rounded"
                 />
                 <span class="text-muted-foreground">
-                  Launch TheBerry automatically on system startup (Boot)
+                  {t("settings.autostart_desc")}
                 </span>
               </label>
 
@@ -498,7 +563,7 @@ export function SettingsView() {
                   class="rounded"
                 />
                 <span class="text-muted-foreground">
-                  Minimize / close to system tray instead of exiting
+                  {t("settings.close_to_tray_desc")}
                 </span>
               </label>
             </div>
@@ -509,7 +574,7 @@ export function SettingsView() {
             <div class="flex items-center justify-between">
               <label class="font-medium text-foreground flex items-center space-x-1.5">
                 <Eye size={14} class="text-primary" />
-                <span>QuickLook File Preview (Windows)</span>
+                <span>{t("settings.quicklook")}</span>
               </label>
               <Show when={qlStatus()}>
                 <span
@@ -532,7 +597,7 @@ export function SettingsView() {
               </Show>
             </div>
             <p class="text-[11px] text-muted-foreground leading-relaxed">
-              Press <kbd class="px-1.5 py-0.5 rounded bg-muted font-mono">Space</kbd> on any file in File Search or Spotlight HUD to launch instant native previews.
+              {t("settings.quicklook_desc")}
             </p>
             <Show when={qlStatus()?.is_supported_os && !qlStatus()?.is_installed}>
               <div class="pt-1">
@@ -554,7 +619,7 @@ export function SettingsView() {
             <div class="flex items-center justify-between">
               <label class="font-medium text-foreground flex items-center space-x-1.5">
                 <Sparkles size={14} class="text-primary" />
-                <span>TheBerry AI & Goose Assistant</span>
+                <span>{t("settings.ai_assistant")}</span>
               </label>
               <div class="flex items-center space-x-2">
                 <Show when={aiConfig()}>
@@ -567,12 +632,12 @@ export function SettingsView() {
                   class="px-2.5 py-1 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded text-xs font-medium flex items-center space-x-1 transition-colors"
                 >
                   <Settings size={12} class="text-primary" />
-                  <span>Configure</span>
+                  <span>{t("settings.configure")}</span>
                 </button>
               </div>
             </div>
             <p class="text-[11px] text-muted-foreground leading-relaxed">
-              Configure LLM providers (OpenAI, Anthropic, Google Gemini, Ollama Local, DeepSeek, Groq, OpenRouter), API credentials, and MCP tool extensions.
+              {t("settings.ai_desc")}
             </p>
           </div>
         </div>

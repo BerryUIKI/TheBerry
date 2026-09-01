@@ -20,10 +20,16 @@ impl Default for BootstrapConfig {
     }
 }
 
+fn default_app_language() -> String {
+    "en".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub version: String,
     pub theme: String, // "dark" | "light" | "system"
+    #[serde(default = "default_app_language")]
+    pub language: String, // "en" | "zh"
     pub close_to_tray: bool,
     pub autostart: bool,
     pub clipboard_history_limit: usize,
@@ -35,6 +41,7 @@ impl Default for AppConfig {
         Self {
             version: "0.1.2".to_string(),
             theme: "dark".to_string(),
+            language: "en".to_string(),
             close_to_tray: true,
             autostart: false,
             clipboard_history_limit: 200,

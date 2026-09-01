@@ -2,6 +2,7 @@ import { createSignal, onMount, For, Show } from "solid-js";
 import { AIConfig, CustomMcpServer } from "../../types/goose";
 import { getAIConfig, saveAIConfig } from "../../services/goose";
 import { useToast } from "../../context/ToastContext";
+import { useI18n } from "../../context/I18nContext";
 import {
   Settings,
   X,
@@ -115,8 +116,9 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   },
 ];
 
-export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
+  export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, error } = useToast();
+  const { setLanguage: setGlobalLanguage } = useI18n();
   const [activeTab, setActiveTab] = createSignal<"provider" | "params" | "profile" | "extensions" | "daemon">("provider");
   const [showApiKey, setShowApiKey] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
@@ -560,7 +562,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                   <div class="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={() => setConfig({ ...config(), language: "en" })}
+                      onClick={() => {
+                        setConfig({ ...config(), language: "en" });
+                        setGlobalLanguage("en");
+                      }}
                       class={`p-2.5 rounded-xl border text-left transition-all ${
                         config().language !== "zh"
                           ? "bg-primary/10 border-primary text-foreground shadow-xs"
@@ -573,7 +578,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
 
                     <button
                       type="button"
-                      onClick={() => setConfig({ ...config(), language: "zh" })}
+                      onClick={() => {
+                        setConfig({ ...config(), language: "zh" });
+                        setGlobalLanguage("zh");
+                      }}
                       class={`p-2.5 rounded-xl border text-left transition-all ${
                         config().language === "zh"
                           ? "bg-primary/10 border-primary text-foreground shadow-xs"

@@ -24,6 +24,7 @@ import {
 } from "../../services/goose";
 import { GooseStatus, GooseChatMessage, GooseStreamChunk, AIConfig } from "../../types/goose";
 import { GooseConfigModal } from "./GooseConfigModal";
+import { useI18n } from "../../context/I18nContext";
 
 interface GooseSidebarProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ interface GooseSidebarProps {
 }
 
 export function GooseSidebar(props: GooseSidebarProps) {
+  const { t, language, assistantName } = useI18n();
   const [messages, setMessages] = createSignal<GooseChatMessage[]>([]);
   const [inputValue, setInputValue] = createSignal("");
   const [isGenerating, setIsGenerating] = createSignal(false);
@@ -215,8 +217,6 @@ export function GooseSidebar(props: GooseSidebarProps) {
     setMessages([]);
     setSessionId("sess_" + Math.random().toString(36).substring(2, 9));
   };
-
-  const assistantName = () => (aiConfig()?.language === "zh" ? "豆花" : "TheBerry");
 
   return (
     <>
