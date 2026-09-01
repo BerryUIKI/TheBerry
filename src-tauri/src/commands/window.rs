@@ -57,3 +57,13 @@ pub async fn toggle_hud_window(app: AppHandle, show: Option<bool>) -> Result<boo
         Err("HUD window not found".to_string())
     }
 }
+
+#[tauri::command]
+pub async fn resize_hud_window(app: AppHandle, height: f64) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("hud") {
+        window
+            .set_size(tauri::LogicalSize::new(640.0, height))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}

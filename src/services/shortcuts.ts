@@ -11,3 +11,7 @@ export async function setHudShortcut(shortcut: string): Promise<void> {
 export async function toggleHudWindow(show?: boolean): Promise<boolean> {
   return safeInvoke<boolean>("toggle_hud_window", { show: show ?? null });
 }
+
+export async function resizeHudWindow(height: number): Promise<void> {
+  return safeInvoke<void>("resize_hud_window", { height });
+}
