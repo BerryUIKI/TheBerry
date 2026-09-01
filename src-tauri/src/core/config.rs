@@ -24,6 +24,14 @@ fn default_app_language() -> String {
     "en".to_string()
 }
 
+fn default_global_shortcuts_enabled() -> bool {
+    true
+}
+
+fn default_hud_shortcut() -> String {
+    "Alt+Space".to_string()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub version: String,
@@ -32,6 +40,10 @@ pub struct AppConfig {
     pub language: String, // "en" | "zh"
     pub close_to_tray: bool,
     pub autostart: bool,
+    #[serde(default = "default_global_shortcuts_enabled")]
+    pub global_shortcuts_enabled: bool,
+    #[serde(default = "default_hud_shortcut")]
+    pub hud_shortcut: String,
     pub clipboard_history_limit: usize,
     pub custom_data_dir: String,
 }
@@ -44,6 +56,8 @@ impl Default for AppConfig {
             language: "en".to_string(),
             close_to_tray: true,
             autostart: false,
+            global_shortcuts_enabled: true,
+            hud_shortcut: "Alt+Space".to_string(),
             clipboard_history_limit: 200,
             custom_data_dir: String::new(),
         }

@@ -4,6 +4,8 @@ export interface AppConfig {
   language: "en" | "zh";
   close_to_tray: boolean;
   autostart: boolean;
+  global_shortcuts_enabled: boolean;
+  hud_shortcut: string;
   clipboard_history_limit: number;
   custom_data_dir: string;
 }
