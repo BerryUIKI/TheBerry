@@ -33,7 +33,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            version: "0.1.0".to_string(),
+            version: "0.1.1".to_string(),
             theme: "dark".to_string(),
             close_to_tray: true,
             autostart: false,

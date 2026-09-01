@@ -9,6 +9,8 @@ import {
   onDownloadProgress,
 } from "../services/updater";
 import { isAutostartEnabled, setAutostart } from "../services/autostart";
+import { exportFullBackup, importFullBackup } from "../services/backup";
+import { copyToSystemClipboard } from "../services/clipboard";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
@@ -28,6 +30,10 @@ import {
   AlertCircle,
   ExternalLink,
   Power,
+  FileArchive,
+  Upload,
+  Copy,
+  Check,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -35,7 +41,7 @@ export function SettingsView() {
   const { dataDir } = useApp();
   const { theme, setTheme } = useTheme();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.0",
+    version: "0.1.1",
     theme: "dark",
     close_to_tray: true,
     autostart: false,
@@ -43,10 +49,13 @@ export function SettingsView() {
     custom_data_dir: "",
   });
   const [autostartActive, setAutostartActive] = createSignal(false);
+  const [showImportModal, setShowImportModal] = createSignal(false);
+  const [importJsonText, setImportJsonText] = createSignal("");
+  const [isExporting, setIsExporting] = createSignal(false);
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.0");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.1");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
@@ -92,6 +101,34 @@ export function SettingsView() {
       }
     } catch (err: any) {
       error("Autostart Failed", err.message || String(err));
+    }
+  };
+
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    try {
+      const json = await exportFullBackup();
+      await copyToSystemClipboard(json);
+      success("Backup JSON Copied", "Full backup data (Clipboard, Snippets, Launcher, Config) copied to clipboard!");
+    } catch (err: any) {
+      error("Export Failed", err.message || String(err));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportBackup = async () => {
+    if (!importJsonText().trim()) {
+      error("Empty JSON", "Please paste backup JSON content");
+      return;
+    }
+    try {
+      const summary = await importFullBackup(importJsonText());
+      setShowImportModal(false);
+      setImportJsonText("");
+      success("Backup Restored", `Restored ${summary.clipboard_count} clips, ${summary.snippets_count} snippets, and ${summary.launcher_count} launcher items.`);
+    } catch (err: any) {
+      error("Restore Failed", err.message || String(err));
     }
   };
 
@@ -301,8 +338,81 @@ export function SettingsView() {
           <p class="text-[11px] text-muted-foreground">
             Contains <code>the_berry.redb</code> embedded database and <code>config.toml</code>. All tool tables and data remain local and offline.
           </p>
+
+          {/* Backup & Restore Action Bar */}
+          <div class="pt-2 border-t border-border flex items-center justify-between">
+            <div>
+              <span class="font-medium text-foreground text-xs block">Data Backup & Portability</span>
+              <span class="text-[11px] text-muted-foreground">Export or restore all database records and preferences as JSON</span>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button
+                disabled={isExporting()}
+                onClick={handleExportBackup}
+                class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded text-xs font-medium flex items-center space-x-1.5 border border-border transition-colors disabled:opacity-50"
+              >
+                <Copy size={13} class="text-primary" />
+                <span>{isExporting() ? "Exporting..." : "Export Backup JSON"}</span>
+              </button>
+              <button
+                onClick={() => setShowImportModal(true)}
+                class="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded text-xs font-medium flex items-center space-x-1.5 transition-colors"
+              >
+                <Upload size={13} />
+                <span>Restore Backup</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* Import Backup Modal */}
+      <Show when={showImportModal()}>
+        <div class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div class="bg-card border border-border rounded-xl shadow-2xl max-w-lg w-full p-5 space-y-4 animate-in zoom-in-95 duration-150">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <FileArchive size={16} class="text-primary" />
+                <h3 class="font-bold text-sm text-foreground">Restore Full Backup</h3>
+              </div>
+              <button
+                onClick={() => setShowImportModal(false)}
+                class="text-muted-foreground hover:text-foreground text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p class="text-xs text-muted-foreground">
+              Paste the exported JSON backup below. This will merge and restore all clipboard history, code snippets, launcher items, and application preferences.
+            </p>
+
+            <textarea
+              rows={8}
+              value={importJsonText()}
+              onInput={(e) => setImportJsonText(e.currentTarget.value)}
+              placeholder='Paste full backup JSON {"version": "0.1.0", ...} here...'
+              class="w-full p-2.5 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+            />
+
+            <div class="flex items-center justify-end space-x-2 pt-2">
+              <button
+                onClick={() => setShowImportModal(false)}
+                class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg text-xs font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImportBackup}
+                class="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-sm"
+              >
+                <Check size={14} />
+                <span>Confirm Restore</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* Appearance & Behavior */}
       <div class="p-4 bg-card border border-border rounded-lg space-y-4">

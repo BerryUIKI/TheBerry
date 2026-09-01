@@ -79,6 +79,9 @@ pub fn run() {
             modules::updater::commands::check_for_updates,
             modules::updater::commands::download_and_install_update,
             modules::updater::commands::get_app_version,
+            // Backup Module
+            modules::backup::commands::export_full_backup,
+            modules::backup::commands::import_full_backup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");
