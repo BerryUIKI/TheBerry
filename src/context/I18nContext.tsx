@@ -22,8 +22,8 @@ const TRANSLATIONS = {
     // Assistant
     "ai.name": "TheBerry",
     "ai.full_name": "TheBerry AI",
-    "ai.drawer_title": "TheBerry AI Assistant",
-    "ai.subtitle": "Ask coding questions, refactor snippets, summarize files, or automate desktop operations.",
+    "ai.drawer_title": "TheBerry Agents",
+    "ai.subtitle": "What’s on the agenda today?",
     "ai.placeholder": "Ask TheBerry ({model})...",
     "ai.placeholder_generic": "Ask TheBerry anything...",
     "ai.configure_provider": "Configure Provider",
@@ -33,6 +33,7 @@ const TRANSLATIONS = {
     "ai.close_drawer": "Close Assistant (Esc)",
     "ai.user_name_default": "You",
     "ai.press_enter": "Press Enter to send",
+    "ai.settings_link": "Settings",
 
     // Settings View
     "settings.title": "Preferences & Settings",
@@ -83,8 +84,8 @@ const TRANSLATIONS = {
     // Assistant
     "ai.name": "豆花",
     "ai.full_name": "豆花 AI",
-    "ai.drawer_title": "豆花 桌面智能助手",
-    "ai.subtitle": "解答编程疑惑、重构代码、提炼文件摘要或执行桌面级自动化操作。",
+    "ai.drawer_title": "豆花 Agents",
+    "ai.subtitle": "有什么我能帮你的吗？",
     "ai.placeholder": "向 豆花 提问 ({model})...",
     "ai.placeholder_generic": "向 豆花 提问任何问题...",
     "ai.configure_provider": "配置模型服务",
@@ -94,6 +95,7 @@ const TRANSLATIONS = {
     "ai.close_drawer": "关闭助手 (Esc)",
     "ai.user_name_default": "你",
     "ai.press_enter": "按 Enter 键发送消息",
+    "ai.settings_link": "配置",
 
     // Settings View
     "settings.title": "偏好设置与系统配置",

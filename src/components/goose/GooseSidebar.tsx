@@ -292,9 +292,9 @@ export function GooseSidebar(props: GooseSidebarProps) {
                 <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
               </div>
               <div class="space-y-1">
-                <p class="text-sm font-bold text-foreground">{assistantName()} AI Assistant</p>
+                <p class="text-sm font-bold text-foreground">{t("ai.drawer_title")}</p>
                 <p class="text-xs leading-relaxed max-w-[280px]">
-                  Ask coding questions, refactor snippets, summarize files, or automate desktop operations.
+                  {t("ai.subtitle")}
                 </p>
               </div>
 
@@ -304,7 +304,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
                   class="px-3.5 py-1.5 rounded-xl bg-secondary border border-border text-foreground text-xs font-medium hover:bg-secondary/80 transition-all flex items-center space-x-1.5 shadow-sm active:scale-95"
                 >
                   <Settings size={13} class="text-primary" />
-                  <span>Configure Provider</span>
+                  <span>{t("ai.configure_provider")}</span>
                 </button>
               </div>
             </div>
@@ -407,8 +407,8 @@ export function GooseSidebar(props: GooseSidebarProps) {
               onKeyDown={handleKeyDown}
               placeholder={
                 aiConfig()?.model
-                  ? `Ask ${assistantName()} (${aiConfig()?.model})...`
-                  : `Ask ${assistantName()} anything...`
+                  ? t("ai.placeholder", { model: aiConfig()!.model })
+                  : t("ai.placeholder_generic")
               }
               disabled={isGenerating()}
               class="flex-1 bg-background border border-input rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 transition-all shadow-inner"
@@ -429,8 +429,20 @@ export function GooseSidebar(props: GooseSidebarProps) {
           </form>
 
           <div class="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/70 px-1">
-            <span>Press <kbd class="px-1 py-0.2 rounded bg-muted font-mono">Enter</kbd> to send</span>
-            <span>TheBerry AI • <span class="text-primary hover:underline cursor-pointer" onClick={() => setShowConfigModal(true)}>Settings</span></span>
+            <span>
+              {language() === "zh" ? "按 " : "Press "}
+              <kbd class="px-1 py-0.2 rounded bg-muted font-mono">Enter</kbd>
+              {language() === "zh" ? " 发送" : " to send"}
+            </span>
+            <span>
+              {assistantName()} AI •{" "}
+              <span
+                class="text-primary hover:underline cursor-pointer"
+                onClick={() => setShowConfigModal(true)}
+              >
+                {t("ai.settings_link")}
+              </span>
+            </span>
           </div>
         </div>
       </aside>
