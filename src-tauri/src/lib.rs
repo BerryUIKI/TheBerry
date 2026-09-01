@@ -88,6 +88,10 @@ pub fn run() {
             modules::goose::commands::stop_goose_daemon,
             modules::goose::commands::send_goose_message,
             modules::goose::commands::set_goose_custom_binary_path,
+            // QuickLook Windows-Only Preview Module
+            modules::quicklook::commands::get_quicklook_status,
+            modules::quicklook::commands::quicklook_preview,
+            modules::quicklook::commands::quicklook_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");
