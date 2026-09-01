@@ -54,10 +54,10 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   {
     id: "gemini",
     name: "Google Gemini",
-    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultRequestFormat: "openai",
-    defaultModel: "gemini-1.5-pro",
-    models: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    defaultRequestFormat: "gemini",
+    defaultModel: "gemini-flash-latest",
+    models: ["gemini-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"],
     requiresApiKey: true,
     helpUrl: "https://aistudio.google.com/app/apikey",
   },
@@ -219,7 +219,11 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
       return raw ? (raw.endsWith("/messages") ? raw : `${raw.replace(/\/+$/, "")}/messages`) : "https://api.anthropic.com/v1/messages";
     }
     if (fmt === "gemini") {
-      return raw ? (raw.includes("streamGenerateContent") ? raw : `${raw.replace(/\/+$/, "")}/models/${mdl}:streamGenerateContent`) : `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:streamGenerateContent`;
+      const base = raw || "https://generativelanguage.googleapis.com/v1beta";
+      if (base.includes(":generateContent") || base.includes(":streamGenerateContent")) {
+        return base;
+      }
+      return `${base.replace(/\/+$/, "")}/models/${mdl}:streamGenerateContent?alt=sse`;
     }
     if (fmt === "ollama") {
       return raw ? (raw.endsWith("/api/chat") || raw.endsWith("/chat/completions") ? raw : `${raw.replace(/\/+$/, "")}/api/chat`) : "http://localhost:11434/api/chat";
@@ -340,7 +344,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 {/* API Request Format / Protocol Selector */}
                 <div class="space-y-1.5">
                   <label class="font-semibold text-foreground flex items-center justify-between">
-                    <span>API Protocol / Request Format (请求格式)</span>
+                    <span>API Protocol / Request Format</span>
                     <span class="text-[10px] text-muted-foreground">Controls endpoint payload schema</span>
                   </label>
                   <select
@@ -357,7 +361,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 </div>
 
                 {/* API Key */}
-                <Show when={currentPreset().requiresApiKey || config().request_format === "anthropic" || config().request_format === "openai"}>
+                <Show when={currentPreset().requiresApiKey || config().request_format === "anthropic" || config().request_format === "openai" || config().request_format === "gemini"}>
                   <div class="space-y-1.5">
                     <label class="font-semibold text-foreground flex items-center justify-between">
                       <span>API Key</span>
@@ -403,7 +407,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     class="w-full px-3 py-2 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   <div class="p-2 rounded bg-muted/40 border border-border/50 text-[10px] space-y-0.5">
-                    <span class="font-semibold text-foreground block">Resolved Request Target (免 404 智能解析):</span>
+                    <span class="font-semibold text-foreground block">Resolved Request Target:</span>
                     <span class="font-mono text-primary break-all block">{resolvedEndpointPreview()}</span>
                   </div>
                 </div>

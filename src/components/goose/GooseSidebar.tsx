@@ -310,7 +310,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
             <For each={messages()}>
               {(msg) => (
                 <div
-                  class={`flex items-start space-x-2.5 ${
+                  class={`flex items-start space-x-2.5 w-full min-w-0 ${
                     msg.sender === "user" ? "flex-row-reverse space-x-reverse" : "flex-row"
                   }`}
                 >
@@ -329,7 +329,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
                   {/* Bubble & Metadata */}
                   <div
-                    class={`flex flex-col space-y-1 max-w-[85%] ${
+                    class={`flex flex-col space-y-1 max-w-[calc(100%-2.5rem)] min-w-0 ${
                       msg.sender === "user" ? "items-end" : "items-start"
                     }`}
                   >
@@ -339,10 +339,25 @@ export function GooseSidebar(props: GooseSidebarProps) {
                       </span>
                       <span>•</span>
                       <span>{msg.timestamp}</span>
+                      <Show when={msg.content && !msg.isStreaming}>
+                        <span>•</span>
+                        <button
+                          onClick={() => handleCopyMessage(msg.id, msg.content)}
+                          class="text-[10px] text-muted-foreground hover:text-primary transition-colors inline-flex items-center space-x-0.5"
+                          title="Copy message text"
+                        >
+                          {copiedId() === msg.id ? (
+                            <Check size={10} class="text-emerald-500" />
+                          ) : (
+                            <Copy size={10} />
+                          )}
+                          <span>{copiedId() === msg.id ? "Copied" : "Copy"}</span>
+                        </button>
+                      </Show>
                     </div>
 
                     <div
-                      class={`relative group rounded-2xl px-3.5 py-2.5 text-xs break-words leading-relaxed shadow-xs ${
+                      class={`rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed shadow-xs min-w-0 max-w-full overflow-hidden ${
                         msg.sender === "user"
                           ? "bg-primary text-primary-foreground shadow-sm rounded-tr-xs"
                           : msg.sender === "system"
@@ -350,37 +365,18 @@ export function GooseSidebar(props: GooseSidebarProps) {
                           : "bg-secondary text-secondary-foreground border border-border rounded-tl-xs"
                       }`}
                     >
-                      <div class="whitespace-pre-wrap font-sans">{msg.content}</div>
+                      <div class="whitespace-pre-wrap font-sans break-words [overflow-wrap:anywhere] select-text">
+                        {msg.content}
+                      </div>
 
                       <Show when={msg.isStreaming}>
                         <span class="inline-block w-1.5 h-3.5 ml-1 bg-primary animate-pulse align-middle" />
                       </Show>
 
                       <Show when={msg.error}>
-                        <div class="mt-2 p-2 bg-destructive/15 border border-destructive/30 rounded-lg text-destructive text-[11px] flex items-start space-x-1.5">
+                        <div class="mt-2 p-2 bg-destructive/15 border border-destructive/30 rounded-lg text-destructive text-[11px] flex items-start space-x-1.5 break-words [overflow-wrap:anywhere]">
                           <AlertCircle size={13} class="flex-shrink-0 mt-0.5" />
                           <span>{msg.error}</span>
-                        </div>
-                      </Show>
-
-                      <Show when={msg.content && !msg.isStreaming}>
-                        <div
-                          class={`absolute -bottom-6 ${
-                            msg.sender === "user" ? "right-1" : "left-1"
-                          } opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 z-10`}
-                        >
-                          <button
-                            onClick={() => handleCopyMessage(msg.id, msg.content)}
-                            title="Copy response"
-                            class="p-1 rounded bg-background border border-border text-muted-foreground hover:text-foreground text-[10px] shadow-sm flex items-center space-x-0.5"
-                          >
-                            {copiedId() === msg.id ? (
-                              <Check size={10} class="text-emerald-500" />
-                            ) : (
-                              <Copy size={10} />
-                            )}
-                            <span>{copiedId() === msg.id ? "Copied" : "Copy"}</span>
-                          </button>
                         </div>
                       </Show>
                     </div>

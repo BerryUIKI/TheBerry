@@ -160,25 +160,33 @@ impl GooseService {
                 (url, body, true, false)
             }
             "gemini" => {
-                let url = if raw_base.is_empty() {
-                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model, cfg.api_key.trim())
-                } else if raw_base.contains("streamGenerateContent") {
-                    raw_base.to_string()
-                } else {
-                    format!("{}/models/{}:streamGenerateContent?key={}", raw_base.trim_end_matches('/'), model, cfg.api_key.trim())
-                };
-
                 let full_prompt = if cfg.system_prompt.is_empty() {
                     payload.prompt.clone()
                 } else {
                     format!("{}\n\n{}", cfg.system_prompt, payload.prompt)
                 };
 
+                let mut url = if raw_base.is_empty() {
+                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse", model)
+                } else if raw_base.contains(":generateContent") || raw_base.contains(":streamGenerateContent") {
+                    raw_base.to_string()
+                } else if raw_base.contains("/models/") {
+                    format!("{}:streamGenerateContent?alt=sse", raw_base.trim_end_matches('/'))
+                } else {
+                    format!("{}/models/{}:streamGenerateContent?alt=sse", raw_base.trim_end_matches('/'), model)
+                };
+
+                if !cfg.api_key.trim().is_empty() && !url.contains("key=") {
+                    let sep = if url.contains('?') { '&' } else { '?' };
+                    url = format!("{}{}{}", url, sep, format!("key={}", cfg.api_key.trim()));
+                }
+
                 let body = serde_json::json!({
                     "contents": [
                         {
-                            "role": "user",
-                            "parts": [{ "text": full_prompt }]
+                            "parts": [
+                                { "text": full_prompt }
+                            ]
                         }
                     ],
                     "generationConfig": {
@@ -269,7 +277,9 @@ impl GooseService {
             if is_anthropic {
                 req = req.header("x-api-key", cfg.api_key.trim())
                     .header("anthropic-version", "2023-06-01");
-            } else if !is_gemini {
+            } else if is_gemini {
+                req = req.header("X-goog-api-key", cfg.api_key.trim());
+            } else {
                 req = req.header("Authorization", format!("Bearer {}", cfg.api_key.trim()));
             }
         }
@@ -347,34 +357,19 @@ impl GooseService {
                             }
 
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
-                                // Multi-protocol delta extractor:
-                                // 1. OpenAI / OneAPI / DeepSeek: choices[0].delta.content
-                                // 2. Anthropic: delta.text or content_block.text
-                                // 3. Gemini: candidates[0].content.parts[0].text
-                                // 4. Ollama: message.content or response
-                                let delta = json.pointer("/choices/0/delta/content")
-                                    .and_then(|v| v.as_str())
-                                    .or_else(|| json.pointer("/delta/text").and_then(|v| v.as_str()))
-                                    .or_else(|| json.pointer("/content_block/text").and_then(|v| v.as_str()))
-                                    .or_else(|| json.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()))
-                                    .or_else(|| json.pointer("/message/content").and_then(|v| v.as_str()))
-                                    .or_else(|| json.get("response").and_then(|v| v.as_str()))
-                                    .or_else(|| json.get("delta").and_then(|v| v.as_str()))
-                                    .or_else(|| json.get("text").and_then(|v| v.as_str()))
-                                    .or_else(|| json.get("content").and_then(|v| v.as_str()))
-                                    .unwrap_or("");
-
-                                if !delta.is_empty() {
-                                    let stream_chunk = GooseStreamChunk {
-                                        session_id: session_id.clone(),
-                                        message_id: message_id.clone(),
-                                        delta: delta.to_string(),
-                                        is_finished: false,
-                                        error: None,
-                                    };
-                                    let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+                                if let Some(delta) = Self::extract_text_from_value(&json) {
+                                    if !delta.is_empty() {
+                                        let stream_chunk = GooseStreamChunk {
+                                            session_id: session_id.clone(),
+                                            message_id: message_id.clone(),
+                                            delta,
+                                            is_finished: false,
+                                            error: None,
+                                        };
+                                        let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+                                    }
                                 }
-                            } else if !data_str.is_empty() && !data_str.starts_with("event:") {
+                            } else if !data_str.is_empty() && !data_str.starts_with("event:") && !data_str.starts_with(':') && !data_str.starts_with('{') && !data_str.starts_with('[') {
                                 let stream_chunk = GooseStreamChunk {
                                     session_id: session_id.clone(),
                                     message_id: message_id.clone(),
@@ -412,6 +407,73 @@ impl GooseService {
         let _ = app_handle.emit("goose://stream-chunk", final_chunk);
 
         Ok(())
+    }
+
+    /// Recursively and robustly extracts text content from various LLM response formats
+    fn extract_text_from_value(val: &serde_json::Value) -> Option<String> {
+        // 1. Array of objects (e.g. Gemini batch response or candidate array)
+        if let Some(arr) = val.as_array() {
+            let mut combined = String::new();
+            for item in arr {
+                if let Some(t) = Self::extract_text_from_value(item) {
+                    combined.push_str(&t);
+                }
+            }
+            if !combined.is_empty() {
+                return Some(combined);
+            }
+        }
+
+        // 2. OpenAI / OneAPI / DeepSeek / Groq: choices[0].delta.content or choices[0].message.content
+        if let Some(c) = val.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+            return Some(c.to_string());
+        }
+        if let Some(c) = val.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+            return Some(c.to_string());
+        }
+
+        // 3. Anthropic Claude: delta.text or content_block.text
+        if let Some(t) = val.pointer("/delta/text").and_then(|v| v.as_str()) {
+            return Some(t.to_string());
+        }
+        if let Some(t) = val.pointer("/content_block/text").and_then(|v| v.as_str()) {
+            return Some(t.to_string());
+        }
+
+        // 4. Google Gemini: candidates[0].content.parts[0].text (extract from all candidates & parts)
+        if let Some(candidates) = val.get("candidates").and_then(|v| v.as_array()) {
+            let mut text = String::new();
+            for cand in candidates {
+                if let Some(parts) = cand.pointer("/content/parts").and_then(|v| v.as_array()) {
+                    for part in parts {
+                        if let Some(t) = part.get("text").and_then(|v| v.as_str()) {
+                            text.push_str(t);
+                        }
+                    }
+                }
+            }
+            if !text.is_empty() {
+                return Some(text);
+            }
+        }
+
+        // 5. Ollama: message.content or response
+        if let Some(c) = val.pointer("/message/content").and_then(|v| v.as_str()) {
+            return Some(c.to_string());
+        }
+        if let Some(c) = val.get("response").and_then(|v| v.as_str()) {
+            return Some(c.to_string());
+        }
+
+        // 6. Direct common text fields
+        if let Some(t) = val.get("text").and_then(|v| v.as_str()) {
+            return Some(t.to_string());
+        }
+        if let Some(c) = val.get("content").and_then(|v| v.as_str()) {
+            return Some(c.to_string());
+        }
+
+        None
     }
 }
 
