@@ -41,7 +41,7 @@ export function SettingsView() {
   const { dataDir } = useApp();
   const { theme, setTheme } = useTheme();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.1",
+    version: "0.1.2",
     theme: "dark",
     close_to_tray: true,
     autostart: false,
@@ -55,7 +55,7 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.1");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.2");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);

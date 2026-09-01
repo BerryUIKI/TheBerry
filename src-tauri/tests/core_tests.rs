@@ -28,7 +28,7 @@ fn test_config_manager_load_save() {
     let manager = ConfigManager::new();
     let initial_config = manager.load_app_config(&data_dir).expect("failed to load initial config");
 
-    assert_eq!(initial_config.version, "0.1.1");
+    assert_eq!(initial_config.version, "0.1.2");
     assert_eq!(initial_config.theme, "dark");
     assert!(initial_config.close_to_tray);
 

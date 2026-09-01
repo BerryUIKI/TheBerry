@@ -81,7 +81,7 @@ impl BackupService {
         let config = self.config_manager.get_app_config();
 
         let backup = FullBackupData {
-            version: "0.1.1".to_string(),
+            version: "0.1.2".to_string(),
             created_at: Utc::now(),
             config,
             clipboard_items,

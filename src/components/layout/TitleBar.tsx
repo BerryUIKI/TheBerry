@@ -66,7 +66,7 @@ export function TitleBar() {
           TheBerry
         </span>
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-          v0.1.1
+          v0.1.2
         </span>
 
         {/* Update Notification Pill */}
