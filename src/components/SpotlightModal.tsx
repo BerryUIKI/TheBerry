@@ -3,6 +3,7 @@ import { getLauncherItems, launchItem } from "../services/launcher";
 import { getClipboardHistory, copyToSystemClipboard } from "../services/clipboard";
 import { getSnippets, copyExpandedSnippet } from "../services/snippets";
 import { searchFiles, openFilePath, revealInExplorer } from "../services/fileSearch";
+import { previewWithQuickLook } from "../services/quicklook";
 import { useToast } from "../context/ToastContext";
 import {
   Search,
@@ -15,6 +16,7 @@ import {
   Command,
   Copy,
   FolderOpen,
+  Eye,
 } from "lucide-solid";
 
 export interface SpotlightItem {
@@ -214,6 +216,15 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
         e.preventDefault();
         revealCurrentItem(current);
       }
+    } else if (e.code === "Space" && (e.shiftKey || e.ctrlKey)) {
+      const current = results()[selectedIndex()];
+      if (current && current.category === "file") {
+        e.preventDefault();
+        previewWithQuickLook(current.rawPayload.path);
+      } else if (current && current.category === "app" && current.rawPayload.exec_path) {
+        e.preventDefault();
+        previewWithQuickLook(current.rawPayload.exec_path);
+      }
     }
   };
 
@@ -392,6 +403,18 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
                     </div>
 
                     <div class="flex items-center space-x-2 flex-shrink-0">
+                      <Show when={item.category === "file"}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            previewWithQuickLook(item.rawPayload.path);
+                          }}
+                          title="Quick Look Preview"
+                          class="p-1 rounded hover:bg-secondary/80 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Eye size={13} />
+                        </button>
+                      </Show>
                       <Show when={selectedIndex() === idx()}>
                         <span class="text-[10px] opacity-75 font-mono">↵ Run</span>
                       </Show>
@@ -413,6 +436,7 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
             <div class="flex items-center space-x-3 font-medium">
               <span>↑↓ Navigate</span>
               <span>↵ Open</span>
+              <span>Shift+Space Preview</span>
               <span>Ctrl+C Copy</span>
               <span>Ctrl+E Reveal</span>
             </div>
