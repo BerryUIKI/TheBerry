@@ -25,6 +25,7 @@ import {
 import { GooseStatus, GooseChatMessage, GooseStreamChunk, AIConfig } from "../../types/goose";
 import { GooseConfigModal } from "./GooseConfigModal";
 import { useI18n } from "../../context/I18nContext";
+import { MarkdownContent } from "../common/MarkdownContent";
 
 interface GooseSidebarProps {
   isOpen: boolean;
@@ -373,9 +374,15 @@ export function GooseSidebar(props: GooseSidebarProps) {
                           : "bg-secondary text-secondary-foreground border border-border rounded-tl-xs"
                       }`}
                     >
-                      <div class="whitespace-pre-wrap font-sans break-words [overflow-wrap:anywhere] select-text">
-                        {msg.content}
-                      </div>
+                      {msg.sender === "user" ? (
+                        <div class="whitespace-pre-wrap font-sans break-words [overflow-wrap:anywhere] select-text">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div class="min-w-0 select-text">
+                          <MarkdownContent content={msg.content} />
+                        </div>
+                      )}
 
                       <Show when={msg.isStreaming}>
                         <span class="inline-block w-1.5 h-3.5 ml-1 bg-primary animate-pulse align-middle" />
