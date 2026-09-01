@@ -49,29 +49,13 @@ export function HudView() {
   const [isSearching, setIsSearching] = createSignal(false);
 
   let inputRef: HTMLInputElement | undefined;
+  let cardRef: HTMLDivElement | undefined;
 
   // Determine current mode based on query prefix
   const isSearchMode = () => {
     const q = query().trimStart();
     return q.startsWith("/fin") || q.startsWith("/f ");
   };
-
-  const isExpanded = () => {
-    if (isSearchMode()) {
-      return Boolean(getCleanSearchQuery());
-    }
-    return Boolean(aiResponse() || lastPrompt() || isGenerating() || aiError());
-  };
-
-  createEffect(async () => {
-    const expanded = isExpanded();
-    try {
-      const win = getCurrentWebviewWindow();
-      await win.setSize(new LogicalSize(640, expanded ? 440 : 84));
-    } catch (e) {
-      console.warn("Resize error:", e);
-    }
-  });
 
   const getCleanSearchQuery = () => {
     const q = query().trimStart();
@@ -90,7 +74,7 @@ export function HudView() {
     return [...launchers, ...files];
   };
 
-  // Focus input and fetch initial config
+  // Focus input, fetch initial config, and bind ResizeObserver for dynamic adaptive height
   onMount(async () => {
     try {
       const cfg = await getAIConfig();
@@ -103,6 +87,24 @@ export function HudView() {
 
     if (inputRef) {
       inputRef.focus();
+    }
+
+    // Dynamic height resize observer
+    let resizeObserver: ResizeObserver | null = null;
+    if (cardRef) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const height = entry.borderBoxSize?.[0]?.blockSize || entry.contentRect.height;
+          const targetHeight = Math.ceil(height) + 16;
+          try {
+            const win = getCurrentWebviewWindow();
+            win.setSize(new LogicalSize(660, Math.min(520, Math.max(90, targetHeight))));
+          } catch (e) {
+            console.warn("Resize error:", e);
+          }
+        }
+      });
+      resizeObserver.observe(cardRef);
     }
 
     // Listen for AI streaming chunks
@@ -125,6 +127,7 @@ export function HudView() {
     });
 
     onCleanup(() => {
+      if (resizeObserver) resizeObserver.disconnect();
       if (unlistenStream) unlistenStream();
     });
   });
@@ -287,16 +290,19 @@ export function HudView() {
   };
 
   return (
-    <div class="w-full h-full bg-transparent flex flex-col items-center justify-start p-2 font-sans select-none animate-in fade-in zoom-in-95">
+    <div class="w-full bg-transparent flex flex-col items-center justify-start p-2 font-sans select-none animate-in fade-in zoom-in-95">
       {/* 1. Main Search & Prompt Bar (1Password / Raycast Style) */}
-      <div class="w-full bg-[#18181b]/95 dark:bg-[#121215]/95 backdrop-blur-2xl rounded-2xl border border-rose-500/30 shadow-[0_20px_50px_rgba(0,0,0,0.8)] ring-1 ring-white/10 flex flex-col overflow-hidden transition-all">
-        <div class="flex items-center px-4 py-3.5 space-x-3">
+      <div
+        ref={cardRef}
+        class="w-full bg-[#18181b]/98 dark:bg-[#121215]/98 backdrop-blur-2xl rounded-2xl border border-rose-500/25 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.7)] ring-1 ring-white/10 flex flex-col overflow-hidden transition-all duration-150"
+      >
+        <div class="flex items-center px-4 py-2.5 space-x-3">
           {/* Leading Mode Icon */}
           <div class="flex-shrink-0 flex items-center justify-center text-rose-400">
             {isSearchMode() ? (
-              <Search size={18} class="text-sky-400" />
+              <Search size={17} class="text-sky-400" />
             ) : (
-              <Sparkles size={18} class="text-rose-400" />
+              <Sparkles size={17} class="text-rose-400" />
             )}
           </div>
 
@@ -312,24 +318,24 @@ export function HudView() {
                 ? `向 ${assistantName()} 提问... (输入 /fin 检索本地文件)`
                 : `Ask ${assistantName()} anything... (Type /fin to search files)`
             }
-            class="flex-1 bg-transparent border-none outline-none text-sm text-zinc-100 placeholder:text-zinc-500 font-medium"
+            class="flex-1 bg-transparent border-none outline-none text-xs text-zinc-100 placeholder:text-zinc-500 font-medium"
             autofocus
           />
 
           {/* Right Mode Tag & Status */}
           <div class="flex items-center space-x-2 flex-shrink-0">
             <Show when={isSearchMode()}>
-              <span class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-[10px] font-mono font-semibold text-sky-400">
+              <span class="px-2 py-0.5 rounded bg-sky-500/15 border border-sky-500/30 text-[9px] font-mono font-semibold text-sky-400">
                 LOCAL SEARCH
               </span>
             </Show>
 
             <Show when={isGenerating() || isSearching()}>
-              <RefreshCw size={14} class="animate-spin text-rose-400" />
+              <RefreshCw size={13} class="animate-spin text-rose-400" />
             </Show>
 
             <Show when={!isGenerating() && !isSearching()}>
-              <div class="w-6 h-6 rounded-full overflow-hidden shadow-xs ring-1 ring-border/50 bg-black/20 flex items-center justify-center">
+              <div class="w-5 h-5 rounded-full overflow-hidden shadow-xs ring-1 ring-border/50 bg-black/20 flex items-center justify-center">
                 <img src="/berry.png" alt="Berry" class="w-full h-full object-cover" />
               </div>
             </Show>
@@ -338,15 +344,15 @@ export function HudView() {
 
         {/* 2. Expanded AI Conversation Card */}
         <Show when={!isSearchMode() && (aiResponse() || lastPrompt() || isGenerating() || aiError())}>
-          <div class="border-t border-zinc-800/80 bg-zinc-950/60 p-4 max-h-[340px] overflow-y-auto space-y-3">
+          <div class="border-t border-zinc-800/80 bg-zinc-950/60 p-3.5 max-h-[340px] overflow-y-auto space-y-2.5">
             {/* Prompt Echo */}
-            <div class="flex items-start justify-between text-xs text-zinc-400 border-b border-zinc-800/50 pb-2">
+            <div class="flex items-start justify-between text-xs text-zinc-400 border-b border-zinc-800/50 pb-1.5">
               <span class="font-medium text-zinc-300 line-clamp-1">{lastPrompt()}</span>
               <Show when={aiResponse() && !isGenerating()}>
                 <button
                   type="button"
                   onClick={handleCopyAIResponse}
-                  class="text-[11px] text-zinc-400 hover:text-rose-400 flex items-center space-x-1 transition-colors ml-2 flex-shrink-0"
+                  class="text-[10px] text-zinc-400 hover:text-rose-400 flex items-center space-x-1 transition-colors ml-2 flex-shrink-0"
                 >
                   {copiedResponse() ? (
                     <>
@@ -374,7 +380,7 @@ export function HudView() {
               </Show>
 
               <Show when={aiError()}>
-                <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
+                <div class="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
                   {aiError()}
                 </div>
               </Show>
@@ -388,7 +394,7 @@ export function HudView() {
             <Show
               when={combinedSearchItems().length > 0}
               fallback={
-                <div class="py-6 text-center text-xs text-zinc-500">
+                <div class="py-5 text-center text-xs text-zinc-500">
                   {isSearching() ? "Searching local drives..." : "No matching files or apps found"}
                 </div>
               }
@@ -398,7 +404,7 @@ export function HudView() {
                   <div
                     onClick={() => handleOpenSearchItem(index())}
                     onMouseEnter={() => setSelectedIndex(index())}
-                    class={`flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                    class={`flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
                       selectedIndex() === index()
                         ? "bg-rose-500/15 border border-rose-500/30 text-zinc-100 font-medium shadow-xs"
                         : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200 border border-transparent"
@@ -407,7 +413,7 @@ export function HudView() {
                     <div class="flex items-center space-x-2.5 min-w-0 flex-1">
                       <div class="flex-shrink-0">
                         {item.type === "launcher" ? (
-                          <Rocket size={14} class="text-rose-400" />
+                          <Rocket size={13} class="text-rose-400" />
                         ) : (
                           getFileIcon(item.data)
                         )}
@@ -426,12 +432,12 @@ export function HudView() {
 
                     <div class="flex items-center space-x-1.5 flex-shrink-0 text-[10px] text-zinc-500">
                       <Show when={item.type === "file" && !item.data.is_dir}>
-                        <span class="px-1.5 py-0.5 rounded bg-zinc-800/80 font-mono border border-zinc-700/60 flex items-center space-x-1">
+                        <span class="px-1.5 py-0.5 rounded bg-zinc-800/80 font-mono border border-zinc-700/60 flex items-center space-x-1 text-[10px]">
                           <Eye size={10} />
                           <span>Space</span>
                         </span>
                       </Show>
-                      <span class="px-1.5 py-0.5 rounded bg-zinc-800/80 font-mono border border-zinc-700/60 flex items-center space-x-1">
+                      <span class="px-1.5 py-0.5 rounded bg-zinc-800/80 font-mono border border-zinc-700/60 flex items-center space-x-1 text-[10px]">
                         <CornerDownLeft size={10} />
                         <span>Open</span>
                       </span>
@@ -444,20 +450,20 @@ export function HudView() {
         </Show>
 
         {/* 4. Bottom Keyboard Hints Bar (1Password Style) */}
-        <div class="px-4 py-2 border-t border-zinc-800/60 bg-zinc-900/60 flex items-center justify-between text-[11px] text-zinc-400">
+        <div class="px-4 py-1.5 border-t border-zinc-800/60 bg-zinc-900/40 flex items-center justify-between text-[10px] text-zinc-400">
           <div class="flex items-center space-x-3">
             <div class="flex items-center space-x-1">
-              <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
+              <kbd class="px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-semibold shadow-xs">
                 Alt
               </kbd>
-              <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
+              <kbd class="px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-semibold shadow-xs">
                 Space
               </kbd>
               <span class="text-zinc-400 ml-1">Quick Access</span>
             </div>
 
             <div class="flex items-center space-x-1">
-              <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
+              <kbd class="px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-semibold shadow-xs">
                 /fin
               </kbd>
               <span class="text-zinc-400 ml-1">Search Files</span>
@@ -465,7 +471,7 @@ export function HudView() {
           </div>
 
           <div class="flex items-center space-x-1">
-            <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
+            <kbd class="px-1 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-mono text-zinc-300 font-semibold shadow-xs">
               Esc
             </kbd>
             <span class="text-zinc-400 ml-1">Close</span>
