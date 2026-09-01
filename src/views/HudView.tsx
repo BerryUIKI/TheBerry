@@ -81,7 +81,7 @@ export function HudView() {
     return Boolean(aiResponse() || lastPrompt() || isGenerating() || aiError());
   };
 
-  // Dynamic Height Resizing (96px collapsed, up to 480px expanded)
+  // Dynamic Height Resizing (96px collapsed, 480px expanded for both AI & Search modes)
   createEffect(async () => {
     const expanded = isExpanded();
     try {
@@ -89,14 +89,8 @@ export function HudView() {
       if (!expanded) {
         await win.setSize(new LogicalSize(640, 96));
       } else {
-        if (isSearchMode()) {
-          const count = combinedSearchItems().length;
-          const targetHeight = Math.min(480, Math.max(160, 96 + count * 44 + 20));
-          await win.setSize(new LogicalSize(640, targetHeight));
-        } else {
-          // AI conversation mode: expand to full 480px for comfortable reading
-          await win.setSize(new LogicalSize(640, 480));
-        }
+        // Both AI conversation mode and local search mode expand smoothly to 480px
+        await win.setSize(new LogicalSize(640, 480));
       }
     } catch (e) {
       console.warn("HUD window resize error:", e);
