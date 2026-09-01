@@ -559,7 +559,7 @@ export function SettingsView() {
               <div class="flex items-center space-x-2">
                 <Show when={aiConfig()}>
                   <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-primary/10 text-primary border border-primary/20">
-                    {aiConfig()?.active_provider.toUpperCase()} • {aiConfig()?.model}
+                    {aiConfig()?.active_provider.toUpperCase()} • {aiConfig()?.model} • {(aiConfig()?.request_format || "openai").toUpperCase()}
                   </span>
                 </Show>
                 <button

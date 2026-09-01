@@ -248,6 +248,7 @@ interface GooseStreamChunk {
 
 interface AIConfig {
   active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  request_format: "openai" | "anthropic" | "gemini" | "ollama" | "custom";
   api_key: string;
   base_url: string;
   model: string;

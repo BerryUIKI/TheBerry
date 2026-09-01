@@ -75,6 +75,8 @@ pub struct CustomMcpServer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AIConfig {
     pub active_provider: String, // "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom"
+    #[serde(default = "default_request_format")]
+    pub request_format: String,  // "openai" | "anthropic" | "gemini" | "ollama" | "custom"
     pub api_key: String,
     pub base_url: String,
     pub model: String,
@@ -88,10 +90,15 @@ pub struct AIConfig {
     pub auto_start_daemon: bool,
 }
 
+fn default_request_format() -> String {
+    "openai".to_string()
+}
+
 impl Default for AIConfig {
     fn default() -> Self {
         Self {
             active_provider: "openai".to_string(),
+            request_format: "openai".to_string(),
             api_key: String::new(),
             base_url: "https://api.openai.com/v1".to_string(),
             model: "gpt-4o".to_string(),
@@ -106,4 +113,5 @@ impl Default for AIConfig {
         }
     }
 }
+
 

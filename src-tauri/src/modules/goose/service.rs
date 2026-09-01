@@ -131,55 +131,150 @@ impl GooseService {
         session_id: String,
         message_id: String,
     ) -> Result<(), String> {
-        let base_url = if cfg.base_url.trim().is_empty() {
-            match cfg.active_provider.as_str() {
-                "anthropic" => "https://api.anthropic.com/v1",
-                "gemini" => "https://generativelanguage.googleapis.com/v1beta/openai",
-                "ollama" => "http://localhost:11434/v1",
-                "deepseek" => "https://api.deepseek.com/v1",
-                "groq" => "https://api.groq.com/openai/v1",
-                "openrouter" => "https://openrouter.ai/api/v1",
-                _ => "https://api.openai.com/v1",
+        let format = cfg.request_format.to_lowercase();
+        let model = payload.model.unwrap_or_else(|| cfg.model.clone());
+        let raw_base = cfg.base_url.trim();
+
+        // 1. Smart Endpoint & Protocol Resolution
+        let (endpoint, req_body, is_anthropic, is_gemini) = match format.as_str() {
+            "anthropic" => {
+                let url = if raw_base.is_empty() {
+                    "https://api.anthropic.com/v1/messages".to_string()
+                } else if raw_base.ends_with("/messages") {
+                    raw_base.to_string()
+                } else {
+                    format!("{}/messages", raw_base.trim_end_matches('/'))
+                };
+
+                let body = serde_json::json!({
+                    "model": model,
+                    "system": cfg.system_prompt,
+                    "messages": [
+                        { "role": "user", "content": payload.prompt }
+                    ],
+                    "max_tokens": cfg.max_tokens,
+                    "temperature": cfg.temperature,
+                    "stream": true
+                });
+
+                (url, body, true, false)
             }
-        } else {
-            cfg.base_url.as_str()
+            "gemini" => {
+                let url = if raw_base.is_empty() {
+                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?key={}", model, cfg.api_key.trim())
+                } else if raw_base.contains("streamGenerateContent") {
+                    raw_base.to_string()
+                } else {
+                    format!("{}/models/{}:streamGenerateContent?key={}", raw_base.trim_end_matches('/'), model, cfg.api_key.trim())
+                };
+
+                let full_prompt = if cfg.system_prompt.is_empty() {
+                    payload.prompt.clone()
+                } else {
+                    format!("{}\n\n{}", cfg.system_prompt, payload.prompt)
+                };
+
+                let body = serde_json::json!({
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [{ "text": full_prompt }]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": cfg.temperature,
+                        "maxOutputTokens": cfg.max_tokens
+                    }
+                });
+
+                (url, body, false, true)
+            }
+            "ollama" => {
+                let url = if raw_base.is_empty() {
+                    "http://localhost:11434/api/chat".to_string()
+                } else if raw_base.ends_with("/api/chat") || raw_base.ends_with("/chat/completions") {
+                    raw_base.to_string()
+                } else if raw_base.ends_with("/v1") {
+                    format!("{}/chat/completions", raw_base.trim_end_matches('/'))
+                } else {
+                    format!("{}/api/chat", raw_base.trim_end_matches('/'))
+                };
+
+                let body = serde_json::json!({
+                    "model": model,
+                    "messages": [
+                        { "role": "system", "content": cfg.system_prompt },
+                        { "role": "user", "content": payload.prompt }
+                    ],
+                    "stream": true
+                });
+
+                (url, body, false, false)
+            }
+            "custom" => {
+                // Exact raw URL with standard OpenAI payload
+                let url = raw_base.to_string();
+                let body = serde_json::json!({
+                    "model": model,
+                    "messages": [
+                        { "role": "system", "content": cfg.system_prompt },
+                        { "role": "user", "content": payload.prompt }
+                    ],
+                    "temperature": cfg.temperature,
+                    "max_tokens": cfg.max_tokens,
+                    "stream": true
+                });
+
+                (url, body, false, false)
+            }
+            _ => {
+                // Default: OpenAI / OpenAI-Compatible
+                let url = if raw_base.is_empty() {
+                    match cfg.active_provider.as_str() {
+                        "deepseek" => "https://api.deepseek.com/v1/chat/completions".to_string(),
+                        "groq" => "https://api.groq.com/openai/v1/chat/completions".to_string(),
+                        "openrouter" => "https://openrouter.ai/api/v1/chat/completions".to_string(),
+                        "gemini" => "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions".to_string(),
+                        "ollama" => "http://localhost:11434/v1/chat/completions".to_string(),
+                        _ => "https://api.openai.com/v1/chat/completions".to_string(),
+                    }
+                } else if raw_base.ends_with("/chat/completions") {
+                    raw_base.to_string()
+                } else {
+                    format!("{}/chat/completions", raw_base.trim_end_matches('/'))
+                };
+
+                let body = serde_json::json!({
+                    "model": model,
+                    "messages": [
+                        { "role": "system", "content": cfg.system_prompt },
+                        { "role": "user", "content": payload.prompt }
+                    ],
+                    "temperature": cfg.temperature,
+                    "max_tokens": cfg.max_tokens,
+                    "stream": true
+                });
+
+                (url, body, false, false)
+            }
         };
 
-        let endpoint = format!("{}/chat/completions", base_url.trim_end_matches('/'));
-
+        // 2. Build Request with proper headers
         let mut req = self.http_client
             .post(&endpoint)
-            .header("Accept", "text/event-stream")
+            .header("Accept", "text/event-stream, application/json")
             .header("Content-Type", "application/json");
 
         if !cfg.api_key.trim().is_empty() {
-            if cfg.active_provider == "anthropic" {
+            if is_anthropic {
                 req = req.header("x-api-key", cfg.api_key.trim())
                     .header("anthropic-version", "2023-06-01");
-            } else {
+            } else if !is_gemini {
                 req = req.header("Authorization", format!("Bearer {}", cfg.api_key.trim()));
             }
         }
 
-        let model = payload.model.unwrap_or_else(|| cfg.model.clone());
-        let request_body = serde_json::json!({
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": cfg.system_prompt
-                },
-                {
-                    "role": "user",
-                    "content": payload.prompt
-                }
-            ],
-            "temperature": cfg.temperature,
-            "max_tokens": cfg.max_tokens,
-            "stream": true
-        });
-
-        let response = match req.json(&request_body).send().await {
+        let response = match req.json(&req_body).send().await {
             Ok(res) => res,
             Err(e) => {
                 let error_chunk = GooseStreamChunk {
@@ -188,8 +283,8 @@ impl GooseService {
                     delta: String::new(),
                     is_finished: true,
                     error: Some(format!(
-                        "Failed to connect to LLM provider ({}: {}): {}. Please verify endpoint in Settings.",
-                        cfg.active_provider, endpoint, e
+                        "Connection failed to endpoint [{}]: {}. Please check your URL and network in Settings.",
+                        endpoint, e
                     )),
                 };
                 let _ = app_handle.emit("goose://stream-chunk", error_chunk);
@@ -205,7 +300,7 @@ impl GooseService {
                 message_id: message_id.clone(),
                 delta: String::new(),
                 is_finished: true,
-                error: Some(format!("Provider Error (HTTP {}): {}", status_code, err_text)),
+                error: Some(format!("HTTP {} from {}: {}", status_code, endpoint, err_text)),
             };
             let _ = app_handle.emit("goose://stream-chunk", error_chunk);
             return Err(format!("HTTP Error {}: {}", status_code, err_text));
@@ -228,49 +323,66 @@ impl GooseService {
                     if let Ok(text) = std::str::from_utf8(&bytes) {
                         for line in text.lines() {
                             let line = line.trim();
-                            if line.starts_with("data:") {
-                                let data_str = line.trim_start_matches("data:").trim();
-                                if data_str == "[DONE]" {
-                                    let end_chunk = GooseStreamChunk {
-                                        session_id: session_id.clone(),
-                                        message_id: message_id.clone(),
-                                        delta: String::new(),
-                                        is_finished: true,
-                                        error: None,
-                                    };
-                                    let _ = app_handle.emit("goose://stream-chunk", end_chunk);
-                                    return Ok(());
-                                }
+                            if line.is_empty() {
+                                continue;
+                            }
 
-                                if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
-                                    let delta = json.pointer("/choices/0/delta/content")
-                                        .and_then(|v| v.as_str())
-                                        .or_else(|| json.pointer("/delta/text").and_then(|v| v.as_str()))
-                                        .or_else(|| json.get("delta").and_then(|v| v.as_str()))
-                                        .or_else(|| json.get("text").and_then(|v| v.as_str()))
-                                        .or_else(|| json.get("content").and_then(|v| v.as_str()))
-                                        .unwrap_or("");
+                            // Handle raw SSE or NDJSON lines
+                            let data_str = if line.starts_with("data:") {
+                                line.trim_start_matches("data:").trim()
+                            } else {
+                                line
+                            };
 
-                                    if !delta.is_empty() {
-                                        let stream_chunk = GooseStreamChunk {
-                                            session_id: session_id.clone(),
-                                            message_id: message_id.clone(),
-                                            delta: delta.to_string(),
-                                            is_finished: false,
-                                            error: None,
-                                        };
-                                        let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
-                                    }
-                                } else if !data_str.is_empty() {
+                            if data_str == "[DONE]" {
+                                let end_chunk = GooseStreamChunk {
+                                    session_id: session_id.clone(),
+                                    message_id: message_id.clone(),
+                                    delta: String::new(),
+                                    is_finished: true,
+                                    error: None,
+                                };
+                                let _ = app_handle.emit("goose://stream-chunk", end_chunk);
+                                return Ok(());
+                            }
+
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
+                                // Multi-protocol delta extractor:
+                                // 1. OpenAI / OneAPI / DeepSeek: choices[0].delta.content
+                                // 2. Anthropic: delta.text or content_block.text
+                                // 3. Gemini: candidates[0].content.parts[0].text
+                                // 4. Ollama: message.content or response
+                                let delta = json.pointer("/choices/0/delta/content")
+                                    .and_then(|v| v.as_str())
+                                    .or_else(|| json.pointer("/delta/text").and_then(|v| v.as_str()))
+                                    .or_else(|| json.pointer("/content_block/text").and_then(|v| v.as_str()))
+                                    .or_else(|| json.pointer("/candidates/0/content/parts/0/text").and_then(|v| v.as_str()))
+                                    .or_else(|| json.pointer("/message/content").and_then(|v| v.as_str()))
+                                    .or_else(|| json.get("response").and_then(|v| v.as_str()))
+                                    .or_else(|| json.get("delta").and_then(|v| v.as_str()))
+                                    .or_else(|| json.get("text").and_then(|v| v.as_str()))
+                                    .or_else(|| json.get("content").and_then(|v| v.as_str()))
+                                    .unwrap_or("");
+
+                                if !delta.is_empty() {
                                     let stream_chunk = GooseStreamChunk {
                                         session_id: session_id.clone(),
                                         message_id: message_id.clone(),
-                                        delta: data_str.to_string(),
+                                        delta: delta.to_string(),
                                         is_finished: false,
                                         error: None,
                                     };
                                     let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
                                 }
+                            } else if !data_str.is_empty() && !data_str.starts_with("event:") {
+                                let stream_chunk = GooseStreamChunk {
+                                    session_id: session_id.clone(),
+                                    message_id: message_id.clone(),
+                                    delta: data_str.to_string(),
+                                    is_finished: false,
+                                    error: None,
+                                };
+                                let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
                             }
                         }
                     }

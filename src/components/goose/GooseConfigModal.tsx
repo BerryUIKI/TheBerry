@@ -23,6 +23,7 @@ interface ProviderPreset {
   id: AIConfig["active_provider"];
   name: string;
   defaultBaseUrl: string;
+  defaultRequestFormat: AIConfig["request_format"];
   defaultModel: string;
   models: string[];
   requiresApiKey: boolean;
@@ -34,6 +35,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "openai",
     name: "OpenAI",
     defaultBaseUrl: "https://api.openai.com/v1",
+    defaultRequestFormat: "openai",
     defaultModel: "gpt-4o",
     models: ["gpt-4o", "gpt-4o-mini", "o3-mini", "gpt-4-turbo"],
     requiresApiKey: true,
@@ -43,6 +45,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "anthropic",
     name: "Anthropic Claude",
     defaultBaseUrl: "https://api.anthropic.com/v1",
+    defaultRequestFormat: "anthropic",
     defaultModel: "claude-3-5-sonnet-20241022",
     models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
     requiresApiKey: true,
@@ -52,6 +55,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "gemini",
     name: "Google Gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+    defaultRequestFormat: "openai",
     defaultModel: "gemini-1.5-pro",
     models: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
     requiresApiKey: true,
@@ -61,6 +65,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "ollama",
     name: "Ollama (Local Models)",
     defaultBaseUrl: "http://localhost:11434/v1",
+    defaultRequestFormat: "ollama",
     defaultModel: "llama3.2",
     models: ["llama3.2", "qwen2.5-coder", "deepseek-r1", "mistral", "phi3"],
     requiresApiKey: false,
@@ -70,6 +75,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "deepseek",
     name: "DeepSeek",
     defaultBaseUrl: "https://api.deepseek.com/v1",
+    defaultRequestFormat: "openai",
     defaultModel: "deepseek-chat",
     models: ["deepseek-chat", "deepseek-reasoner"],
     requiresApiKey: true,
@@ -79,6 +85,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "groq",
     name: "Groq Cloud (Fast)",
     defaultBaseUrl: "https://api.groq.com/openai/v1",
+    defaultRequestFormat: "openai",
     defaultModel: "llama-3.3-70b-versatile",
     models: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"],
     requiresApiKey: true,
@@ -88,6 +95,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     id: "openrouter",
     name: "OpenRouter",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
+    defaultRequestFormat: "openai",
     defaultModel: "auto",
     models: ["auto", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.3-70b-instruct", "google/gemini-pro-1.5"],
     requiresApiKey: true,
@@ -95,8 +103,9 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   },
   {
     id: "custom",
-    name: "Custom OpenAI-Compatible",
-    defaultBaseUrl: "http://localhost:8000/v1",
+    name: "Custom API Endpoint",
+    defaultBaseUrl: "http://localhost:8000/v1/chat/completions",
+    defaultRequestFormat: "custom",
     defaultModel: "default",
     models: ["default"],
     requiresApiKey: false,
@@ -113,6 +122,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
   // Form State
   const [config, setConfig] = createSignal<AIConfig>({
     active_provider: "openai",
+    request_format: "openai",
     api_key: "",
     base_url: "https://api.openai.com/v1",
     model: "gpt-4o",
@@ -134,7 +144,12 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
-      if (cfg) setConfig(cfg);
+      if (cfg) {
+        setConfig({
+          ...cfg,
+          request_format: cfg.request_format || "openai",
+        });
+      }
     } catch (e) {
       console.warn("Failed to load AI configuration:", e);
     }
@@ -151,6 +166,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     setConfig((prev) => ({
       ...prev,
       active_provider: providerId,
+      request_format: preset.defaultRequestFormat,
       base_url: preset.defaultBaseUrl,
       model: preset.defaultModel,
     }));
@@ -191,6 +207,25 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
       ...prev,
       custom_mcp_servers: prev.custom_mcp_servers.filter((_, i) => i !== index),
     }));
+  };
+
+  const resolvedEndpointPreview = () => {
+    const raw = config().base_url.trim();
+    const fmt = config().request_format || "openai";
+    const mdl = config().model || "default";
+
+    if (fmt === "custom") return raw || "http://localhost:8000/v1/chat/completions";
+    if (fmt === "anthropic") {
+      return raw ? (raw.endsWith("/messages") ? raw : `${raw.replace(/\/+$/, "")}/messages`) : "https://api.anthropic.com/v1/messages";
+    }
+    if (fmt === "gemini") {
+      return raw ? (raw.includes("streamGenerateContent") ? raw : `${raw.replace(/\/+$/, "")}/models/${mdl}:streamGenerateContent`) : `https://generativelanguage.googleapis.com/v1beta/models/${mdl}:streamGenerateContent`;
+    }
+    if (fmt === "ollama") {
+      return raw ? (raw.endsWith("/api/chat") || raw.endsWith("/chat/completions") ? raw : `${raw.replace(/\/+$/, "")}/api/chat`) : "http://localhost:11434/api/chat";
+    }
+    // OpenAI format
+    return raw ? (raw.endsWith("/chat/completions") ? raw : `${raw.replace(/\/+$/, "")}/chat/completions`) : "https://api.openai.com/v1/chat/completions";
   };
 
   const currentPreset = () => PROVIDER_PRESETS.find((p) => p.id === config().active_provider) || PROVIDER_PRESETS[0];
@@ -302,8 +337,27 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                   </select>
                 </div>
 
+                {/* API Request Format / Protocol Selector */}
+                <div class="space-y-1.5">
+                  <label class="font-semibold text-foreground flex items-center justify-between">
+                    <span>API Protocol / Request Format (请求格式)</span>
+                    <span class="text-[10px] text-muted-foreground">Controls endpoint payload schema</span>
+                  </label>
+                  <select
+                    value={config().request_format}
+                    onChange={(e) => setConfig({ ...config(), request_format: e.currentTarget.value as any })}
+                    class="w-full px-3 py-2 bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="openai">OpenAI Chat API (POST /chat/completions)</option>
+                    <option value="anthropic">Anthropic Messages API (POST /v1/messages)</option>
+                    <option value="gemini">Google Gemini Native API (POST :streamGenerateContent)</option>
+                    <option value="ollama">Ollama Native API (POST /api/chat)</option>
+                    <option value="custom">Custom / Raw Endpoint (Exact URL as entered)</option>
+                  </select>
+                </div>
+
                 {/* API Key */}
-                <Show when={currentPreset().requiresApiKey}>
+                <Show when={currentPreset().requiresApiKey || config().request_format === "anthropic" || config().request_format === "openai"}>
                   <div class="space-y-1.5">
                     <label class="font-semibold text-foreground flex items-center justify-between">
                       <span>API Key</span>
@@ -331,7 +385,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 {/* Base URL */}
                 <div class="space-y-1.5">
                   <label class="font-semibold text-foreground flex items-center justify-between">
-                    <span>API Base URL</span>
+                    <span>API Base URL / Endpoint</span>
                     <button
                       type="button"
                       onClick={() => setConfig({ ...config(), base_url: currentPreset().defaultBaseUrl })}
@@ -348,6 +402,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     placeholder={currentPreset().defaultBaseUrl}
                     class="w-full px-3 py-2 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                  <div class="p-2 rounded bg-muted/40 border border-border/50 text-[10px] space-y-0.5">
+                    <span class="font-semibold text-foreground block">Resolved Request Target (免 404 智能解析):</span>
+                    <span class="font-mono text-primary break-all block">{resolvedEndpointPreview()}</span>
+                  </div>
                 </div>
 
                 {/* Model Selector & Presets */}

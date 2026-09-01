@@ -13,17 +13,24 @@ TheBerry integrates AI conversational assistant capabilities. To provide a compl
 ### 1. Unified AI Configuration Schema (Mirrored from Goose)
 We define a persistent configuration structure stored in `config.toml` (and Redb):
 - `active_provider`: `openai` | `anthropic` | `gemini` | `ollama` | `deepseek` | `groq` | `openrouter` | `custom`
+- `request_format`: `openai` | `anthropic` | `gemini` | `ollama` | `custom` (explicit protocol selection)
 - `api_key`: Masked credentials for provider authentication
-- `base_url`: Customizable endpoint URL (e.g. `http://localhost:11434/v1` for local Ollama, `https://api.openai.com/v1`, `https://api.deepseek.com/v1`)
+- `base_url`: Customizable endpoint URL with smart deduplication (e.g. `http://localhost:11434/v1`, `https://api.openai.com/v1`, `https://api.deepseek.com/v1`)
 - `model`: Selected LLM model identifier (e.g. `gpt-4o`, `claude-3-5-sonnet`, `gemini-1.5-pro`, `llama3.2`, `deepseek-chat`)
 - `temperature` & `max_tokens`: Generation hyper-parameters
 - `system_prompt`: Custom persona and instructions
 - `extensions`: MCP tool extensions and custom server configurations
 
-### 2. Dual-Engine Dispatcher in Rust Backend
+### 2. Dual-Engine Dispatcher & Multi-Protocol Resolution in Rust Backend
 In `src-tauri/src/modules/goose/service.rs`:
-- If `GooseProcessManager` is actively running, requests POST to `http://127.0.0.1:<PORT>/sessions/{id}/messages`.
-- If `GooseProcessManager` is inactive or direct API execution is preferred, `GooseService` dispatches an asynchronous HTTP POST with `stream: true` to the configured `base_url/chat/completions` (OpenAI format, supported by Ollama, OpenRouter, DeepSeek, Groq, and Gemini OpenAI-compatibility layer).
+- **Smart URL Deduplication**: Checks whether `base_url` already contains endpoints like `/chat/completions`, `/messages`, or `/api/chat` to completely eliminate duplicate path segments and 404 errors.
+- **Multi-Protocol Handlers**:
+  - `openai`: POST `/chat/completions` with Bearer auth and `choices[0].delta.content` SSE parser.
+  - `anthropic`: POST `/v1/messages` with `x-api-key` and `content_block_delta` SSE parser.
+  - `gemini`: POST `:streamGenerateContent` with query key and `candidates[0].content.parts` parser.
+  - `ollama`: POST `/api/chat` with NDJSON streaming reader.
+  - `custom`: Direct POST to exact user-defined URL.
+- If `GooseProcessManager` is actively running, requests route through Goose's MCP server.
 - Real tokens are streamed chunk-by-chunk via Tauri's `goose://stream-chunk` event bus.
 
 ### 3. Assistant Avatar & Branding

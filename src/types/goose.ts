@@ -40,8 +40,11 @@ export interface CustomMcpServer {
   url?: string;
 }
 
+export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+
 export interface AIConfig {
   active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  request_format: AIRequestFormat;
   api_key: string;
   base_url: string;
   model: string;
@@ -54,4 +57,5 @@ export interface AIConfig {
   goose_binary_path: string;
   auto_start_daemon: boolean;
 }
+
 

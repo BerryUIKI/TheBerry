@@ -97,9 +97,10 @@ describe("Goose AI Service & Types", () => {
     expect(invoke).toHaveBeenCalledWith("set_goose_custom_binary_path", { path: "D:\\tools\\goose.exe" });
   });
 
-  it("fetches and saves AIConfig with provider settings", async () => {
+  it("fetches and saves AIConfig with provider settings and request format", async () => {
     const mockAIConfig: import("../types/goose").AIConfig = {
       active_provider: "ollama",
+      request_format: "ollama",
       api_key: "",
       base_url: "http://localhost:11434/v1",
       model: "llama3.2",
@@ -116,6 +117,7 @@ describe("Goose AI Service & Types", () => {
     vi.mocked(invoke).mockResolvedValueOnce(mockAIConfig);
     const config = await (await import("../services/goose")).getAIConfig();
     expect(config.active_provider).toBe("ollama");
+    expect(config.request_format).toBe("ollama");
     expect(config.model).toBe("llama3.2");
 
     vi.mocked(invoke).mockResolvedValueOnce(undefined);

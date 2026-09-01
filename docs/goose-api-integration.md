@@ -153,9 +153,11 @@ export class GooseService {
 
 ## 4. AI Configuration Schema (Goose Parity)
 
-```typescript
+export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+
 export interface AIConfig {
   active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  request_format: AIRequestFormat;
   api_key: string;
   base_url: string;
   model: string;
