@@ -5,6 +5,7 @@ import { Sidebar } from "./components/layout/Sidebar";
 import { FirstLaunchModal } from "./components/setup/FirstLaunchModal";
 import { SpotlightModal } from "./components/SpotlightModal";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { GooseSidebar } from "./components/goose/GooseSidebar";
 import { ToastContainer } from "./components/ToastContainer";
 import { ClipboardView } from "./views/ClipboardView";
 import { SnippetsView } from "./views/SnippetsView";
@@ -18,11 +19,20 @@ export function App() {
   const { activeView } = useApp();
   const [isSpotlightOpen, setIsSpotlightOpen] = createSignal(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = createSignal(false);
+  const [isGooseOpen, setIsGooseOpen] = createSignal(false);
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    // Spotlight Search (Ctrl+K)
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
       e.preventDefault();
       setIsSpotlightOpen((prev) => !prev);
+      return;
+    }
+
+    // Toggle Goose AI Assistant (Ctrl+J)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "j") {
+      e.preventDefault();
+      setIsGooseOpen((prev) => !prev);
       return;
     }
 
@@ -37,8 +47,17 @@ export function App() {
     }
 
     if (e.key === "Escape") {
+      if (isGooseOpen()) {
+        setIsGooseOpen(false);
+        return;
+      }
       if (isShortcutsOpen()) {
         setIsShortcutsOpen(false);
+        return;
+      }
+      if (isSpotlightOpen()) {
+        setIsSpotlightOpen(false);
+        return;
       }
     }
   };
@@ -47,14 +66,17 @@ export function App() {
     window.addEventListener("keydown", handleKeyDown);
     const handleOpenSpotlight = () => setIsSpotlightOpen(true);
     const handleOpenShortcuts = () => setIsShortcutsOpen(true);
+    const handleToggleGoose = () => setIsGooseOpen((prev) => !prev);
 
     window.addEventListener("open-spotlight", handleOpenSpotlight);
     window.addEventListener("open-shortcuts", handleOpenShortcuts);
+    window.addEventListener("toggle-goose-sidebar", handleToggleGoose);
 
     onCleanup(() => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("open-spotlight", handleOpenSpotlight);
       window.removeEventListener("open-shortcuts", handleOpenShortcuts);
+      window.removeEventListener("toggle-goose-sidebar", handleToggleGoose);
     });
   });
 
@@ -94,6 +116,12 @@ export function App() {
           </div>
         </main>
       </div>
+
+      {/* Goose AI Conversation Drawer Panel */}
+      <GooseSidebar
+        isOpen={isGooseOpen()}
+        onClose={() => setIsGooseOpen(false)}
+      />
 
       {/* Global Spotlight HUD Modal */}
       <SpotlightModal

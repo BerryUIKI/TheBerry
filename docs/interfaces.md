@@ -214,3 +214,46 @@ interface SearchResultItem {
 - `search_files(query: SearchQuery)`: `Promise<SearchResultItem[]>`
 - `get_system_drives()`: `Promise<SystemDrive[]>`
 - `reveal_in_explorer(path: string)`: `Promise<void>`
+
+---
+
+## 8. Goose AI Assistant Module (`modules::goose`)
+
+### Data Structures
+```typescript
+interface GooseStatus {
+  is_running: boolean;
+  is_installed: boolean;
+  binary_path: string | null;
+  port: number | null;
+  active_model: string | null;
+  active_provider: string | null;
+  error_message: string | null;
+}
+
+interface SendGooseMessagePayload {
+  session_id: string;
+  prompt: string;
+  model?: string;
+  provider?: string;
+}
+
+interface GooseStreamChunk {
+  session_id: string;
+  message_id: string;
+  delta: string;
+  is_finished: boolean;
+  error?: string;
+}
+```
+
+### Commands
+- `get_goose_status()`: `Promise<GooseStatus>`
+- `start_goose_daemon(customPort?: number)`: `Promise<GooseStatus>`
+- `stop_goose_daemon()`: `Promise<void>`
+- `send_goose_message(payload: SendGooseMessagePayload)`: `Promise<void>`
+
+### Events
+- `goose://stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
+- `goose://status-change`: Emitted when the Goose daemon state changes.
+
