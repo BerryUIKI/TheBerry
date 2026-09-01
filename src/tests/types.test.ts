@@ -87,7 +87,7 @@ describe("Frontend Type Model Contracts", () => {
 
   it("validates AppConfig structure with language preferences", () => {
     const config: import("../types/config").AppConfig = {
-      version: "0.1.2",
+      version: "0.1.3",
       theme: "dark",
       language: "en",
       close_to_tray: true,
