@@ -12,7 +12,10 @@ import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
+import { GooseConfigModal } from "../components/goose/GooseConfigModal";
+import { getAIConfig } from "../services/goose";
 import { QuickLookStatus } from "../types/quicklook";
+import { AIConfig } from "../types/goose";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
@@ -65,8 +68,10 @@ export function SettingsView() {
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal<DownloadProgress | null>(null);
   const [qlStatus, setQlStatus] = createSignal<QuickLookStatus | null>(null);
+  const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
+  const [showAiModal, setShowAiModal] = createSignal(false);
 
-  onMount(async () => {
+  const reloadSettings = async () => {
     try {
       const cfg = await getConfig();
       setConfigState(cfg);
@@ -76,9 +81,15 @@ export function SettingsView() {
       setAutostartActive(autoStatus);
       const ql = await getQuickLookStatus();
       setQlStatus(ql);
+      const ai = await getAIConfig();
+      setAiConfig(ai);
     } catch (e) {
       console.warn("Failed to load settings or version:", e);
     }
+  };
+
+  onMount(async () => {
+    await reloadSettings();
 
     let unlistenFn: (() => void) | null = null;
     onDownloadProgress((prog) => {
@@ -537,8 +548,44 @@ export function SettingsView() {
               </div>
             </Show>
           </div>
+
+          {/* AI Assistant Configuration (Goose / TheBerry) */}
+          <div class="pt-3 border-t border-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-foreground flex items-center space-x-1.5">
+                <Sparkles size={14} class="text-primary" />
+                <span>TheBerry AI & Goose Assistant</span>
+              </label>
+              <div class="flex items-center space-x-2">
+                <Show when={aiConfig()}>
+                  <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-primary/10 text-primary border border-primary/20">
+                    {aiConfig()?.active_provider.toUpperCase()} • {aiConfig()?.model}
+                  </span>
+                </Show>
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  class="px-2.5 py-1 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded text-xs font-medium flex items-center space-x-1 transition-colors"
+                >
+                  <Settings size={12} class="text-primary" />
+                  <span>Configure</span>
+                </button>
+              </div>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-relaxed">
+              Configure LLM providers (OpenAI, Anthropic, Google Gemini, Ollama Local, DeepSeek, Groq, OpenRouter), API credentials, and MCP tool extensions.
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Embedded AI Config Modal */}
+      <GooseConfigModal
+        isOpen={showAiModal()}
+        onClose={() => {
+          setShowAiModal(false);
+          reloadSettings();
+        }}
+      />
 
       {/* About Box */}
       <div class="p-4 bg-card border border-border rounded-lg space-y-2 text-xs">

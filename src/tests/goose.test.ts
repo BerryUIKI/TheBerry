@@ -96,4 +96,31 @@ describe("Goose AI Service & Types", () => {
     expect(res.binary_path).toBe("D:\\tools\\goose.exe");
     expect(invoke).toHaveBeenCalledWith("set_goose_custom_binary_path", { path: "D:\\tools\\goose.exe" });
   });
+
+  it("fetches and saves AIConfig with provider settings", async () => {
+    const mockAIConfig: import("../types/goose").AIConfig = {
+      active_provider: "ollama",
+      api_key: "",
+      base_url: "http://localhost:11434/v1",
+      model: "llama3.2",
+      temperature: 0.7,
+      max_tokens: 4096,
+      system_prompt: "You are TheBerry assistant",
+      enable_developer_tools: true,
+      enable_web_fetch: true,
+      custom_mcp_servers: [],
+      goose_binary_path: "",
+      auto_start_daemon: false,
+    };
+
+    vi.mocked(invoke).mockResolvedValueOnce(mockAIConfig);
+    const config = await (await import("../services/goose")).getAIConfig();
+    expect(config.active_provider).toBe("ollama");
+    expect(config.model).toBe("llama3.2");
+
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    await (await import("../services/goose")).saveAIConfig(mockAIConfig);
+    expect(invoke).toHaveBeenCalledWith("save_ai_config", { config: mockAIConfig });
+  });
 });
+

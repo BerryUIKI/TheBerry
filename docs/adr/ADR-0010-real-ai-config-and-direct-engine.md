@@ -1,0 +1,40 @@
+# ADR-0010: Real AI Configuration Architecture, Direct LLM Engine & TheBerry Branding
+
+## Context
+TheBerry integrates AI conversational assistant capabilities. To provide a complete, non-simulated experience with full user control:
+1. Users need a comprehensive configuration interface modeled after the open-source **aaif-goose/goose** specification, supporting all major providers (OpenAI, Anthropic, Google Gemini, Ollama local models, DeepSeek, Groq, OpenRouter, and custom endpoints), parameters, and MCP extensions.
+2. The AI execution engine must be capable of genuine, real-time streaming:
+   - When the `goose` daemon is active, requests route through Goose's MCP tool environment.
+   - When Goose is offline or direct API keys are supplied, TheBerry's Rust backend directly connects to standard LLM SSE endpoints, streaming tokens in real time without fake or hardcoded text.
+3. The conversation interface requires consistent visual branding: assistant messages must display the **TheBerry** name and the software's official icon avatar (`/berry.png`).
+
+## Decisions
+
+### 1. Unified AI Configuration Schema (Mirrored from Goose)
+We define a persistent configuration structure stored in `config.toml` (and Redb):
+- `active_provider`: `openai` | `anthropic` | `gemini` | `ollama` | `deepseek` | `groq` | `openrouter` | `custom`
+- `api_key`: Masked credentials for provider authentication
+- `base_url`: Customizable endpoint URL (e.g. `http://localhost:11434/v1` for local Ollama, `https://api.openai.com/v1`, `https://api.deepseek.com/v1`)
+- `model`: Selected LLM model identifier (e.g. `gpt-4o`, `claude-3-5-sonnet`, `gemini-1.5-pro`, `llama3.2`, `deepseek-chat`)
+- `temperature` & `max_tokens`: Generation hyper-parameters
+- `system_prompt`: Custom persona and instructions
+- `extensions`: MCP tool extensions and custom server configurations
+
+### 2. Dual-Engine Dispatcher in Rust Backend
+In `src-tauri/src/modules/goose/service.rs`:
+- If `GooseProcessManager` is actively running, requests POST to `http://127.0.0.1:<PORT>/sessions/{id}/messages`.
+- If `GooseProcessManager` is inactive or direct API execution is preferred, `GooseService` dispatches an asynchronous HTTP POST with `stream: true` to the configured `base_url/chat/completions` (OpenAI format, supported by Ollama, OpenRouter, DeepSeek, Groq, and Gemini OpenAI-compatibility layer).
+- Real tokens are streamed chunk-by-chunk via Tauri's `goose://stream-chunk` event bus.
+
+### 3. Assistant Avatar & Branding
+- Assistant messages display the app icon `/berry.png` with a rounded-full border.
+- Assistant title is strictly **TheBerry**.
+- User messages display user indicator **You**.
+
+## Consequences
+- **Positive**:
+  - Zero "fake" responses; real streaming token delivery for any configured API key or local Ollama instance.
+  - Complete parity with Goose provider settings and flexibility for local privacy-conscious users (Ollama).
+  - Clean, polished application identity with the software icon avatar.
+- **Negative / Considerations**:
+  - API keys must be securely persisted in local configuration.

@@ -96,5 +96,28 @@ graph TD
 ---
 
 ## 4. State Management & Storage
-- `AppState` manages `Arc<GooseProcessManager>`.
+- `AppState` manages `Arc<GooseService>` and `Arc<GooseProcessManager>`.
 - Session list and cached chat history are optionally indexed in `redb` (`goose_sessions` table) to maintain instant offline availability.
+
+---
+
+## 5. Real AI Configuration & Direct LLM Engine
+
+### 5.1 Configuration Schema (Goose Model Parity)
+TheBerry provides full parity with `aaif-goose/goose` configuration options:
+- **Providers**: OpenAI, Anthropic Claude, Google Gemini, Ollama (Local), DeepSeek, Groq, OpenRouter, Custom Endpoints.
+- **Credentials & Routing**: `api_key`, `base_url`, `model`.
+- **Generation Parameters**: `temperature`, `max_tokens`, `system_prompt`.
+- **Extensions / MCP Tools**: Developer tools (file edits, shell commands, directory indexing), Web search/fetch, Custom STDIO/SSE MCP servers.
+
+### 5.2 Dual Execution Dispatcher
+- **Tier 1 (Goose Daemon)**: If the Goose daemon is active, prompts are routed to the local Goose server to leverage its full MCP agentic toolchain.
+- **Tier 2 (Direct LLM Streaming)**: If Goose is not running, TheBerry's native Rust streaming client connects directly to standard `/chat/completions` endpoints via `reqwest`, streaming SSE delta tokens continuously to the chat UI. Zero simulated or hardcoded text is returned.
+
+---
+
+## 6. Avatar Branding & Identity
+- **Assistant Identity**: **TheBerry**
+- **Assistant Avatar**: App icon `/berry.png` with rounded-full border.
+- **User Identity**: **You** with user avatar.
+

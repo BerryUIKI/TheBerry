@@ -38,3 +38,17 @@ pub async fn set_goose_custom_binary_path(
     app_state.goose_service.get_process_manager().set_custom_binary_path(path);
     Ok(app_state.goose_service.get_status())
 }
+
+#[tauri::command]
+pub async fn get_ai_config(app_state: State<'_, AppState>) -> Result<super::types::AIConfig, String> {
+    Ok(app_state.goose_service.get_ai_config())
+}
+
+#[tauri::command]
+pub async fn save_ai_config(
+    config: super::types::AIConfig,
+    app_state: State<'_, AppState>,
+) -> Result<(), String> {
+    app_state.goose_service.save_ai_config(config)
+}
+
