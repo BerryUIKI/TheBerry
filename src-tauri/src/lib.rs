@@ -82,6 +82,12 @@ pub fn run() {
             // Backup Module
             modules::backup::commands::export_full_backup,
             modules::backup::commands::import_full_backup,
+            // Goose AI Assistant Module
+            modules::goose::commands::get_goose_status,
+            modules::goose::commands::start_goose_daemon,
+            modules::goose::commands::stop_goose_daemon,
+            modules::goose::commands::send_goose_message,
+            modules::goose::commands::set_goose_custom_binary_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running TheBerry application");

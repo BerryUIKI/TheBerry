@@ -11,8 +11,9 @@ const shortcutSections: ShortcutSection[] = [
     title: "Global & Navigation",
     items: [
       { keys: ["Ctrl", "K"], description: "Toggle Spotlight HUD search" },
+      { keys: ["Ctrl", "J"], description: "Toggle Goose AI Assistant drawer" },
       { keys: ["?"], description: "Toggle keyboard shortcuts cheat-sheet" },
-      { keys: ["Esc"], description: "Close active modal / Spotlight" },
+      { keys: ["Esc"], description: "Close active modal / drawer" },
     ],
   },
   {
