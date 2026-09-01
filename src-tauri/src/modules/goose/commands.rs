@@ -52,3 +52,17 @@ pub async fn save_ai_config(
     app_state.goose_service.save_ai_config(config)
 }
 
+#[tauri::command]
+pub async fn fetch_provider_models(
+    provider: String,
+    base_url: Option<String>,
+    api_key: Option<String>,
+    request_format: Option<String>,
+    app_state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    app_state
+        .goose_service
+        .fetch_provider_models(provider, base_url, api_key, request_format)
+        .await
+}
+

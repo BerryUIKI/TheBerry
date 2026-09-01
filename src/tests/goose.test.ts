@@ -127,5 +127,25 @@ describe("Goose AI Service & Types", () => {
     await (await import("../services/goose")).saveAIConfig(mockAIConfig);
     expect(invoke).toHaveBeenCalledWith("save_ai_config", { config: mockAIConfig });
   });
+
+  it("fetches provider models via fetchProviderModels", async () => {
+    const mockModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    vi.mocked(invoke).mockResolvedValueOnce(mockModels);
+
+    const models = await (await import("../services/goose")).fetchProviderModels(
+      "gemini",
+      "https://generativelanguage.googleapis.com/v1beta",
+      "test-key",
+      "gemini"
+    );
+
+    expect(models).toEqual(mockModels);
+    expect(invoke).toHaveBeenCalledWith("fetch_provider_models", {
+      provider: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      apiKey: "test-key",
+      requestFormat: "gemini",
+    });
+  });
 });
 

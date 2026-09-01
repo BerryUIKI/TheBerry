@@ -90,6 +90,7 @@ pub fn run() {
             modules::goose::commands::set_goose_custom_binary_path,
             modules::goose::commands::get_ai_config,
             modules::goose::commands::save_ai_config,
+            modules::goose::commands::fetch_provider_models,
             // QuickLook Windows-Only Preview Module
             modules::quicklook::commands::get_quicklook_status,
             modules::quicklook::commands::quicklook_preview,

@@ -1,6 +1,6 @@
 import { createSignal, onMount, For, Show } from "solid-js";
 import { AIConfig, CustomMcpServer } from "../../types/goose";
-import { getAIConfig, saveAIConfig } from "../../services/goose";
+import { getAIConfig, saveAIConfig, fetchProviderModels } from "../../services/goose";
 import { useToast } from "../../context/ToastContext";
 import { useI18n } from "../../context/I18nContext";
 import {
@@ -20,6 +20,7 @@ import {
   Check,
   User,
   Image as ImageIcon,
+  RefreshCw,
 } from "lucide-solid";
 
 interface ProviderPreset {
@@ -148,6 +149,10 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   const [mcpCommand, setMcpCommand] = createSignal("");
   const [mcpArgs, setMcpArgs] = createSignal("");
 
+  // Live Model Fetching
+  const [fetchedModels, setFetchedModels] = createSignal<string[]>([]);
+  const [isFetchingModels, setIsFetchingModels] = createSignal(false);
+
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
@@ -169,9 +174,32 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
     loadConfig();
   });
 
+  const handleFetchModels = async () => {
+    setIsFetchingModels(true);
+    try {
+      const list = await fetchProviderModels(
+        config().active_provider,
+        config().base_url,
+        config().api_key,
+        config().request_format
+      );
+      if (list && list.length > 0) {
+        setFetchedModels(list);
+        success("Models Fetched", `Retrieved ${list.length} available models from ${config().active_provider.toUpperCase()} API.`);
+      } else {
+        error("No Models Found", "API returned empty model list.");
+      }
+    } catch (err: any) {
+      error("Fetch Models Failed", err.message || String(err));
+    } finally {
+      setIsFetchingModels(false);
+    }
+  };
+
   const handleProviderChange = (providerId: AIConfig["active_provider"]) => {
     const preset = PROVIDER_PRESETS.find((p) => p.id === providerId);
     if (!preset) return;
+    setFetchedModels([]);
 
     setConfig((prev) => ({
       ...prev,
@@ -451,32 +479,61 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
                 </div>
 
                 {/* Model Selector & Presets */}
-                <div class="space-y-1.5">
-                  <label class="font-semibold text-foreground">Model Identifier</label>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <label class="font-semibold text-foreground">Model Identifier</label>
+                    <button
+                      type="button"
+                      disabled={isFetchingModels()}
+                      onClick={handleFetchModels}
+                      class="text-[11px] text-primary hover:underline flex items-center space-x-1 disabled:opacity-50 font-medium"
+                      title="Query live model list from provider API"
+                    >
+                      <RefreshCw size={11} class={isFetchingModels() ? "animate-spin" : ""} />
+                      <span>{isFetchingModels() ? "Fetching..." : "Fetch Models from API"}</span>
+                    </button>
+                  </div>
+
                   <input
                     type="text"
                     value={config().model}
                     onInput={(e) => setConfig({ ...config(), model: e.currentTarget.value })}
-                    placeholder="e.g. gpt-4o, llama3.2, claude-3-5-sonnet"
+                    placeholder="e.g. gemini-1.5-flash, gemini-2.0-flash, gpt-4o, llama3.2"
                     class="w-full px-3 py-2 bg-background border border-input rounded-lg font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                  {/* Model Quick Chips */}
-                  <div class="flex flex-wrap gap-1.5 pt-1">
-                    <For each={currentPreset().models}>
-                      {(m) => (
+
+                  {/* Model Quick Chips (Shows fetched models if available, otherwise preset models) */}
+                  <div class="space-y-1.5 pt-0.5">
+                    <div class="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span>{fetchedModels().length > 0 ? `Available Models via API (${fetchedModels().length})` : "Recommended Models"}</span>
+                      <Show when={fetchedModels().length > 0}>
                         <button
                           type="button"
-                          onClick={() => setConfig({ ...config(), model: m })}
-                          class={`px-2 py-0.5 rounded text-[11px] font-mono border transition-all ${
-                            config().model === m
-                              ? "bg-primary/10 border-primary text-primary font-semibold"
-                              : "bg-secondary border-border text-muted-foreground hover:text-foreground"
-                          }`}
+                          onClick={() => setFetchedModels([])}
+                          class="hover:text-foreground text-[10px] underline"
                         >
-                          {m}
+                          Reset to Defaults
                         </button>
-                      )}
-                    </For>
+                      </Show>
+                    </div>
+
+                    <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-secondary/20 rounded-lg border border-border/50">
+                      <For each={fetchedModels().length > 0 ? fetchedModels() : currentPreset().models}>
+                        {(m) => (
+                          <button
+                            type="button"
+                            onClick={() => setConfig({ ...config(), model: m })}
+                            class={`px-2 py-0.5 rounded text-[11px] font-mono border transition-all ${
+                              config().model === m
+                                ? "bg-primary/10 border-primary text-primary font-semibold shadow-xs"
+                                : "bg-secondary border-border text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        )}
+                      </For>
+                    </div>
                   </div>
                 </div>
               </div>

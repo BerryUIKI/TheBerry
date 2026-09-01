@@ -279,6 +279,7 @@ interface AIConfig {
 - `send_goose_message(payload: SendGooseMessagePayload)`: `Promise<void>`
 - `get_ai_config()`: `Promise<AIConfig>`
 - `save_ai_config(config: AIConfig)`: `Promise<void>`
+- `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
 
 ### Events
 - `goose://stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.

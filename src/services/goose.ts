@@ -36,3 +36,17 @@ export async function saveAIConfig(config: import("../types/goose").AIConfig): P
   return safeInvoke<void>("save_ai_config", { config });
 }
 
+export async function fetchProviderModels(
+  provider: string,
+  baseUrl?: string,
+  apiKey?: string,
+  requestFormat?: string
+): Promise<string[]> {
+  return safeInvoke<string[]>("fetch_provider_models", {
+    provider,
+    baseUrl: baseUrl || null,
+    apiKey: apiKey || null,
+    requestFormat: requestFormat || null,
+  });
+}
+

@@ -82,6 +82,166 @@ impl GooseService {
         self.process_manager.stop_server().await
     }
 
+    pub async fn fetch_provider_models(
+        &self,
+        provider: String,
+        base_url: Option<String>,
+        api_key: Option<String>,
+        request_format: Option<String>,
+    ) -> Result<Vec<String>, String> {
+        let raw_provider = provider.to_lowercase();
+        let format = request_format.unwrap_or_else(|| raw_provider.clone());
+        let raw_key = api_key.unwrap_or_default().trim().to_string();
+        let base = base_url.unwrap_or_default().trim().to_string();
+
+        match format.as_str() {
+            "gemini" => {
+                let url = if base.is_empty() {
+                    "https://generativelanguage.googleapis.com/v1beta/models".to_string()
+                } else if base.contains("/models") {
+                    base
+                } else {
+                    format!("{}/models", base.trim_end_matches('/'))
+                };
+
+                let mut req = self.http_client.get(&url);
+                if !raw_key.is_empty() {
+                    req = req.header("X-goog-api-key", &raw_key);
+                }
+
+                let resp = req.send().await.map_err(|e| format!("Gemini API request failed: {}", e))?;
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let err = resp.text().await.unwrap_or_default();
+                    return Err(format!("Gemini API error (HTTP {}): {}", status, err));
+                }
+
+                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Gemini response JSON: {}", e))?;
+                let mut models = Vec::new();
+                if let Some(list) = json.get("models").and_then(|v| v.as_array()) {
+                    for m in list {
+                        if let Some(name) = m.get("name").and_then(|v| v.as_str()) {
+                            let clean = name.trim_start_matches("models/").to_string();
+                            let supported = m.get("supportedGenerationMethods")
+                                .and_then(|v| v.as_array())
+                                .map(|arr| arr.iter().any(|method| method.as_str() == Some("generateContent")))
+                                .unwrap_or(true);
+                            if supported {
+                                models.push(clean);
+                            }
+                        }
+                    }
+                }
+                if models.is_empty() {
+                    models = vec![
+                        "gemini-2.0-flash".to_string(),
+                        "gemini-1.5-flash".to_string(),
+                        "gemini-1.5-pro".to_string(),
+                        "gemini-flash-latest".to_string(),
+                    ];
+                }
+                Ok(models)
+            }
+            "ollama" => {
+                let url = if base.is_empty() {
+                    "http://localhost:11434/api/tags".to_string()
+                } else if base.ends_with("/api/tags") || base.ends_with("/v1/models") {
+                    base
+                } else {
+                    format!("{}/api/tags", base.trim_end_matches('/'))
+                };
+
+                let resp = self.http_client.get(&url).send().await.map_err(|e| format!("Ollama request failed: {}", e))?;
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let err = resp.text().await.unwrap_or_default();
+                    return Err(format!("Ollama error (HTTP {}): {}", status, err));
+                }
+
+                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Ollama JSON: {}", e))?;
+                let mut models = Vec::new();
+                if let Some(list) = json.get("models").and_then(|v| v.as_array()) {
+                    for m in list {
+                        if let Some(name) = m.get("name").and_then(|v| v.as_str()) {
+                            models.push(name.to_string());
+                        }
+                    }
+                }
+                Ok(models)
+            }
+            "anthropic" => {
+                let url = if base.is_empty() {
+                    "https://api.anthropic.com/v1/models".to_string()
+                } else {
+                    format!("{}/models", base.trim_end_matches('/'))
+                };
+
+                let mut req = self.http_client.get(&url).header("anthropic-version", "2023-06-01");
+                if !raw_key.is_empty() {
+                    req = req.header("x-api-key", &raw_key);
+                }
+
+                let resp = req.send().await.map_err(|e| format!("Anthropic request failed: {}", e))?;
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let err = resp.text().await.unwrap_or_default();
+                    return Err(format!("Anthropic error (HTTP {}): {}", status, err));
+                }
+
+                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Anthropic JSON: {}", e))?;
+                let mut models = Vec::new();
+                if let Some(list) = json.get("data").and_then(|v| v.as_array()) {
+                    for m in list {
+                        if let Some(id) = m.get("id").and_then(|v| v.as_str()) {
+                            models.push(id.to_string());
+                        }
+                    }
+                }
+                Ok(models)
+            }
+            _ => {
+                // OpenAI, DeepSeek, Groq, OpenRouter, etc.
+                let url = if base.is_empty() {
+                    match raw_provider.as_str() {
+                        "deepseek" => "https://api.deepseek.com/v1/models".to_string(),
+                        "groq" => "https://api.groq.com/openai/v1/models".to_string(),
+                        "openrouter" => "https://openrouter.ai/api/v1/models".to_string(),
+                        _ => "https://api.openai.com/v1/models".to_string(),
+                    }
+                } else if base.ends_with("/models") {
+                    base
+                } else if base.ends_with("/chat/completions") {
+                    base.replace("/chat/completions", "/models")
+                } else {
+                    format!("{}/models", base.trim_end_matches('/'))
+                };
+
+                let mut req = self.http_client.get(&url);
+                if !raw_key.is_empty() {
+                    req = req.header("Authorization", format!("Bearer {}", raw_key));
+                }
+
+                let resp = req.send().await.map_err(|e| format!("Models request failed: {}", e))?;
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let err = resp.text().await.unwrap_or_default();
+                    return Err(format!("Provider API error (HTTP {}): {}", status, err));
+                }
+
+                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse JSON: {}", e))?;
+                let mut models = Vec::new();
+                if let Some(list) = json.get("data").and_then(|v| v.as_array()) {
+                    for m in list {
+                        if let Some(id) = m.get("id").and_then(|v| v.as_str()) {
+                            models.push(id.to_string());
+                        }
+                    }
+                }
+                Ok(models)
+            }
+        }
+    }
+
     /// Sends a prompt either via Goose daemon (if active) or directly via streaming LLM client.
     pub async fn send_message(
         &self,
@@ -166,14 +326,15 @@ impl GooseService {
                     format!("{}\n\n{}", cfg.system_prompt, payload.prompt)
                 };
 
+                let clean_model = model.trim_start_matches("models/").trim();
                 let url = if raw_base.is_empty() {
-                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model)
+                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", clean_model)
                 } else if raw_base.contains(":generateContent") || raw_base.contains(":streamGenerateContent") {
                     raw_base.to_string()
                 } else if raw_base.contains("/models/") {
                     format!("{}:generateContent", raw_base.trim_end_matches('/'))
                 } else {
-                    format!("{}/models/{}:generateContent", raw_base.trim_end_matches('/'), model)
+                    format!("{}/models/{}:generateContent", raw_base.trim_end_matches('/'), clean_model)
                 };
 
                 let body = serde_json::json!({
