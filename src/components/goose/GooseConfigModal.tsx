@@ -223,7 +223,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
       if (base.includes(":generateContent") || base.includes(":streamGenerateContent")) {
         return base;
       }
-      return `${base.replace(/\/+$/, "")}/models/${mdl}:streamGenerateContent?alt=sse`;
+      return `${base.replace(/\/+$/, "")}/models/${mdl}:generateContent`;
     }
     if (fmt === "ollama") {
       return raw ? (raw.endsWith("/api/chat") || raw.endsWith("/chat/completions") ? raw : `${raw.replace(/\/+$/, "")}/api/chat`) : "http://localhost:11434/api/chat";

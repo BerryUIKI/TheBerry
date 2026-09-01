@@ -23,11 +23,12 @@ We define a persistent configuration structure stored in `config.toml` (and Redb
 
 ### 2. Dual-Engine Dispatcher & Multi-Protocol Resolution in Rust Backend
 In `src-tauri/src/modules/goose/service.rs`:
+- **Native TLS & System Proxy Compatibility**: Replaced bare `rustls-tls` with `default-tls` (Windows native Schannel / OpenSSL) and environment proxy resolution (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`), ensuring secure connections to Google AI Studio and global LLM providers from any network or proxy setup.
 - **Smart URL Deduplication**: Checks whether `base_url` already contains endpoints like `/chat/completions`, `/messages`, `/api/chat`, or `:generateContent` / `:streamGenerateContent` to completely eliminate duplicate path segments and 404 errors.
 - **Multi-Protocol Handlers**:
   - `openai`: POST `/chat/completions` with Bearer auth and `choices[0].delta.content` SSE parser.
   - `anthropic`: POST `/v1/messages` with `x-api-key` and `content_block_delta` SSE parser.
-  - `gemini`: POST `:streamGenerateContent?alt=sse` or `:generateContent` with `X-goog-api-key` header and query key fallback, using recursive JSON extraction to parse `candidates[0].content.parts[0].text` without raw JSON leakage.
+  - `gemini`: POST `:generateContent` or `:streamGenerateContent?alt=sse` strictly following [Google AI Studio API specification](https://aistudio.google.com/docs/api-key) using `-H 'x-goog-api-key: <key>'`, `-H 'Content-Type: application/json'`, and clean payload structure without duplicate query parameters.
   - `ollama`: POST `/api/chat` with NDJSON streaming reader.
   - `custom`: Direct POST to exact user-defined URL.
 - If `GooseProcessManager` is actively running, requests route through Goose's MCP server.

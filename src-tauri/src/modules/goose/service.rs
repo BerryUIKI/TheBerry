@@ -166,20 +166,15 @@ impl GooseService {
                     format!("{}\n\n{}", cfg.system_prompt, payload.prompt)
                 };
 
-                let mut url = if raw_base.is_empty() {
-                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse", model)
+                let url = if raw_base.is_empty() {
+                    format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", model)
                 } else if raw_base.contains(":generateContent") || raw_base.contains(":streamGenerateContent") {
                     raw_base.to_string()
                 } else if raw_base.contains("/models/") {
-                    format!("{}:streamGenerateContent?alt=sse", raw_base.trim_end_matches('/'))
+                    format!("{}:generateContent", raw_base.trim_end_matches('/'))
                 } else {
-                    format!("{}/models/{}:streamGenerateContent?alt=sse", raw_base.trim_end_matches('/'), model)
+                    format!("{}/models/{}:generateContent", raw_base.trim_end_matches('/'), model)
                 };
-
-                if !cfg.api_key.trim().is_empty() && !url.contains("key=") {
-                    let sep = if url.contains('?') { '&' } else { '?' };
-                    url = format!("{}{}{}", url, sep, format!("key={}", cfg.api_key.trim()));
-                }
 
                 let body = serde_json::json!({
                     "contents": [
