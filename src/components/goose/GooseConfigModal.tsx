@@ -205,8 +205,8 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
           {/* Modal Header */}
           <div class="flex items-center justify-between px-5 py-4 border-b border-border bg-secondary/30">
             <div class="flex items-center space-x-3">
-              <div class="w-8 h-8 rounded-full overflow-hidden ring-1 ring-primary/30 flex items-center justify-center bg-primary/10">
-                <img src="/berry.png" alt="TheBerry" class="w-6 h-6 object-contain" />
+              <div class="w-10 h-10 rounded-xl overflow-hidden shadow-sm ring-1 ring-border bg-black/10 flex items-center justify-center flex-shrink-0">
+                <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
               </div>
               <div>
                 <h2 class="text-sm font-bold text-foreground">TheBerry AI & Goose Settings</h2>
