@@ -26,7 +26,7 @@ import { sendGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/g
 import { searchFiles, openFilePath } from "../services/fileSearch";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { previewWithQuickLook } from "../services/quicklook";
-import { resizeHudWindow } from "../services/shortcuts";
+import { resizeHudWindow, toggleHudWindow } from "../services/shortcuts";
 import { SearchResultItem } from "../types/fileSearch";
 import { LauncherItem } from "../types/launcher";
 import { AIConfig } from "../types/goose";
@@ -130,8 +130,19 @@ export function HudView() {
       unlistenStream = unlisten;
     });
 
+    // Global keydown listener so Esc always closes the HUD window anywhere
+    const handleGlobalKeyDown = async (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        await handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown, true);
+
     onCleanup(() => {
       if (unlistenStream) unlistenStream();
+      window.removeEventListener("keydown", handleGlobalKeyDown, true);
     });
   });
 
@@ -177,8 +188,10 @@ export function HudView() {
 
   const handleClose = async () => {
     try {
+      await toggleHudWindow(false);
       const win = getCurrentWebviewWindow();
       await win.hide();
+      handleResetAndClear();
     } catch (e) {
       console.warn("Failed to hide HUD window:", e);
     }
@@ -231,11 +244,7 @@ export function HudView() {
   const handleKeyDown = async (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (isExpanded()) {
-        handleResetAndClear();
-      } else {
-        await handleClose();
-      }
+      await handleClose();
       return;
     }
 
