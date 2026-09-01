@@ -96,4 +96,56 @@ describe("Goose AI Service & Types", () => {
     expect(res.binary_path).toBe("D:\\tools\\goose.exe");
     expect(invoke).toHaveBeenCalledWith("set_goose_custom_binary_path", { path: "D:\\tools\\goose.exe" });
   });
+
+  it("fetches and saves AIConfig with provider settings and request format", async () => {
+    const mockAIConfig: import("../types/goose").AIConfig = {
+      active_provider: "ollama",
+      request_format: "ollama",
+      api_key: "",
+      base_url: "http://localhost:11434/v1",
+      model: "llama3.2",
+      temperature: 0.7,
+      max_tokens: 4096,
+      system_prompt: "You are TheBerry assistant",
+      language: "en",
+      user_name: "Art",
+      user_avatar: "data:image/png;base64,abc",
+      enable_developer_tools: true,
+      enable_web_fetch: true,
+      custom_mcp_servers: [],
+      goose_binary_path: "",
+      auto_start_daemon: false,
+    };
+
+    vi.mocked(invoke).mockResolvedValueOnce(mockAIConfig);
+    const config = await (await import("../services/goose")).getAIConfig();
+    expect(config.active_provider).toBe("ollama");
+    expect(config.request_format).toBe("ollama");
+    expect(config.model).toBe("llama3.2");
+
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    await (await import("../services/goose")).saveAIConfig(mockAIConfig);
+    expect(invoke).toHaveBeenCalledWith("save_ai_config", { config: mockAIConfig });
+  });
+
+  it("fetches provider models via fetchProviderModels", async () => {
+    const mockModels = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    vi.mocked(invoke).mockResolvedValueOnce(mockModels);
+
+    const models = await (await import("../services/goose")).fetchProviderModels(
+      "gemini",
+      "https://generativelanguage.googleapis.com/v1beta",
+      "test-key",
+      "gemini"
+    );
+
+    expect(models).toEqual(mockModels);
+    expect(invoke).toHaveBeenCalledWith("fetch_provider_models", {
+      provider: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+      apiKey: "test-key",
+      requestFormat: "gemini",
+    });
+  });
 });
+

@@ -242,5 +242,17 @@ mod tests {
         let status = manager.get_status();
         assert!(!status.is_installed, "Non-existent path should not be marked installed");
     }
+
+    #[test]
+    fn test_ai_config_request_format_defaults() {
+        use crate::modules::goose::types::AIConfig;
+        let default_cfg = AIConfig::default();
+        assert_eq!(default_cfg.request_format, "openai");
+        assert_eq!(default_cfg.active_provider, "openai");
+
+        let json = r#"{"active_provider":"anthropic","api_key":"sk-ant-test","base_url":"https://api.anthropic.com/v1","model":"claude-3-5-sonnet","temperature":0.7,"max_tokens":4096,"system_prompt":"","enable_developer_tools":true,"enable_web_fetch":true,"custom_mcp_servers":[],"goose_binary_path":"","auto_start_daemon":false}"#;
+        let parsed: AIConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.request_format, "openai", "Default serde fallback when field is omitted");
+    }
 }
 

@@ -12,11 +12,15 @@ import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
+import { GooseConfigModal } from "../components/goose/GooseConfigModal";
+import { getAIConfig, saveAIConfig } from "../services/goose";
 import { QuickLookStatus } from "../types/quicklook";
+import { AIConfig } from "../types/goose";
 import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Settings,
   FolderDot,
@@ -37,15 +41,18 @@ import {
   Upload,
   Copy,
   Check,
+  Languages,
 } from "lucide-solid";
 
 export function SettingsView() {
   const { success, error, info } = useToast();
   const { dataDir } = useApp();
   const { theme, setTheme } = useTheme();
+  const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.2",
+    version: "0.1.3",
     theme: "dark",
+    language: "en",
     close_to_tray: true,
     autostart: false,
     clipboard_history_limit: 200,
@@ -58,15 +65,17 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.2");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.3");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal<DownloadProgress | null>(null);
   const [qlStatus, setQlStatus] = createSignal<QuickLookStatus | null>(null);
+  const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
+  const [showAiModal, setShowAiModal] = createSignal(false);
 
-  onMount(async () => {
+  const reloadSettings = async () => {
     try {
       const cfg = await getConfig();
       setConfigState(cfg);
@@ -76,9 +85,15 @@ export function SettingsView() {
       setAutostartActive(autoStatus);
       const ql = await getQuickLookStatus();
       setQlStatus(ql);
+      const ai = await getAIConfig();
+      setAiConfig(ai);
     } catch (e) {
       console.warn("Failed to load settings or version:", e);
     }
+  };
+
+  onMount(async () => {
+    await reloadSettings();
 
     let unlistenFn: (() => void) | null = null;
     onDownloadProgress((prog) => {
@@ -424,13 +439,74 @@ export function SettingsView() {
       <div class="p-4 bg-card border border-border rounded-lg space-y-4">
         <h2 class="text-xs font-semibold text-foreground flex items-center space-x-2">
           <ShieldCheck size={15} class="text-primary" />
-          <span>Window & System Behavior</span>
+          <span>{t("settings.general")}</span>
         </h2>
+
+        {/* Global Interface Language Selector */}
+        <div class="space-y-2 p-3 bg-secondary/20 border border-border rounded-lg">
+          <div class="flex items-center justify-between">
+            <label class="font-semibold text-foreground flex items-center space-x-1.5">
+              <Languages size={15} class="text-primary" />
+              <span>{t("settings.language")}</span>
+            </label>
+            <span class="text-[10px] text-muted-foreground">{t("settings.language_desc")}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5 pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                await setLanguage("en");
+                if (aiConfig()) {
+                  await saveAIConfig({ ...aiConfig()!, language: "en" });
+                }
+                success(t("settings.saved_success"), "Interface language set to English (TheBerry AI)");
+              }}
+              class={`p-2.5 rounded-lg border text-left transition-all ${
+                language() === "en"
+                  ? "bg-primary/10 border-primary text-foreground font-semibold shadow-xs"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-foreground">English</span>
+                <Show when={language() === "en"}>
+                  <Check size={12} class="text-primary ml-auto" />
+                </Show>
+              </div>
+              <p class="text-[10px] text-muted-foreground mt-0.5">Assistant name: TheBerry AI</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await setLanguage("zh");
+                if (aiConfig()) {
+                  await saveAIConfig({ ...aiConfig()!, language: "zh" });
+                }
+                success(t("settings.saved_success"), "界面语言已切换为简体中文 (豆花 AI)");
+              }}
+              class={`p-2.5 rounded-lg border text-left transition-all ${
+                language() === "zh"
+                  ? "bg-primary/10 border-primary text-foreground font-semibold shadow-xs"
+                  : "bg-background border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <div class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-foreground">简体中文</span>
+                <Show when={language() === "zh"}>
+                  <Check size={12} class="text-primary ml-auto" />
+                </Show>
+              </div>
+              <p class="text-[10px] text-muted-foreground mt-0.5">助手名称: 豆花 AI</p>
+            </button>
+          </div>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           {/* Theme */}
           <div class="space-y-2">
-            <label class="font-medium text-foreground block">Appearance Theme</label>
+            <label class="font-medium text-foreground block">{t("settings.theme")}</label>
             <div class="flex space-x-2">
               <button
                 onClick={() => {
@@ -444,7 +520,7 @@ export function SettingsView() {
                 }`}
               >
                 <Moon size={14} />
-                <span>Dark Mode</span>
+                <span>{t("settings.theme_dark")}</span>
               </button>
               <button
                 onClick={() => {
@@ -458,7 +534,7 @@ export function SettingsView() {
                 }`}
               >
                 <Sun size={14} />
-                <span>Light Mode</span>
+                <span>{t("settings.theme_light")}</span>
               </button>
             </div>
           </div>
@@ -475,7 +551,7 @@ export function SettingsView() {
                   class="rounded"
                 />
                 <span class="text-muted-foreground">
-                  Launch TheBerry automatically on system startup (Boot)
+                  {t("settings.autostart_desc")}
                 </span>
               </label>
 
@@ -487,7 +563,7 @@ export function SettingsView() {
                   class="rounded"
                 />
                 <span class="text-muted-foreground">
-                  Minimize / close to system tray instead of exiting
+                  {t("settings.close_to_tray_desc")}
                 </span>
               </label>
             </div>
@@ -498,7 +574,7 @@ export function SettingsView() {
             <div class="flex items-center justify-between">
               <label class="font-medium text-foreground flex items-center space-x-1.5">
                 <Eye size={14} class="text-primary" />
-                <span>QuickLook File Preview (Windows)</span>
+                <span>{t("settings.quicklook")}</span>
               </label>
               <Show when={qlStatus()}>
                 <span
@@ -521,7 +597,7 @@ export function SettingsView() {
               </Show>
             </div>
             <p class="text-[11px] text-muted-foreground leading-relaxed">
-              Press <kbd class="px-1.5 py-0.5 rounded bg-muted font-mono">Space</kbd> on any file in File Search or Spotlight HUD to launch instant native previews.
+              {t("settings.quicklook_desc")}
             </p>
             <Show when={qlStatus()?.is_supported_os && !qlStatus()?.is_installed}>
               <div class="pt-1">
@@ -537,8 +613,44 @@ export function SettingsView() {
               </div>
             </Show>
           </div>
+
+          {/* AI Assistant Configuration (Goose / TheBerry) */}
+          <div class="pt-3 border-t border-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-foreground flex items-center space-x-1.5">
+                <Sparkles size={14} class="text-primary" />
+                <span>{t("settings.ai_assistant")}</span>
+              </label>
+              <div class="flex items-center space-x-2">
+                <Show when={aiConfig()}>
+                  <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-primary/10 text-primary border border-primary/20">
+                    {aiConfig()?.active_provider.toUpperCase()} • {aiConfig()?.model} • {(aiConfig()?.request_format || "openai").toUpperCase()}
+                  </span>
+                </Show>
+                <button
+                  onClick={() => setShowAiModal(true)}
+                  class="px-2.5 py-1 bg-secondary hover:bg-secondary/80 text-foreground border border-border rounded text-xs font-medium flex items-center space-x-1 transition-colors"
+                >
+                  <Settings size={12} class="text-primary" />
+                  <span>{t("settings.configure")}</span>
+                </button>
+              </div>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-relaxed">
+              {t("settings.ai_desc")}
+            </p>
+          </div>
         </div>
       </div>
+
+      {/* Embedded AI Config Modal */}
+      <GooseConfigModal
+        isOpen={showAiModal()}
+        onClose={() => {
+          setShowAiModal(false);
+          reloadSettings();
+        }}
+      />
 
       {/* About Box */}
       <div class="p-4 bg-card border border-border rounded-lg space-y-2 text-xs">

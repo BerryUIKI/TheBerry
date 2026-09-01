@@ -139,5 +139,43 @@ export class GooseService {
       callback(event.payload);
     });
   }
+
+  static async getAIConfig(): Promise<AIConfig> {
+    return await invoke<AIConfig>("get_ai_config");
+  }
+
+  static async saveAIConfig(config: AIConfig): Promise<void> {
+    await invoke("save_ai_config", { config });
+  }
 }
+
+---
+
+## 4. AI Configuration Schema (Goose Parity)
+
+export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+
+export interface AIConfig {
+  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  request_format: AIRequestFormat;
+  api_key: string;
+  base_url: string;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  system_prompt: string;
+  enable_developer_tools: boolean;
+  enable_web_fetch: boolean;
+  custom_mcp_servers: Array<{
+    name: string;
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+    url?: string;
+  }>;
+  goose_binary_path: string;
+  auto_start_daemon: boolean;
+}
+```
+
 ```
