@@ -84,4 +84,19 @@ describe("Frontend Type Model Contracts", () => {
     expect(query.file_type_filter).toBe("doc");
     expect(query.max_results).toBe(100);
   });
+
+  it("validates AppConfig structure with language preferences", () => {
+    const config: import("../types/config").AppConfig = {
+      version: "0.1.3",
+      theme: "dark",
+      language: "en",
+      close_to_tray: true,
+      autostart: false,
+      clipboard_history_limit: 200,
+      custom_data_dir: "C:\\data",
+    };
+
+    expect(config.language).toBe("en");
+    expect(config.theme).toBe("dark");
+  });
 });

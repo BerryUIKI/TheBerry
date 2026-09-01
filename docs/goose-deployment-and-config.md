@@ -55,3 +55,24 @@ Check goose.auto_start?
   - TheBerry's dynamic port allocator automatically selects an alternative open port.
 - **"Model API Key Missing"**:
   - Configure your API key via Goose CLI (`goose configure`) or export in environment variables before launching.
+
+---
+
+## 5. Provider Presets & Local Ollama Setup
+
+| Provider | Default Base URL | Recommended Models | API Key Env / Header |
+| :--- | :--- | :--- | :--- |
+| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o`, `gpt-4o-mini`, `o3-mini` | `Bearer sk-...` |
+| **Anthropic** | `https://api.anthropic.com/v1` | `claude-3-5-sonnet-20241022` | `x-api-key` |
+| **Google Gemini** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-1.5-pro`, `gemini-2.0-flash` | `Bearer AIza...` |
+| **Ollama (Local)** | `http://localhost:11434/v1` | `llama3.2`, `qwen2.5-coder`, `deepseek-r1` | None required |
+| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat`, `deepseek-reasoner` | `Bearer sk-...` |
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | `Bearer gsk-...` |
+| **OpenRouter** | `https://openrouter.ai/api/v1` | `auto`, `anthropic/claude-3.5-sonnet` | `Bearer sk-or-...` |
+
+### Local Ollama Setup:
+1. Install Ollama: `https://ollama.com`.
+2. Pull model: `ollama run llama3.2` or `ollama run qwen2.5-coder`.
+3. In TheBerry AI Settings: select Provider **Ollama (Local)**. Base URL defaults to `http://localhost:11434/v1`.
+4. Click Save and chat instantly with zero cloud dependencies or API keys!
+

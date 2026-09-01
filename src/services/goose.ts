@@ -27,3 +27,26 @@ export async function onGooseStreamChunk(callback: (chunk: GooseStreamChunk) => 
     callback(event.payload);
   });
 }
+
+export async function getAIConfig(): Promise<import("../types/goose").AIConfig> {
+  return safeInvoke<import("../types/goose").AIConfig>("get_ai_config");
+}
+
+export async function saveAIConfig(config: import("../types/goose").AIConfig): Promise<void> {
+  return safeInvoke<void>("save_ai_config", { config });
+}
+
+export async function fetchProviderModels(
+  provider: string,
+  baseUrl?: string,
+  apiKey?: string,
+  requestFormat?: string
+): Promise<string[]> {
+  return safeInvoke<string[]>("fetch_provider_models", {
+    provider,
+    baseUrl: baseUrl || null,
+    apiKey: apiKey || null,
+    requestFormat: requestFormat || null,
+  });
+}
+

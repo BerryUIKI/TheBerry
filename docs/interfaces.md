@@ -36,6 +36,7 @@ This document defines the Tauri IPC commands, request payloads, and return data 
   interface AppConfig {
     version: string;
     theme: "dark" | "light" | "system";
+    language: "en" | "zh";
     close_to_tray: boolean;
     autostart: boolean;
     clipboard_history_limit: number;
@@ -245,6 +246,30 @@ interface GooseStreamChunk {
   is_finished: boolean;
   error?: string;
 }
+
+interface AIConfig {
+  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  request_format: "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+  api_key: string;
+  base_url: string;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  system_prompt: string;
+  user_name: string;
+  user_avatar: string;
+  enable_developer_tools: boolean;
+  enable_web_fetch: boolean;
+  custom_mcp_servers: Array<{
+    name: string;
+    command: string;
+    args: string[];
+    env: Record<string, string>;
+    url?: string;
+  }>;
+  goose_binary_path: string;
+  auto_start_daemon: boolean;
+}
 ```
 
 ### Commands
@@ -252,6 +277,9 @@ interface GooseStreamChunk {
 - `start_goose_daemon(customPort?: number)`: `Promise<GooseStatus>`
 - `stop_goose_daemon()`: `Promise<void>`
 - `send_goose_message(payload: SendGooseMessagePayload)`: `Promise<void>`
+- `get_ai_config()`: `Promise<AIConfig>`
+- `save_ai_config(config: AIConfig)`: `Promise<void>`
+- `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
 
 ### Events
 - `goose://stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
