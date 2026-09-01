@@ -25,6 +25,7 @@ import { sendGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/g
 import { searchFiles, openFilePath } from "../services/fileSearch";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { previewWithQuickLook } from "../services/quicklook";
+import { resizeHudWindow } from "../services/shortcuts";
 import { SearchResultItem } from "../types/fileSearch";
 import { LauncherItem } from "../types/launcher";
 import { AIConfig } from "../types/goose";
@@ -84,14 +85,11 @@ export function HudView() {
   // Dynamic Height Resizing (96px collapsed, 480px expanded for both AI & Search modes)
   createEffect(async () => {
     const expanded = isExpanded();
+    const targetHeight = expanded ? 480 : 96;
     try {
+      await resizeHudWindow(targetHeight);
       const win = getCurrentWebviewWindow();
-      if (!expanded) {
-        await win.setSize(new LogicalSize(640, 96));
-      } else {
-        // Both AI conversation mode and local search mode expand smoothly to 480px
-        await win.setSize(new LogicalSize(640, 480));
-      }
+      await win.setSize(new LogicalSize(640, targetHeight));
     } catch (e) {
       console.warn("HUD window resize error:", e);
     }
