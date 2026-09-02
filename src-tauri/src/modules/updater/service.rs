@@ -292,11 +292,17 @@ impl UpdaterService {
     }
 
     /// Background daemon that silently checks GitHub for updates once every 24 hours
-    pub fn start_daily_check_daemon(app_handle: AppHandle) {
+    pub fn start_daily_check_daemon(app_handle: AppHandle, mut shutdown_rx: tokio::sync::watch::Receiver<bool>) {
         tauri::async_runtime::spawn(async move {
+            tokio::select! {
+                _ = shutdown_rx.changed() => return,
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {}
+            }
+
             loop {
-                // Check on startup after 10 seconds, then once every 24 hours
-                tokio::time::sleep(Duration::from_secs(10)).await;
+                if *shutdown_rx.borrow() {
+                    break;
+                }
 
                 if let Ok(info) = Self::check_latest_release(CURRENT_APP_VERSION).await {
                     if info.has_update {
@@ -304,8 +310,11 @@ impl UpdaterService {
                     }
                 }
 
-                // Sleep 24 hours before next check
-                tokio::time::sleep(Duration::from_secs(86400)).await;
+                // Sleep 24 hours before next check, interrupting immediately if shutdown signal received
+                tokio::select! {
+                    _ = shutdown_rx.changed() => break,
+                    _ = tokio::time::sleep(Duration::from_secs(86400)) => {}
+                }
             }
         });
     }

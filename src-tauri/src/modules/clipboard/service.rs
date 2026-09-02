@@ -307,7 +307,11 @@ impl ClipboardService {
     }
 
     /// Background listener daemon that monitors OS clipboard changes for text and images
-    pub fn start_listener(db_manager: Arc<DatabaseManager>, app_handle: AppHandle) {
+    pub fn start_listener(
+        db_manager: Arc<DatabaseManager>,
+        app_handle: AppHandle,
+        shutdown_flag: Arc<std::sync::atomic::AtomicBool>,
+    ) {
         std::thread::Builder::new()
             .name("clipboard-daemon".to_string())
             .spawn(move || {
@@ -316,7 +320,7 @@ impl ClipboardService {
                 let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
                 let mut consecutive_errors = 0u32;
 
-                loop {
+                while !shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
                     let base_sleep = 500u64;
                     let sleep_duration = if consecutive_errors > 0 {
                         std::time::Duration::from_millis(base_sleep * (consecutive_errors.min(20) as u64))
@@ -324,6 +328,10 @@ impl ClipboardService {
                         std::time::Duration::from_millis(base_sleep)
                     };
                     std::thread::sleep(sleep_duration);
+
+                    if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                        break;
+                    }
 
                     if !db_manager.is_ready() {
                         continue;
