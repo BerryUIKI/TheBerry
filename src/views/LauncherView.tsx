@@ -80,7 +80,7 @@ export function LauncherView() {
   };
 
   const filteredItems = () => {
-    const q = searchQuery().toLowerCase();
+    const q = searchQuery().trim().toLowerCase();
     const cat = selectedCategory();
 
     return items().filter((item) => {
