@@ -21,6 +21,7 @@ pub struct SearchQuery {
     pub pattern: String,
     pub search_root: Option<String>,
     pub max_results: Option<usize>,
+    pub max_depth: Option<usize>,
     pub file_type_filter: Option<String>, // "all" | "file" | "dir" | "image" | "doc" | "code"
     pub case_sensitive: Option<bool>,
 }
@@ -78,6 +79,7 @@ impl FileSearchEngine {
         }
 
         let max_results = query.max_results.unwrap_or(250);
+        let max_depth = query.max_depth.unwrap_or(9);
         let case_sensitive = query.case_sensitive.unwrap_or(false);
         let pattern_cmp = if case_sensitive {
             pattern_trimmed.to_string()
@@ -104,7 +106,7 @@ impl FileSearchEngine {
 
         let walker = WalkDir::new(&root_path)
             .follow_links(false)
-            .max_depth(9)
+            .max_depth(max_depth)
             .into_iter()
             .filter_entry(|e| {
                 let file_name = e.file_name().to_string_lossy();

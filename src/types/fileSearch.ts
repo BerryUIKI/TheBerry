@@ -11,6 +11,7 @@ export interface SearchQuery {
   pattern: string;
   search_root?: string;
   max_results?: number;
+  max_depth?: number;
   file_type_filter?: "all" | "file" | "dir" | "image" | "doc" | "code";
   case_sensitive?: boolean;
 }
