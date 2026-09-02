@@ -1,6 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { ConvertResult, ConvertTask } from "../types/imageConverter";
 import { convertImages } from "../services/imageConverter";
+import { previewWithQuickLook } from "../services/quicklook";
 import { useToast } from "../context/ToastContext";
 import {
   Image,
@@ -13,6 +14,7 @@ import {
   Sliders,
   UploadCloud,
   Layers,
+  Eye,
 } from "lucide-solid";
 
 export function ImageConverterView() {
@@ -409,8 +411,14 @@ export function ImageConverterView() {
                 const filename = path.split(/[\\/]/).pop();
 
                 return (
-                  <div class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-primary/30 transition-all group">
-                    <div class="flex items-center space-x-3 min-w-0">
+                  <div
+                    onDblClick={() => previewWithQuickLook(path)}
+                    class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-primary/30 transition-all group cursor-pointer"
+                  >
+                    <div
+                      onClick={() => previewWithQuickLook(path)}
+                      class="flex items-center space-x-3 min-w-0 flex-1"
+                    >
                       <Image size={16} class="text-primary flex-shrink-0" />
                       <div class="min-w-0">
                         <p class="font-medium text-foreground truncate">{filename}</p>
@@ -418,7 +426,7 @@ export function ImageConverterView() {
                       </div>
                     </div>
 
-                    <div class="flex items-center space-x-3 flex-shrink-0">
+                    <div class="flex items-center space-x-3 flex-shrink-0 ml-3">
                       <Show when={res()}>
                         {(result) => (
                           <div class="flex items-center space-x-2">
@@ -444,7 +452,22 @@ export function ImageConverterView() {
                       </Show>
 
                       <button
-                        onClick={() => handleRemoveFile(path)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          previewWithQuickLook(path);
+                        }}
+                        title="Preview Image (Space / Click)"
+                        class="p-1 text-muted-foreground hover:text-primary rounded-md hover:bg-secondary transition-colors"
+                      >
+                        <Eye size={14} />
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFile(path);
+                        }}
+                        title="Remove from list"
                         class="p-1 text-muted-foreground hover:text-destructive rounded-md hover:bg-secondary transition-colors"
                       >
                         <Trash2 size={14} />
