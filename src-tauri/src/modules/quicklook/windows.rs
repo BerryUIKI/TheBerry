@@ -148,6 +148,8 @@ impl QuickLookService {
 
         let message_type = match payload.mode.as_deref() {
             Some("switch") => "QuickLook.App.PipeMessages.Switch",
+            Some("show") | Some("preview") => "QuickLook.App.PipeMessages.Toggle",
+            Some("close") => "QuickLook.App.PipeMessages.Close",
             _ => "QuickLook.App.PipeMessages.Toggle",
         };
 
