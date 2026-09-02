@@ -77,12 +77,15 @@ This document defines the Tauri IPC commands, request payloads, and return data 
 ```typescript
 interface ClipboardItem {
   id: string;
-  content_type: "text" | "image" | "file" | "html";
+  content_type: string; // "text" | "image" | "file" | "json"
   content: string;
   preview: string;
+  media_path?: string;
+  media_data_url?: string;
+  image_width?: number;
+  image_height?: number;
   is_pinned: boolean;
   char_count: number;
-  media_path?: string | null;
   created_at: string; // ISO 8601 UTC
 }
 ```
@@ -150,14 +153,14 @@ interface LauncherItem {
   description: string;
   exec_path: string;
   arguments: string[];
-  working_dir?: string | null;
+  working_dir?: string;
   category: string;
+  icon_path?: string;
   is_favorite: boolean;
+  launch_count: number;
   is_batch: boolean;
   batch_commands: string[];
-  launch_count: number;
   created_at: string;
-  updated_at: string;
 }
 
 interface LauncherPayload {
@@ -197,18 +200,23 @@ interface DiscoveredApp {
 ```typescript
 interface ConvertTask {
   source_path: string;
-  target_format: "png" | "jpeg" | "webp";
-  quality?: number; // 1-100
+  target_format: "webp" | "jpeg" | "png";
+  quality: number; // 1-100
   output_dir?: string;
+  resize_width?: number;
+  resize_height?: number;
+  preserve_aspect_ratio?: boolean;
 }
 
 interface ConvertResult {
   source_path: string;
-  output_path: string | null;
+  target_path: string;
   original_size_bytes: number;
-  converted_size_bytes: number | null;
+  converted_size_bytes: number;
   success: boolean;
-  error_message: string | null;
+  error_message?: string;
+  width: number;
+  height: number;
 }
 ```
 
@@ -315,18 +323,21 @@ interface GooseStreamChunk {
   message_id: string;
   delta: string;
   is_finished: boolean;
-  error?: string;
+  error?: string | null;
 }
+
+export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
 
 interface AIConfig {
   active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
-  request_format: "openai" | "anthropic" | "gemini" | "ollama" | "custom";
+  request_format: AIRequestFormat;
   api_key: string;
   base_url: string;
   model: string;
   temperature: number;
   max_tokens: number;
   system_prompt: string;
+  language: "en" | "zh";
   user_name: string;
   user_avatar: string;
   enable_developer_tools: boolean;
