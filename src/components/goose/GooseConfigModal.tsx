@@ -771,7 +771,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
                             <p class="text-[11px] text-muted-foreground font-mono">{srv.command} {srv.args.join(" ")}</p>
                           </div>
                           <button
-                            onClick={() => handleDeleteMcpServer(idx())}
+                            onClick={() => handleRemoveMcpServer(idx())}
                             class="text-destructive hover:bg-destructive/10 p-1.5 rounded"
                           >
                             <Trash2 size={13} />
