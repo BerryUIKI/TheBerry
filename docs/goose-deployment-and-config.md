@@ -7,8 +7,8 @@
 - **Supported Platforms**: Windows (x86_64/ARM64), macOS (Apple Silicon / Intel), Linux (x86_64).
 - **Supported LLM Providers**:
   - Local Models: Ollama, vLLM, LMStudio (requires local endpoint e.g., `http://localhost:11434`).
-  - Cloud Providers: OpenAI, Anthropic Claude, Google Gemini, Groq, Databricks, OpenRouter.
-- **Provider API Keys**: Stored in standard environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) or in Goose's configuration file (`~/.config/goose/config.yaml`).
+  - Cloud Providers: OpenAI, Anthropic Claude, Google Gemini, DeepSeek, Groq, OpenRouter, and custom endpoints.
+- **Provider API Keys**: Stored securely in the OS Credential Manager (via Windows Credential Manager / `keyring`) and managed directly through TheBerry's AI Assistant settings (`ai_config.json`), without requiring system environment variables.
 
 ---
 
@@ -54,7 +54,7 @@ Check goose.auto_start?
 - **"Port Conflict"**:
   - TheBerry's dynamic port allocator automatically selects an alternative open port.
 - **"Model API Key Missing"**:
-  - Configure your API key via Goose CLI (`goose configure`) or export in environment variables before launching.
+  - Configure your API key directly in TheBerry's AI Assistant settings modal (Settings > AI Assistant or Alt+Space / HUD). Keys are saved securely to Windows Credential Manager.
 
 ---
 

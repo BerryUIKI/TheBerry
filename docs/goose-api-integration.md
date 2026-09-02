@@ -164,6 +164,9 @@ export interface AIConfig {
   temperature: number;
   max_tokens: number;
   system_prompt: string;
+  language: "en" | "zh";
+  user_name: string;
+  user_avatar: string;
   enable_developer_tools: boolean;
   enable_web_fetch: boolean;
   custom_mcp_servers: Array<{
@@ -176,6 +179,4 @@ export interface AIConfig {
   goose_binary_path: string;
   auto_start_daemon: boolean;
 }
-```
-
 ```
