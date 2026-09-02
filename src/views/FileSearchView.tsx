@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show, JSX } from "solid-js";
+import { createSignal, onMount, onCleanup, For, Show, JSX } from "solid-js";
 import { SearchQuery, SearchResultItem, SystemDrive } from "../types/fileSearch";
 import {
   getSystemDrives,
@@ -46,6 +46,8 @@ export function FileSearchView() {
   const [sortField, setSortField] = createSignal<SortField>("name");
   const [sortOrder, setSortOrder] = createSignal<SortOrder>("asc");
 
+  let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+
   const loadDrives = async () => {
     try {
       const list = await getSystemDrives();
@@ -62,8 +64,27 @@ export function FileSearchView() {
     loadDrives();
   });
 
+  onCleanup(() => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+  });
+
+  const handleInput = (val: string) => {
+    setQueryText(val);
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    debounceTimer = setTimeout(() => {
+      handleSearch();
+    }, 300);
+  };
+
   const handleSearch = async (e?: Event) => {
     if (e) e.preventDefault();
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
     const q = queryText().trim();
     if (!q && !selectedRoot()) return;
 
@@ -232,7 +253,7 @@ export function FileSearchView() {
           <input
             type="text"
             value={queryText()}
-            onInput={(e) => setQueryText(e.currentTarget.value)}
+            onInput={(e) => handleInput(e.currentTarget.value)}
             placeholder="Type filename or wildcard (e.g. *.rs, main.tsx, report)..."
             class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
