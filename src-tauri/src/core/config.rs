@@ -122,8 +122,15 @@ impl ConfigManager {
         let config_file = data_dir.join("config.toml");
         if config_file.exists() {
             let content = fs::read_to_string(&config_file)?;
-            let config: AppConfig = toml::from_str(&content)
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            let config: AppConfig = match toml::from_str(&content) {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    tracing::warn!("Failed to parse config.toml: {}. Falling back to default configuration.", e);
+                    let mut default_config = AppConfig::default();
+                    default_config.custom_data_dir = data_dir.to_string_lossy().to_string();
+                    default_config
+                }
+            };
             *self.app_config.write().unwrap() = config.clone();
             Ok(config)
         } else {
