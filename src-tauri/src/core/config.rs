@@ -1,23 +1,14 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 
 use super::paths::{ensure_directory_exists, get_bootstrap_config_path, get_bootstrap_dir};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BootstrapConfig {
     pub custom_data_dir: Option<String>,
     pub initialized: bool,
-}
-
-impl Default for BootstrapConfig {
-    fn default() -> Self {
-        Self {
-            custom_data_dir: None,
-            initialized: false,
-        }
-    }
 }
 
 fn default_app_language() -> String {
@@ -69,6 +60,12 @@ pub struct ConfigManager {
     app_config: RwLock<AppConfig>,
 }
 
+impl Default for ConfigManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConfigManager {
     pub fn new() -> Self {
         let manager = Self {
@@ -112,13 +109,13 @@ impl ConfigManager {
             initialized: true,
         };
         let serialized = toml::to_string_pretty(&config)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         fs::write(path, serialized)?;
         *self.bootstrap.write().unwrap() = config;
         Ok(())
     }
 
-    pub fn load_app_config(&self, data_dir: &PathBuf) -> std::io::Result<AppConfig> {
+    pub fn load_app_config(&self, data_dir: &Path) -> std::io::Result<AppConfig> {
         let config_file = data_dir.join("config.toml");
         if config_file.exists() {
             let content = fs::read_to_string(&config_file)?;
@@ -126,27 +123,30 @@ impl ConfigManager {
                 Ok(cfg) => cfg,
                 Err(e) => {
                     tracing::warn!("Failed to parse config.toml: {}. Falling back to default configuration.", e);
-                    let mut default_config = AppConfig::default();
-                    default_config.custom_data_dir = data_dir.to_string_lossy().to_string();
-                    default_config
+                    AppConfig {
+                        custom_data_dir: data_dir.to_string_lossy().to_string(),
+                        ..Default::default()
+                    }
                 }
             };
             *self.app_config.write().unwrap() = config.clone();
             Ok(config)
         } else {
-            let mut default_config = AppConfig::default();
-            default_config.custom_data_dir = data_dir.to_string_lossy().to_string();
+            let default_config = AppConfig {
+                custom_data_dir: data_dir.to_string_lossy().to_string(),
+                ..Default::default()
+            };
             self.save_app_config(data_dir, &default_config)?;
             *self.app_config.write().unwrap() = default_config.clone();
             Ok(default_config)
         }
     }
 
-    pub fn save_app_config(&self, data_dir: &PathBuf, config: &AppConfig) -> std::io::Result<()> {
+    pub fn save_app_config(&self, data_dir: &Path, config: &AppConfig) -> std::io::Result<()> {
         ensure_directory_exists(data_dir)?;
         let config_file = data_dir.join("config.toml");
         let serialized = toml::to_string_pretty(config)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
         fs::write(config_file, serialized)?;
         *self.app_config.write().unwrap() = config.clone();
         Ok(())

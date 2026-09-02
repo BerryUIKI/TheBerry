@@ -1,6 +1,6 @@
 use parking_lot::RwLock;
 use redb::{Database, TableDefinition};
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 pub const CLIPBOARD_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("clipboard_history");
@@ -11,6 +11,12 @@ pub const KV_STORE_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("k
 pub struct DatabaseManager {
     db: RwLock<Option<Arc<Database>>>,
     write_lock: parking_lot::Mutex<()>,
+}
+
+impl Default for DatabaseManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DatabaseManager {
@@ -25,7 +31,7 @@ impl DatabaseManager {
         self.write_lock.lock()
     }
 
-    pub fn initialize(&self, data_dir: &PathBuf) -> Result<(), String> {
+    pub fn initialize(&self, data_dir: &Path) -> Result<(), String> {
         let _write_guard = self.write_lock.lock();
         let db_path = data_dir.join("the_berry.redb");
         let db = Database::create(&db_path).map_err(|e| format!("Failed to create redb database: {}", e))?;

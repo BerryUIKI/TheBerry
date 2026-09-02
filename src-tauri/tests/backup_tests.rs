@@ -10,10 +10,10 @@ use the_berry_lib::modules::snippets::service::{SnippetPayload, SnippetService};
 fn test_full_backup_export_and_import_lifecycle() {
     let temp1 = tempdir().expect("failed to create temp dir 1");
     let db_manager1 = Arc::new(DatabaseManager::new());
-    db_manager1.initialize(&temp1.path().to_path_buf()).expect("failed to init db 1");
+    db_manager1.initialize(temp1.path()).expect("failed to init db 1");
     let config_manager1 = Arc::new(ConfigManager::new());
     let _ = config_manager1.save_bootstrap(&temp1.path().to_string_lossy());
-    let _ = config_manager1.load_app_config(&temp1.path().to_path_buf());
+    let _ = config_manager1.load_app_config(temp1.path());
 
     // Add clipboard and snippet items
     let clip_service = ClipboardService::new(db_manager1.clone());
@@ -42,10 +42,10 @@ fn test_full_backup_export_and_import_lifecycle() {
     // Create a new clean database instance (temp2)
     let temp2 = tempdir().expect("failed to create temp dir 2");
     let db_manager2 = Arc::new(DatabaseManager::new());
-    db_manager2.initialize(&temp2.path().to_path_buf()).expect("failed to init db 2");
+    db_manager2.initialize(temp2.path()).expect("failed to init db 2");
     let config_manager2 = Arc::new(ConfigManager::new());
     let _ = config_manager2.save_bootstrap(&temp2.path().to_string_lossy());
-    let _ = config_manager2.load_app_config(&temp2.path().to_path_buf());
+    let _ = config_manager2.load_app_config(temp2.path());
 
     // Import backup into database 2
     let backup_service2 = BackupService::new(db_manager2.clone(), config_manager2.clone());
