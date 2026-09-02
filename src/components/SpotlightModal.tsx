@@ -160,9 +160,9 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     if ((effectiveFilter === "file" && q.length >= 1) || (effectiveFilter === "all" && q.length >= 2)) {
       try {
         const fileHits = await searchFiles({
-          query: q,
-          limit: 5,
-          file_type: "all",
+          pattern: q,
+          max_results: 5,
+          file_type_filter: "all",
           case_sensitive: false,
         });
         fileHits.forEach((f) => {
