@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import { useApp, ViewType } from "../../context/AppContext";
 import { useI18n, TranslationKey } from "../../context/I18nContext";
 import {
@@ -35,23 +36,25 @@ export function Sidebar() {
           Utilities Suite
         </div>
 
-        {navDefs.map((item) => {
-          const isActive = activeView() === item.id;
-          const Icon = item.icon;
-          return (
-            <button
-              onClick={() => setActiveView(item.id)}
-              class={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              <Icon size={16} class={isActive ? "text-primary-foreground" : "text-muted-foreground"} />
-              <span class="truncate">{t(item.key)}</span>
-            </button>
-          );
-        })}
+        <For each={navDefs}>
+          {(item) => {
+            const isActive = () => activeView() === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                onClick={() => setActiveView(item.id)}
+                class={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                  isActive()
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <Icon size={16} class={isActive() ? "text-primary-foreground" : "text-muted-foreground"} />
+                <span class="truncate">{t(item.key)}</span>
+              </button>
+            );
+          }}
+        </For>
       </div>
 
       {/* Bottom info & Settings */}
