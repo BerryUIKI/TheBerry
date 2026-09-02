@@ -48,7 +48,7 @@ This document defines the Tauri IPC commands, request payloads, and return data 
 
 ---
 
-## 2. Window Control Commands
+## 2. Window Control & Shortcuts Commands
 
 | Command | Arguments | Return | Description |
 | :--- | :--- | :--- | :--- |
@@ -57,11 +57,21 @@ This document defines the Tauri IPC commands, request payloads, and return data 
 | `close_window` | None | `void` | Hides to tray or exits depending on config |
 | `show_main_window` | None | `void` | Focuses and reveals main window from tray |
 | `toggle_hud_window` | `show?: boolean` | `void` | Toggles or sets visibility of the global HUD window |
+| `resize_hud_window` | `height: number` | `void` | Smoothly resizes the HUD window logical height |
 | `set_global_shortcuts_enabled` | `enabled: boolean` | `void` | Enables or disables all registered global shortcuts dynamically |
+| `set_hud_shortcut` | `shortcut: string` | `void` | Sets and registers custom global hotkey for Quick Access HUD |
 
 ---
 
-## 3. Clipboard History Module (`modules::clipboard`)
+## 3. Autostart Module (`modules::autostart`)
+
+### Commands
+- `is_autostart_enabled()`: `boolean`
+- `set_autostart(enabled: boolean)`: `void`
+
+---
+
+## 4. Clipboard History Module (`modules::clipboard`)
 
 ### Data Structure
 ```typescript
@@ -72,24 +82,27 @@ interface ClipboardItem {
   preview: string;
   is_pinned: boolean;
   char_count: number;
+  media_path?: string | null;
   created_at: string; // ISO 8601 UTC
 }
 ```
 
 ### Commands
 - `get_clipboard_history()`: `ClipboardItem[]`
+- `search_clipboard_history(query: string, contentType?: string, isPinned?: boolean, limit?: number)`: `ClipboardItem[]`
 - `add_clipboard_item(content: string, contentType?: string)`: `ClipboardItem`
 - `toggle_clipboard_pin(id: string)`: `ClipboardItem`
 - `delete_clipboard_item(id: string)`: `void`
 - `clear_clipboard_history()`: `number` (count of cleared items)
 - `copy_to_system_clipboard(content: string)`: `void` (writes text directly into OS clipboard)
+- `copy_image_to_system_clipboard(path: string)`: `void` (writes image directly into OS clipboard)
 
 ### Events
 - `clipboard-updated`: Emitted whenever background OS clipboard change is captured.
 
 ---
 
-## 4. Code Snippets Module (`modules::snippets`)
+## 5. Code Snippets Module (`modules::snippets`)
 
 ### Data Structure
 ```typescript
@@ -122,10 +135,12 @@ interface SnippetPayload {
 - `get_snippets()`: `SnippetItem[]`
 - `save_snippet(payload: SnippetPayload)`: `SnippetItem`
 - `delete_snippet(id: string)`: `void`
+- `expand_snippet_template(content: string)`: `string`
+- `copy_expanded_snippet(content: string)`: `void`
 
 ---
 
-## 5. Application Launcher Module (`modules::launcher`)
+## 6. Application Launcher Module (`modules::launcher`)
 
 ### Data Structure
 ```typescript
@@ -157,6 +172,13 @@ interface LauncherPayload {
   is_batch?: boolean;
   batch_commands?: string[];
 }
+
+interface DiscoveredApp {
+  name: string;
+  exec_path: string;
+  category: string;
+  icon_hint?: string;
+}
 ```
 
 ### Commands
@@ -164,10 +186,12 @@ interface LauncherPayload {
 - `save_launcher_item(payload: LauncherPayload)`: `LauncherItem`
 - `delete_launcher_item(id: string)`: `void`
 - `launch_item(id: string)`: `string`
+- `discover_system_apps()`: `DiscoveredApp[]`
+- `batch_import_launcher_items(items: LauncherPayload[])`: `number`
 
 ---
 
-## 6. Batch Image Converter Module (`modules::image_converter`)
+## 7. Batch Image Converter Module (`modules::image_converter`)
 
 ### Data Structure
 ```typescript
@@ -193,7 +217,7 @@ interface ConvertResult {
 
 ---
 
-## 7. Fast File Search Module (`modules::file_search`)
+## 8. Fast File Search Module (`modules::file_search`)
 
 ### Data Structure
 ```typescript
@@ -201,6 +225,7 @@ interface SearchQuery {
   pattern: string;
   search_root?: string;
   max_results?: number;
+  max_depth?: number;
   file_type_filter?: "all" | "file" | "dir" | "image" | "doc" | "code";
   case_sensitive?: boolean;
 }
@@ -213,16 +238,58 @@ interface SearchResultItem {
   extension: string;
   modified_time: number; // Unix timestamp
 }
+
+interface SystemDrive {
+  name: string;
+  path: string;
+}
 ```
 
 ### Commands
 - `search_files(query: SearchQuery)`: `Promise<SearchResultItem[]>`
 - `get_system_drives()`: `Promise<SystemDrive[]>`
 - `reveal_in_explorer(path: string)`: `Promise<void>`
+- `open_file_path(path: string)`: `Promise<void>`
 
 ---
 
-## 8. Goose AI Assistant Module (`modules::goose`)
+## 9. Updater Module (`modules::updater`)
+
+### Data Structure
+```typescript
+interface UpdateInfo {
+  has_update: boolean;
+  current_version: string;
+  latest_version: string;
+  download_url: string;
+  asset_name: string;
+  release_url: string;
+  release_notes?: string;
+}
+
+interface DownloadProgress {
+  total_bytes: number;
+  downloaded_bytes: number;
+  percentage: number;
+}
+```
+
+### Commands
+- `check_for_updates()`: `Promise<UpdateInfo>`
+- `download_and_install_update(downloadUrl: string)`: `Promise<string>`
+- `get_app_version()`: `Promise<string>`
+
+---
+
+## 10. Backup & Restore Module (`modules::backup`)
+
+### Commands
+- `export_full_backup(targetPath: string)`: `Promise<string>`
+- `import_full_backup(backupZipPath: string)`: `Promise<boolean>`
+
+---
+
+## 11. Goose AI Assistant Module (`modules::goose`)
 
 ### Data Structures
 ```typescript
@@ -281,17 +348,18 @@ interface AIConfig {
 - `start_goose_daemon(customPort?: number)`: `Promise<GooseStatus>`
 - `stop_goose_daemon()`: `Promise<void>`
 - `send_goose_message(payload: SendGooseMessagePayload)`: `Promise<void>`
+- `set_goose_custom_binary_path(path: string)`: `Promise<void>`
 - `get_ai_config()`: `Promise<AIConfig>`
 - `save_ai_config(config: AIConfig)`: `Promise<void>`
 - `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
 
 ### Events
-- `goose://stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
-- `goose://status-change`: Emitted when the Goose daemon state changes.
+- `goose-stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
+- `goose-status-change`: Emitted when the Goose daemon state changes.
 
 ---
 
-## 9. QuickLook Preview Module (`modules::quicklook` - Windows Only)
+## 12. QuickLook Preview Module (`modules::quicklook` - Windows Only)
 
 ### Data Structures
 ```typescript
@@ -314,5 +382,3 @@ interface QuickLookPreviewPayload {
 - `get_quicklook_status()`: `Promise<QuickLookStatus>`
 - `quicklook_preview(payload: QuickLookPreviewPayload)`: `Promise<boolean>`
 - `quicklook_close()`: `Promise<void>`
-
-
