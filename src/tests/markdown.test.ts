@@ -25,4 +25,16 @@ describe("Markdown Rendering Tests", () => {
     expect(parsed).toContain("<th>Column 1</th>");
     expect(parsed).toContain("<td>Value 1</td>");
   });
+
+  it("sanitizes malicious script tags and inline handlers via DOMPurify", async () => {
+    const createDOMPurify = (await import("dompurify")).default;
+    const { JSDOM } = await import("jsdom");
+    const dompurify = createDOMPurify(new JSDOM("").window as unknown as Window);
+    const malicious = `<script>alert('xss')</script>\n\n**Safe Text**\n\n<img src="x" onerror="alert(1)">`;
+    const parsed = marked.parse(malicious, { async: false }) as string;
+    const sanitized = dompurify.sanitize(parsed);
+    expect(sanitized).not.toContain("<script>");
+    expect(sanitized).not.toContain("onerror");
+    expect(sanitized).toContain("<strong>Safe Text</strong>");
+  });
 });

@@ -1,5 +1,6 @@
 import { createMemo } from "solid-js";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface MarkdownContentProps {
@@ -19,10 +20,11 @@ export function MarkdownContent(props: MarkdownContentProps) {
   const htmlContent = createMemo(() => {
     if (!props.content) return "";
     try {
-      return marked.parse(props.content, { async: false }) as string;
+      const rawHtml = marked.parse(props.content, { async: false }) as string;
+      return DOMPurify.sanitize(rawHtml);
     } catch (e) {
       console.error("Markdown parsing error:", e);
-      return props.content;
+      return DOMPurify.sanitize(props.content);
     }
   });
 
