@@ -152,18 +152,21 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   // Live Model Fetching
   const [fetchedModels, setFetchedModels] = createSignal<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = createSignal(false);
+  const [initialConfig, setInitialConfig] = createSignal<AIConfig | null>(null);
 
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
       if (cfg) {
-        setConfig({
+        const fullCfg: AIConfig = {
           ...cfg,
           request_format: cfg.request_format || "openai",
           language: cfg.language || "en",
           user_name: cfg.user_name || "You",
           user_avatar: cfg.user_avatar || "",
-        });
+        };
+        setConfig(fullCfg);
+        setInitialConfig(JSON.parse(JSON.stringify(fullCfg)));
       }
     } catch (e) {
       console.warn("Failed to load AI configuration:", e);
@@ -173,6 +176,21 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   onMount(() => {
     loadConfig();
   });
+
+  const hasUnsavedChanges = () => {
+    const init = initialConfig();
+    if (!init) return false;
+    return JSON.stringify(config()) !== JSON.stringify(init);
+  };
+
+  const handleClose = () => {
+    if (hasUnsavedChanges()) {
+      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved AI configuration changes. Discard changes?")) {
+        return;
+      }
+    }
+    props.onClose();
+  };
 
   const handleFetchModels = async () => {
     setIsFetchingModels(true);
@@ -290,7 +308,14 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 
   return (
     <Show when={props.isOpen}>
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 p-4">
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            handleClose();
+          }
+        }}
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 p-4"
+      >
         <div
           onClick={(e) => e.stopPropagation()}
           class="bg-card border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
@@ -307,7 +332,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
               </div>
             </div>
             <button
-              onClick={props.onClose}
+              onClick={handleClose}
               class="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
               <X size={16} />
@@ -859,7 +884,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
             <div class="flex items-center space-x-2">
               <button
                 type="button"
-                onClick={props.onClose}
+                onClick={handleClose}
                 class="px-3.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-colors font-medium"
               >
                 Cancel
