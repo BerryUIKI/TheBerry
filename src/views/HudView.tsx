@@ -20,18 +20,20 @@ import {
   MessageSquare,
 } from "lucide-solid";
 import { useI18n } from "../context/I18nContext";
+import { useTheme } from "../context/ThemeContext";
 import { MarkdownContent } from "../components/common/MarkdownContent";
 import { sendGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/goose";
 import { searchFiles, openFilePath } from "../services/fileSearch";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { previewWithQuickLook } from "../services/quicklook";
-import { resizeHudWindow } from "../services/shortcuts";
+import { resizeHudWindow, toggleHudWindow } from "../services/shortcuts";
 import { SearchResultItem } from "../types/fileSearch";
 import { LauncherItem } from "../types/launcher";
 import { AIConfig } from "../types/goose";
 
 export function HudView() {
   const { t, language, assistantName } = useI18n();
+  const { theme } = useTheme();
   const [query, setQuery] = createSignal("");
   const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
 
@@ -128,8 +130,19 @@ export function HudView() {
       unlistenStream = unlisten;
     });
 
+    // Global keydown listener so Esc always closes the HUD window anywhere
+    const handleGlobalKeyDown = async (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        await handleClose();
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown, true);
+
     onCleanup(() => {
       if (unlistenStream) unlistenStream();
+      window.removeEventListener("keydown", handleGlobalKeyDown, true);
     });
   });
 
@@ -175,8 +188,10 @@ export function HudView() {
 
   const handleClose = async () => {
     try {
+      await toggleHudWindow(false);
       const win = getCurrentWebviewWindow();
       await win.hide();
+      handleResetAndClear();
     } catch (e) {
       console.warn("Failed to hide HUD window:", e);
     }
@@ -229,11 +244,7 @@ export function HudView() {
   const handleKeyDown = async (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      if (isExpanded()) {
-        handleResetAndClear();
-      } else {
-        await handleClose();
-      }
+      await handleClose();
       return;
     }
 
@@ -289,240 +300,243 @@ export function HudView() {
   };
 
   const getFileIcon = (item: SearchResultItem) => {
-    if (item.is_dir) return <Folder size={15} class="text-amber-400" />;
+    if (item.is_dir) return <Folder size={15} class="text-amber-500" />;
     const ext = item.extension.toLowerCase();
     if (["png", "jpg", "jpeg", "webp", "gif", "svg", "ico"].includes(ext)) {
-      return <ImageIcon size={15} class="text-sky-400" />;
+      return <ImageIcon size={15} class="text-sky-500" />;
     }
     if (["ts", "tsx", "js", "jsx", "rs", "py", "json", "toml", "html", "css"].includes(ext)) {
-      return <FileCode size={15} class="text-emerald-400" />;
+      return <FileCode size={15} class="text-emerald-500" />;
     }
     if (["md", "txt", "pdf", "docx", "doc"].includes(ext)) {
-      return <FileText size={15} class="text-rose-400" />;
+      return <FileText size={15} class="text-primary" />;
     }
-    return <File size={15} class="text-zinc-400" />;
+    return <File size={15} class="text-muted-foreground" />;
   };
 
   return (
-    <div class="w-screen h-screen bg-[#131316] text-zinc-100 flex flex-col font-sans select-none overflow-hidden border border-zinc-800/80 rounded-2xl shadow-2xl">
-      {/* 1. Header Omni-Input Bar (h-14 / 56px) */}
-      <div class="h-14 flex items-center px-4 border-b border-zinc-800/80 space-x-3 bg-zinc-900/50 flex-shrink-0">
-        <div class="flex-shrink-0 flex items-center justify-center">
-          <Show
-            when={isSearchMode()}
-            fallback={<Sparkles size={18} class="text-rose-400 animate-pulse" />}
-          >
-            <Search size={18} class="text-sky-400" />
-          </Show>
-        </div>
-
-        <input
-          ref={inputRef}
-          type="text"
-          value={query()}
-          onInput={(e) => setQuery(e.currentTarget.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={
-            language() === "zh"
-              ? `向 ${assistantName()} 提问... (输入 /fin 搜索本地文件)`
-              : `Ask ${assistantName()} anything... (Type /fin to search files)`
-          }
-          class="flex-1 bg-transparent border-none outline-none text-sm text-zinc-100 placeholder:text-zinc-500 font-medium"
-          autofocus
-        />
-
-        {/* Right Controls */}
-        <div class="flex items-center space-x-2 flex-shrink-0">
-          <Show when={query() || isExpanded()}>
-            <button
-              onClick={handleResetAndClear}
-              title="Clear / Reset"
-              class="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+    <div class="w-screen h-screen bg-transparent p-1.5 flex flex-col items-center justify-start font-sans select-none overflow-hidden">
+      {/* Main Rounded HUD Card */}
+      <div class="w-full h-full rounded-2xl bg-card text-card-foreground border border-border/80 shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden transition-colors duration-150">
+        {/* 1. Header Omni-Input Bar (h-14 / 56px) */}
+        <div class="h-14 flex items-center px-4 border-b border-border/80 space-x-3 bg-muted/30 flex-shrink-0">
+          <div class="flex-shrink-0 flex items-center justify-center">
+            <Show
+              when={isSearchMode()}
+              fallback={<Sparkles size={18} class="text-primary animate-pulse" />}
             >
-              <X size={14} />
-            </button>
-          </Show>
+              <Search size={18} class="text-sky-500" />
+            </Show>
+          </div>
 
-          <Show when={isSearchMode()}>
-            <span class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-[10px] font-mono font-semibold text-sky-400">
-              LOCAL SEARCH
-            </span>
-          </Show>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query()}
+            onInput={(e) => setQuery(e.currentTarget.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={
+              language() === "zh"
+                ? `向 ${assistantName()} 提问... (输入 /fin 搜索本地文件)`
+                : `Ask ${assistantName()} anything... (Type /fin to search files)`
+            }
+            class="flex-1 bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground font-medium"
+            autofocus
+          />
 
-          <Show when={isGenerating() || isSearching()}>
-            <RefreshCw size={14} class="animate-spin text-rose-400" />
-          </Show>
+          {/* Right Controls */}
+          <div class="flex items-center space-x-2 flex-shrink-0">
+            <Show when={query() || isExpanded()}>
+              <button
+                onClick={handleResetAndClear}
+                title="Clear / Reset"
+                class="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </Show>
 
-          <Show when={!isGenerating() && !isSearching()}>
-            <div class="w-6 h-6 rounded-full overflow-hidden shadow-xs ring-1 ring-white/10 bg-black/40 flex items-center justify-center">
-              <img src="/berry.png" alt="Berry" class="w-full h-full object-cover" />
-            </div>
-          </Show>
+            <Show when={isSearchMode()}>
+              <span class="px-2 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-[10px] font-mono font-semibold text-sky-500 dark:text-sky-400">
+                LOCAL SEARCH
+              </span>
+            </Show>
+
+            <Show when={isGenerating() || isSearching()}>
+              <RefreshCw size={14} class="animate-spin text-primary" />
+            </Show>
+
+            <Show when={!isGenerating() && !isSearching()}>
+              <div class="w-6 h-6 rounded-full overflow-hidden shadow-xs ring-1 ring-border bg-muted flex items-center justify-center">
+                <img src="/berry.png" alt="Berry" class="w-full h-full object-cover" />
+              </div>
+            </Show>
+          </div>
         </div>
-      </div>
 
-      {/* 2. Middle Scrollable Content Area (Only rendered when expanded) */}
-      <Show when={isExpanded()}>
-        <div class="flex-1 overflow-y-auto p-3.5 space-y-3">
-          {/* AI Response Mode */}
-          <Show when={!isSearchMode() && (aiResponse() || lastPrompt() || isGenerating() || aiError())}>
-            <div class="space-y-3">
-              {/* Prompt Header */}
-              <Show when={lastPrompt()}>
-                <div class="flex items-center justify-between p-2 rounded-lg bg-zinc-900/80 border border-zinc-800/60 text-xs text-zinc-300">
-                  <div class="flex items-center space-x-2 min-w-0">
-                    <span class="text-rose-400 font-semibold flex-shrink-0">You:</span>
-                    <span class="truncate">{lastPrompt()}</span>
+        {/* 2. Middle Scrollable Content Area (Only rendered when expanded) */}
+        <Show when={isExpanded()}>
+          <div class="flex-1 overflow-y-auto p-3.5 space-y-3">
+            {/* AI Response Mode */}
+            <Show when={!isSearchMode() && (aiResponse() || lastPrompt() || isGenerating() || aiError())}>
+              <div class="space-y-3">
+                {/* Prompt Header */}
+                <Show when={lastPrompt()}>
+                  <div class="flex items-center justify-between p-2 rounded-lg bg-muted/60 border border-border/60 text-xs text-foreground">
+                    <div class="flex items-center space-x-2 min-w-0">
+                      <span class="text-primary font-semibold flex-shrink-0">You:</span>
+                      <span class="truncate">{lastPrompt()}</span>
+                    </div>
+                    <Show when={aiResponse() && !isGenerating()}>
+                      <button
+                        type="button"
+                        onClick={handleCopyAIResponse}
+                        class="text-[11px] text-muted-foreground hover:text-primary flex items-center space-x-1 transition-colors ml-2 flex-shrink-0"
+                      >
+                        {copiedResponse() ? (
+                          <>
+                            <Check size={11} class="text-emerald-500" />
+                            <span class="text-emerald-500 font-medium">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={11} />
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                    </Show>
                   </div>
-                  <Show when={aiResponse() && !isGenerating()}>
-                    <button
-                      type="button"
-                      onClick={handleCopyAIResponse}
-                      class="text-[11px] text-zinc-400 hover:text-rose-400 flex items-center space-x-1 transition-colors ml-2 flex-shrink-0"
-                    >
-                      {copiedResponse() ? (
-                        <>
-                          <Check size={11} class="text-emerald-400" />
-                          <span class="text-emerald-400 font-medium">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy size={11} />
-                          <span>Copy</span>
-                        </>
-                      )}
-                    </button>
+                </Show>
+
+                {/* AI Streaming Body */}
+                <div class="p-3.5 rounded-xl bg-muted/30 border border-border/60 text-xs text-foreground select-text leading-relaxed">
+                  <Show when={aiResponse()}>
+                    <MarkdownContent content={aiResponse()} />
+                  </Show>
+
+                  <Show when={isGenerating()}>
+                    <div class="flex items-center space-x-2 text-primary font-medium text-xs mt-1">
+                      <span class="inline-block w-1.5 h-3.5 bg-primary animate-pulse" />
+                      <span>{language() === "zh" ? `${assistantName()} 正在思考并组织回答...` : `${assistantName()} is generating...`}</span>
+                    </div>
+                  </Show>
+
+                  <Show when={aiError()}>
+                    <div class="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-xs">
+                      {aiError()}
+                    </div>
                   </Show>
                 </div>
-              </Show>
+              </div>
+            </Show>
 
-              {/* AI Streaming Body */}
-              <div class="p-3.5 rounded-xl bg-zinc-900/50 border border-zinc-800/60 text-xs text-zinc-200 select-text leading-relaxed">
-                <Show when={aiResponse()}>
-                  <MarkdownContent content={aiResponse()} />
-                </Show>
+            {/* Search Results Mode */}
+            <Show when={isSearchMode() && getCleanSearchQuery()}>
+              <div class="space-y-1">
+                <Show
+                  when={combinedSearchItems().length > 0}
+                  fallback={
+                    <div class="py-6 text-center text-xs text-muted-foreground">
+                      {isSearching() ? "Searching local drives..." : "No matching files or apps found"}
+                    </div>
+                  }
+                >
+                  <For each={combinedSearchItems()}>
+                    {(item, index) => (
+                      <div
+                        onClick={() => handleOpenSearchItem(index())}
+                        onMouseEnter={() => setSelectedIndex(index())}
+                        class={`flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
+                          selectedIndex() === index()
+                            ? "bg-primary/10 border border-primary/30 text-foreground font-medium shadow-xs"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                        }`}
+                      >
+                        <div class="flex items-center space-x-2.5 min-w-0 flex-1">
+                          <div class="flex-shrink-0">
+                            {item.type === "launcher" ? (
+                              <Rocket size={15} class="text-primary" />
+                            ) : (
+                              getFileIcon(item.data)
+                            )}
+                          </div>
+                          <div class="flex flex-col min-w-0">
+                            <span class="truncate text-xs text-foreground font-medium">
+                              {item.type === "launcher" ? item.data.name : item.data.name}
+                            </span>
+                            <span class="truncate text-[10px] text-muted-foreground font-mono">
+                              {item.type === "launcher"
+                                ? item.data.exec_path
+                                : item.data.path}
+                            </span>
+                          </div>
+                        </div>
 
-                <Show when={isGenerating()}>
-                  <div class="flex items-center space-x-2 text-rose-400 font-medium text-xs mt-1">
-                    <span class="inline-block w-1.5 h-3.5 bg-rose-500 animate-pulse" />
-                    <span>{language() === "zh" ? `${assistantName()} 正在思考并组织回答...` : `${assistantName()} is generating...`}</span>
-                  </div>
-                </Show>
-
-                <Show when={aiError()}>
-                  <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
-                    {aiError()}
-                  </div>
+                        <div class="flex items-center space-x-1.5 flex-shrink-0 text-[10px] text-muted-foreground">
+                          <Show when={item.type === "file" && !item.data.is_dir}>
+                            <span class="px-1.5 py-0.5 rounded bg-background font-mono border border-border flex items-center space-x-1 text-foreground">
+                              <Eye size={10} />
+                              <span>Space</span>
+                            </span>
+                          </Show>
+                          <span class="px-1.5 py-0.5 rounded bg-background font-mono border border-border flex items-center space-x-1 text-foreground">
+                            <CornerDownLeft size={10} />
+                            <span>Open</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </For>
                 </Show>
               </div>
+            </Show>
+          </div>
+        </Show>
+
+        {/* 3. Footer Shortcuts Bar (h-9 / 36px) with 4px lift */}
+        <div class="h-9 px-4 border-t border-border/80 bg-muted/40 flex items-center justify-between text-[11px] text-muted-foreground flex-shrink-0">
+          <div class="flex items-center space-x-3 -translate-y-1">
+            <div class="flex items-center space-x-1">
+              <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
+                Enter
+              </kbd>
+              <span class="ml-1">{isSearchMode() ? "Open" : "Send"}</span>
             </div>
-          </Show>
 
-          {/* Search Results Mode */}
-          <Show when={isSearchMode() && getCleanSearchQuery()}>
-            <div class="space-y-1">
-              <Show
-                when={combinedSearchItems().length > 0}
-                fallback={
-                  <div class="py-6 text-center text-xs text-zinc-500">
-                    {isSearching() ? "Searching local drives..." : "No matching files or apps found"}
-                  </div>
-                }
-              >
-                <For each={combinedSearchItems()}>
-                  {(item, index) => (
-                    <div
-                      onClick={() => handleOpenSearchItem(index())}
-                      onMouseEnter={() => setSelectedIndex(index())}
-                      class={`flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all cursor-pointer ${
-                        selectedIndex() === index()
-                          ? "bg-rose-500/15 border border-rose-500/30 text-zinc-100 font-medium shadow-xs"
-                          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 border border-transparent"
-                      }`}
-                    >
-                      <div class="flex items-center space-x-2.5 min-w-0 flex-1">
-                        <div class="flex-shrink-0">
-                          {item.type === "launcher" ? (
-                            <Rocket size={15} class="text-rose-400" />
-                          ) : (
-                            getFileIcon(item.data)
-                          )}
-                        </div>
-                        <div class="flex flex-col min-w-0">
-                          <span class="truncate text-xs text-zinc-200 font-medium">
-                            {item.type === "launcher" ? item.data.name : item.data.name}
-                          </span>
-                          <span class="truncate text-[10px] text-zinc-500 font-mono">
-                            {item.type === "launcher"
-                              ? item.data.exec_path
-                              : item.data.path}
-                          </span>
-                        </div>
-                      </div>
+            <Show when={isSearchMode()}>
+              <div class="flex items-center space-x-1">
+                <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
+                  Space
+                </kbd>
+                <span class="ml-1">QuickLook</span>
+              </div>
+            </Show>
 
-                      <div class="flex items-center space-x-1.5 flex-shrink-0 text-[10px] text-zinc-500">
-                        <Show when={item.type === "file" && !item.data.is_dir}>
-                          <span class="px-1.5 py-0.5 rounded bg-zinc-800 font-mono border border-zinc-700/60 flex items-center space-x-1">
-                            <Eye size={10} />
-                            <span>Space</span>
-                          </span>
-                        </Show>
-                        <span class="px-1.5 py-0.5 rounded bg-zinc-800 font-mono border border-zinc-700/60 flex items-center space-x-1">
-                          <CornerDownLeft size={10} />
-                          <span>Open</span>
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </For>
-              </Show>
-            </div>
-          </Show>
-        </div>
-      </Show>
-
-      {/* 3. Footer Shortcuts Bar (h-9 / 36px) */}
-      <div class="h-9 px-4 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between text-[11px] text-zinc-400 flex-shrink-0">
-        <div class="flex items-center space-x-3">
-          <div class="flex items-center space-x-1">
-            <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
-              Enter
-            </kbd>
-            <span class="text-zinc-400 ml-1">{isSearchMode() ? "Open" : "Send"}</span>
+            <Show when={!isSearchMode()}>
+              <div class="flex items-center space-x-1">
+                <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
+                  /fin
+                </kbd>
+                <span class="ml-1">Search Mode</span>
+              </div>
+            </Show>
           </div>
 
-          <Show when={isSearchMode()}>
+          <div class="flex items-center space-x-3 -translate-y-1">
             <div class="flex items-center space-x-1">
-              <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
-                Space
+              <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
+                Alt Space
               </kbd>
-              <span class="text-zinc-400 ml-1">QuickLook</span>
+              <span class="ml-1">Toggle</span>
             </div>
-          </Show>
 
-          <Show when={!isSearchMode()}>
             <div class="flex items-center space-x-1">
-              <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
-                /fin
+              <kbd class="px-1.5 py-0.5 rounded bg-background border border-border text-[10px] font-mono text-foreground font-semibold shadow-xs">
+                Esc
               </kbd>
-              <span class="text-zinc-400 ml-1">Search Mode</span>
+              <span class="ml-1">Close</span>
             </div>
-          </Show>
-        </div>
-
-        <div class="flex items-center space-x-3">
-          <div class="flex items-center space-x-1">
-            <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
-              Alt Space
-            </kbd>
-            <span class="text-zinc-400 ml-1">Toggle</span>
-          </div>
-
-          <div class="flex items-center space-x-1">
-            <kbd class="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300 font-semibold shadow-xs">
-              Esc
-            </kbd>
-            <span class="text-zinc-400 ml-1">Close</span>
           </div>
         </div>
       </div>
