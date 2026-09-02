@@ -633,12 +633,16 @@ export function SettingsView() {
                   type="button"
                   onClick={async () => {
                     const nextVal = !config().global_shortcuts_enabled;
-                    await handleSave({ global_shortcuts_enabled: nextVal });
-                    await setGlobalShortcutsEnabled(nextVal);
-                    info(
-                      nextVal ? "Global Shortcuts Enabled" : "Global Shortcuts Disabled",
-                      nextVal ? "Press Alt+Space to open Quick Access HUD" : "Global hotkeys unregistered"
-                    );
+                    try {
+                      await setGlobalShortcutsEnabled(nextVal);
+                      await handleSave({ global_shortcuts_enabled: nextVal });
+                      info(
+                        nextVal ? "Global Shortcuts Enabled" : "Global Shortcuts Disabled",
+                        nextVal ? "Press Alt+Space to open Quick Access HUD" : "Global hotkeys unregistered"
+                      );
+                    } catch (err: any) {
+                      error("Shortcut Registration Failed", err?.message || String(err));
+                    }
                   }}
                   class={`w-8 h-4 rounded-full transition-colors relative ${
                     config().global_shortcuts_enabled ? "bg-primary" : "bg-muted"
