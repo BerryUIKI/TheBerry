@@ -39,12 +39,23 @@ impl GooseService {
 
     fn load_persisted_config() -> Option<AIConfig> {
         let path = Self::get_config_path()?;
-        if path.exists() {
+        let mut config: AIConfig = if path.exists() {
             let data = std::fs::read_to_string(path).ok()?;
-            serde_json::from_str(&data).ok()
+            serde_json::from_str(&data).ok()?
         } else {
-            None
+            AIConfig::default()
+        };
+
+        // Load API key securely from keyring / Credential Manager
+        if let Ok(entry) = keyring::Entry::new("TheBerry", "goose_ai_api_key") {
+            if let Ok(sec_key) = entry.get_password() {
+                if !sec_key.is_empty() {
+                    config.api_key = sec_key;
+                }
+            }
         }
+
+        Some(config)
     }
 
     pub fn get_ai_config(&self) -> AIConfig {
@@ -52,8 +63,20 @@ impl GooseService {
     }
 
     pub fn save_ai_config(&self, config: AIConfig) -> Result<(), String> {
+        // Store API key securely in keyring
+        let api_key = config.api_key.clone();
+        if let Ok(entry) = keyring::Entry::new("TheBerry", "goose_ai_api_key") {
+            if api_key.trim().is_empty() {
+                let _ = entry.delete_credential();
+            } else {
+                let _ = entry.set_password(&api_key);
+            }
+        }
+
         if let Some(path) = Self::get_config_path() {
-            let data = serde_json::to_string_pretty(&config)
+            let mut file_config = config.clone();
+            file_config.api_key = String::new(); // Do not write sensitive key in plaintext to disk
+            let data = serde_json::to_string_pretty(&file_config)
                 .map_err(|e| format!("Failed to serialize AI config: {}", e))?;
             std::fs::write(path, data)
                 .map_err(|e| format!("Failed to write AI config to disk: {}", e))?;
