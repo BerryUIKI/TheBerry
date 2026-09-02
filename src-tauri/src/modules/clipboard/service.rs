@@ -126,6 +126,7 @@ impl ClipboardService {
         };
 
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -193,6 +194,7 @@ impl ClipboardService {
 
         let db = self.db_manager.get_db()?;
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -205,6 +207,7 @@ impl ClipboardService {
 
     pub fn toggle_pin(&self, id: &str) -> Result<ClipboardItem, String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         let mut updated_item: Option<ClipboardItem> = None;
         {
@@ -231,6 +234,7 @@ impl ClipboardService {
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -242,6 +246,7 @@ impl ClipboardService {
 
     pub fn clear_unpinned(&self) -> Result<usize, String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         let mut removed = 0;
         {

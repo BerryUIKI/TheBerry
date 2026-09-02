@@ -106,6 +106,7 @@ impl LauncherService {
         };
 
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
@@ -118,6 +119,7 @@ impl LauncherService {
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
@@ -206,6 +208,7 @@ impl LauncherService {
         // Increment launch counter
         item.launch_count += 1;
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;

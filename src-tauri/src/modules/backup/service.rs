@@ -109,6 +109,7 @@ impl BackupService {
         }
 
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
 
         let mut clip_count = 0;
