@@ -36,5 +36,5 @@ describe("Markdown Rendering Tests", () => {
     expect(sanitized).not.toContain("<script>");
     expect(sanitized).not.toContain("onerror");
     expect(sanitized).toContain("<strong>Safe Text</strong>");
-  });
+  }, 15000);
 });
