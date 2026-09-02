@@ -145,26 +145,18 @@ impl FileSearchEngine {
                     .unwrap_or("")
                     .to_lowercase();
 
+                static IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "avif"];
+                static CODE_EXTS: &[&str] = &["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md", "sql", "sh", "ps1", "bat"];
+                static DOC_EXTS: &[&str] = &["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv"];
+
                 // Apply type filters
                 if let Some(ref filter) = query.file_type_filter {
                     match filter.as_str() {
                         "dir" if !is_dir => continue,
                         "file" if is_dir => continue,
-                        "image" => {
-                            if !["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "avif"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
-                        "code" => {
-                            if !["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md", "sql", "sh", "ps1", "bat"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
-                        "doc" => {
-                            if !["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
+                        "image" if !IMAGE_EXTS.contains(&ext.as_str()) => continue,
+                        "code" if !CODE_EXTS.contains(&ext.as_str()) => continue,
+                        "doc" if !DOC_EXTS.contains(&ext.as_str()) => continue,
                         _ => {}
                     }
                 }
@@ -200,12 +192,13 @@ impl FileSearchEngine {
         {
             if path.is_dir() {
                 Command::new("explorer")
-                    .arg(&path)
+                    .arg(path.as_os_str())
                     .spawn()
                     .map_err(|e| format!("Failed to open folder: {}", e))?;
             } else {
                 Command::new("explorer")
-                    .args(["/select,", path.to_str().unwrap_or_default()])
+                    .arg("/select,")
+                    .arg(path.as_os_str())
                     .spawn()
                     .map_err(|e| format!("Failed to select file in explorer: {}", e))?;
             }

@@ -7,7 +7,7 @@ use the_berry_lib::modules::clipboard::service::ClipboardService;
 fn test_clipboard_add_and_get_history() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = ClipboardService::new(db_manager);
 
@@ -31,7 +31,7 @@ fn test_clipboard_add_and_get_history() {
 fn test_clipboard_delete_and_clear_unpinned() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = ClipboardService::new(db_manager);
 
@@ -58,7 +58,7 @@ fn test_clipboard_delete_and_clear_unpinned() {
 fn test_clipboard_reject_empty() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = ClipboardService::new(db_manager);
     let result = service.add_item("   ".to_string(), "text".to_string());
@@ -69,7 +69,7 @@ fn test_clipboard_reject_empty() {
 fn test_clipboard_add_image_item() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = ClipboardService::new(db_manager);
 
@@ -94,7 +94,7 @@ fn test_clipboard_add_image_item() {
 fn test_clipboard_search_history() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = ClipboardService::new(db_manager);
 

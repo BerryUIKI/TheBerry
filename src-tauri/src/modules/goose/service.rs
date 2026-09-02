@@ -12,6 +12,12 @@ pub struct GooseService {
     ai_config: RwLock<AIConfig>,
 }
 
+impl Default for GooseService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GooseService {
     pub fn new() -> Self {
         let default_cfg = AIConfig::default();

@@ -7,7 +7,7 @@ use the_berry_lib::modules::snippets::service::{SnippetPayload, SnippetService};
 fn test_snippet_crud_and_favorites() {
     let temp = tempdir().expect("failed to create temp dir");
     let db_manager = Arc::new(DatabaseManager::new());
-    db_manager.initialize(&temp.path().to_path_buf()).expect("failed to init db");
+    db_manager.initialize(temp.path()).expect("failed to init db");
 
     let service = SnippetService::new(db_manager);
 

@@ -58,7 +58,7 @@ impl UpdaterService {
         if let (Ok(cur_v), Ok(lat_v)) = (Version::parse(clean_cur), Version::parse(clean_lat)) {
             lat_v > cur_v
         } else {
-            clean_lat != clean_cur
+            false
         }
     }
 
@@ -178,7 +178,7 @@ impl UpdaterService {
         let total_size = res.content_length();
         let target_filename = download_url
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("the-berry-update.exe");
 
         let updates_dir = if let Some(root) = data_dir {
