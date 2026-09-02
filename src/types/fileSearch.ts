@@ -14,3 +14,8 @@ export interface SearchQuery {
   file_type_filter?: "all" | "file" | "dir" | "image" | "doc" | "code";
   case_sensitive?: boolean;
 }
+
+export interface SystemDrive {
+  name: string;
+  mount_point: string;
+}

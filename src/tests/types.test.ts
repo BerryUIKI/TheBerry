@@ -3,7 +3,7 @@ import { ClipboardItem } from "../types/clipboard";
 import { SnippetItem } from "../types/snippets";
 import { LauncherItem } from "../types/launcher";
 import { ConvertTask } from "../types/imageConverter";
-import { SearchQuery } from "../types/fileSearch";
+import { SearchQuery, SystemDrive } from "../types/fileSearch";
 
 describe("Frontend Type Model Contracts", () => {
   it("validates ClipboardItem schema structure", () => {
@@ -102,5 +102,15 @@ describe("Frontend Type Model Contracts", () => {
     expect(config.theme).toBe("dark");
     expect(config.global_shortcuts_enabled).toBe(true);
     expect(config.hud_shortcut).toBe("Alt+Space");
+  });
+
+  it("validates SystemDrive schema structure", () => {
+    const drive: SystemDrive = {
+      name: "Local Disk (C:)",
+      mount_point: "C:\\",
+    };
+
+    expect(drive.name).toBe("Local Disk (C:)");
+    expect(drive.mount_point).toBe("C:\\");
   });
 });
