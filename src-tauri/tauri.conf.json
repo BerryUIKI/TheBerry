@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TheBerry",
         "width": 1120,
         "height": 740,
@@ -22,6 +23,24 @@
         "resizable": true,
         "center": true,
         "shadow": true
+      },
+      {
+        "label": "hud",
+        "title": "TheBerry Quick Access",
+        "url": "index.html?window=hud",
+        "width": 640,
+        "height": 96,
+        "minWidth": 480,
+        "minHeight": 96,
+        "maxHeight": 600,
+        "decorations": false,
+        "transparent": true,
+        "resizable": true,
+        "center": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "shadow": false,
+        "skipTaskbar": true
       }
     ],
     "security": {

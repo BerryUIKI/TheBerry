@@ -85,18 +85,22 @@ describe("Frontend Type Model Contracts", () => {
     expect(query.max_results).toBe(100);
   });
 
-  it("validates AppConfig structure with language preferences", () => {
+  it("validates AppConfig structure with language preferences and shortcuts", () => {
     const config: import("../types/config").AppConfig = {
       version: "0.1.3",
       theme: "dark",
       language: "en",
       close_to_tray: true,
       autostart: false,
+      global_shortcuts_enabled: true,
+      hud_shortcut: "Alt+Space",
       clipboard_history_limit: 200,
       custom_data_dir: "C:\\data",
     };
 
     expect(config.language).toBe("en");
     expect(config.theme).toBe("dark");
+    expect(config.global_shortcuts_enabled).toBe(true);
+    expect(config.hud_shortcut).toBe("Alt+Space");
   });
 });

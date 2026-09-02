@@ -30,28 +30,28 @@
   }
 
   .dark {
-    --background: 224 25% 9%;
-    --foreground: 210 20% 96%;
-    --card: 224 25% 12%;
-    --card-foreground: 210 20% 96%;
-    --popover: 224 25% 12%;
-    --popover-foreground: 210 20% 96%;
+    --background: 240 6% 7%;
+    --foreground: 0 0% 98%;
+    --card: 240 5% 10%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 5% 10%;
+    --popover-foreground: 0 0% 98%;
     --primary: 346 77% 55%;
     --primary-foreground: 355 100% 97%;
-    --secondary: 224 20% 16%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 224 20% 16%;
-    --muted-foreground: 217 10% 64%;
-    --accent: 224 20% 18%;
-    --accent-foreground: 210 20% 96%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 15%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 62% 30%;
     --destructive-foreground: 0 0% 98%;
-    --border: 224 20% 18%;
-    --input: 224 20% 18%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
     --ring: 346 77% 55%;
-    --sidebar-background: 224 28% 7%;
-    --sidebar-foreground: 210 20% 96%;
-    --sidebar-border: 224 20% 15%;
+    --sidebar-background: 240 6% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-border: 240 4% 13%;
   }
 }
 
@@ -59,8 +59,9 @@
   border-color: hsl(var(--border));
 }
 
-body {
+body, html {
   margin: 0;
+  background-color: transparent;
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 

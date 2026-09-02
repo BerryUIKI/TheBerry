@@ -4,19 +4,61 @@ pub mod modules;
 pub mod tray;
 
 use core::AppState;
+use std::str::FromStr;
+use tauri::Manager;
+use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, Shortcut, ShortcutState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_state = AppState::new();
     let db_manager_for_listener = app_state.db_manager.clone();
+    let config_manager_for_setup = app_state.config_manager.clone();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(
+            ShortcutBuilder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        let state = app.state::<AppState>();
+                        let cfg = state.config_manager.get_app_config();
+                        if cfg.global_shortcuts_enabled {
+                            if let Ok(hud_sc) = Shortcut::from_str(&cfg.hud_shortcut) {
+                                if shortcut == &hud_sc {
+                                    modules::shortcuts::service::ShortcutService::on_hud_shortcut_pressed(app);
+                                }
+                            }
+                        }
+                    }
+                })
+                .build(),
+        )
         .manage(app_state)
         .setup(move |app| {
             if let Err(e) = tray::setup_tray(app.handle()) {
                 tracing::warn!("Failed to setup tray icon: {}", e);
+            }
+
+            // Register initial global shortcut if enabled
+            let cfg = config_manager_for_setup.get_app_config();
+            if cfg.global_shortcuts_enabled {
+                if let Err(e) = modules::shortcuts::service::ShortcutService::register_hud_shortcut(
+                    app.handle(),
+                    &cfg.hud_shortcut,
+                ) {
+                    tracing::warn!("Failed to register initial global shortcut: {}", e);
+                }
+            }
+
+            // Setup HUD window auto-hide on blur (focus loss)
+            if let Some(hud_win) = app.get_webview_window("hud") {
+                let hud_clone = hud_win.clone();
+                hud_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(false) = event {
+                        let _ = hud_clone.hide();
+                    }
+                });
             }
 
             // Start background system clipboard monitoring daemon
@@ -43,6 +85,11 @@ pub fn run() {
             commands::window::toggle_maximize_window,
             commands::window::close_window,
             commands::window::show_main_window,
+            commands::window::toggle_hud_window,
+            commands::window::resize_hud_window,
+            // Shortcuts Module
+            modules::shortcuts::commands::set_global_shortcuts_enabled,
+            modules::shortcuts::commands::set_hud_shortcut,
             // Clipboard Module
             modules::clipboard::commands::get_clipboard_history,
             modules::clipboard::commands::search_clipboard_history,

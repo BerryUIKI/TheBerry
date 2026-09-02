@@ -254,5 +254,18 @@ mod tests {
         let parsed: AIConfig = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.request_format, "openai", "Default serde fallback when field is omitted");
     }
+
+    #[test]
+    fn test_extract_ollama_ndjson_delta() {
+        let chunk_str = r#"{"model":"qwen2.5:3b","created_at":"2026-09-01T11:38:23.6934651Z","message":{"role":"assistant","content":"您好"},"done":false}"#;
+        let json: serde_json::Value = serde_json::from_str(chunk_str).unwrap();
+        let content = json.pointer("/message/content").and_then(|v| v.as_str());
+        assert_eq!(content, Some("您好"));
+        assert_eq!(json.get("done").and_then(|v| v.as_bool()), Some(false));
+
+        let done_chunk_str = r#"{"model":"qwen2.5:3b","created_at":"2026-09-01T11:38:24.5414181Z","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop"}"#;
+        let done_json: serde_json::Value = serde_json::from_str(done_chunk_str).unwrap();
+        assert_eq!(done_json.get("done").and_then(|v| v.as_bool()), Some(true));
+    }
 }
 

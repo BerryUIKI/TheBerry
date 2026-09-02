@@ -6,6 +6,7 @@ pub mod goose;
 pub mod image_converter;
 pub mod launcher;
 pub mod quicklook;
+pub mod shortcuts;
 pub mod snippets;
 pub mod updater;
 
