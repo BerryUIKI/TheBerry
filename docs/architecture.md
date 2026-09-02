@@ -31,6 +31,10 @@ graph TD
             M5[File Search Indexer]
             M6[Goose AI Client & Drawer]
             M7[QuickLook Windows Preview]
+            M8[Shortcuts & Global Hotkeys]
+            M9[Native Autostart Registry]
+            M10[Background Auto-Updater]
+            M11[Backup & Data Portability]
         end
     end
 
