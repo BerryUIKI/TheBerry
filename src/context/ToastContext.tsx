@@ -25,7 +25,14 @@ export function ToastProvider(props: { children: JSX.Element }) {
     const newItem: ToastItem = { ...toast, id };
     const duration = toast.durationMs ?? 3000;
 
-    setToasts((prev) => [...prev, newItem]);
+    const MAX_CONCURRENT_TOASTS = 5;
+    setToasts((prev) => {
+      const updated = [...prev, newItem];
+      if (updated.length > MAX_CONCURRENT_TOASTS) {
+        return updated.slice(updated.length - MAX_CONCURRENT_TOASTS);
+      }
+      return updated;
+    });
 
     if (duration > 0) {
       setTimeout(() => {
