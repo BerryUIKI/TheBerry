@@ -194,15 +194,38 @@ impl LauncherService {
                     .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
             }
         } else {
-            let mut cmd = Command::new(&item.exec_path);
-            cmd.args(&item.arguments);
-            if let Some(ref dir) = item.working_dir {
-                if !dir.is_empty() {
-                    cmd.current_dir(dir);
+            let path_lower = item.exec_path.to_lowercase();
+            if path_lower.ends_with(".lnk") {
+                #[cfg(target_os = "windows")]
+                {
+                    let mut cmd = Command::new("cmd");
+                    cmd.args(["/C", "start", "", &item.exec_path]);
+                    if let Some(ref dir) = item.working_dir {
+                        if !dir.is_empty() {
+                            cmd.current_dir(dir);
+                        }
+                    }
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to launch shortcut '{}': {}", item.exec_path, e))?;
                 }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    let mut cmd = Command::new(&item.exec_path);
+                    cmd.args(&item.arguments);
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
+                }
+            } else {
+                let mut cmd = Command::new(&item.exec_path);
+                cmd.args(&item.arguments);
+                if let Some(ref dir) = item.working_dir {
+                    if !dir.is_empty() {
+                        cmd.current_dir(dir);
+                    }
+                }
+                cmd.spawn()
+                    .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
             }
-            cmd.spawn()
-                .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
         }
 
         // Increment launch counter
