@@ -223,7 +223,7 @@ export function ClipboardView() {
   };
 
   const filteredItems = () => {
-    const q = searchQuery().toLowerCase();
+    const q = searchQuery().trim().toLowerCase();
     const filter = activeFilter();
 
     return items().filter((item) => {
