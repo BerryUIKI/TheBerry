@@ -36,11 +36,12 @@ export function App() {
       return;
     }
 
+    const isTyping =
+      ["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) ||
+      (e.target as HTMLElement)?.isContentEditable;
+
     // Toggle shortcuts cheatsheet with '?' (Shift + /) or 'F1'
-    if (
-      (e.key === "?" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) ||
-      e.key === "F1"
-    ) {
+    if (!isTyping && (e.key === "?" || e.key === "F1")) {
       e.preventDefault();
       setIsShortcutsOpen((prev) => !prev);
       return;
