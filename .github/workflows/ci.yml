@@ -61,3 +61,6 @@ jobs:
 
       - name: Run Backend Tests (Cargo)
         run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Run Backend Clippy (Cargo)
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml
