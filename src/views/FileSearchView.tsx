@@ -38,7 +38,7 @@ export function FileSearchView() {
   const [selectedRoot, setSelectedRoot] = createSignal<string>("");
   const [results, setResults] = createSignal<SearchResultItem[]>([]);
   const [searching, setSearching] = createSignal(false);
-  const [fileType, setFileType] = createSignal<SearchQuery["file_type"]>("all");
+  const [fileType, setFileType] = createSignal<SearchQuery["file_type_filter"]>("all");
   const [caseSensitive, setCaseSensitive] = createSignal(false);
   const [copiedPath, setCopiedPath] = createSignal<string | null>(null);
 
@@ -70,11 +70,11 @@ export function FileSearchView() {
     setSearching(true);
     try {
       const list = await searchFiles({
-        query: q,
-        root_dir: selectedRoot() || undefined,
+        pattern: q,
+        search_root: selectedRoot() || undefined,
         case_sensitive: caseSensitive(),
-        file_type: fileType(),
-        limit: 200,
+        file_type_filter: fileType(),
+        max_results: 200,
       });
       setResults(list);
     } catch (err) {
@@ -240,20 +240,19 @@ export function FileSearchView() {
 
         {/* Category Filter */}
         <select
-          value={fileType()}
+          value={fileType() || "all"}
           onChange={(e) => {
-            setFileType(e.currentTarget.value as SearchQuery["file_type"]);
+            setFileType(e.currentTarget.value as SearchQuery["file_type_filter"]);
             handleSearch();
           }}
           class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
         >
           <option value="all">All Types</option>
-          <option value="files">Files Only</option>
-          <option value="folders">Folders Only</option>
+          <option value="file">Files Only</option>
+          <option value="dir">Folders Only</option>
           <option value="code">Code Files</option>
-          <option value="documents">Documents</option>
-          <option value="images">Images</option>
-          <option value="archives">Archives</option>
+          <option value="doc">Documents</option>
+          <option value="image">Images</option>
         </select>
 
         <button
