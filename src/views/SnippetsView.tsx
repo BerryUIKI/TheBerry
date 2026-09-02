@@ -179,6 +179,30 @@ export function SnippetsView() {
     setShowModal(true);
   };
 
+  const hasUnsavedChanges = () => {
+    const data = formData();
+    const editing = editingSnippet();
+    if (!editing) {
+      return data.title.trim().length > 0 || data.content.trim().length > 0;
+    }
+    return (
+      data.title !== editing.title ||
+      data.content !== editing.content ||
+      (data.description || "") !== (editing.description || "") ||
+      (data.language || "typescript") !== (editing.language || "typescript") ||
+      (data.category || "General") !== (editing.category || "General")
+    );
+  };
+
+  const handleCloseModal = () => {
+    if (hasUnsavedChanges()) {
+      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+        return;
+      }
+    }
+    setShowModal(false);
+  };
+
   const insertVariable = (placeholder: string) => {
     const current = formData().content;
     setFormData({ ...formData(), content: current + placeholder });
@@ -493,7 +517,14 @@ export function SnippetsView() {
 
       {/* Add / Edit Modal */}
       <Show when={showModal()}>
-        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseModal();
+            }
+          }}
+          class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+        >
           <div class="bg-card border border-border rounded-2xl max-w-xl w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-border pb-3">
               <h2 class="text-sm font-bold text-foreground flex items-center space-x-2">
@@ -501,7 +532,7 @@ export function SnippetsView() {
                 <span>{editingSnippet() ? "Edit Snippet" : "New Code Snippet & Template"}</span>
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={handleCloseModal}
                 class="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
               >
                 <X size={15} />
@@ -621,7 +652,7 @@ export function SnippetsView() {
               <div class="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   class="px-3.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-lg"
                 >
                   Cancel
