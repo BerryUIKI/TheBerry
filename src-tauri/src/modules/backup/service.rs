@@ -97,6 +97,17 @@ impl BackupService {
         let backup: FullBackupData = serde_json::from_str(json_content)
             .map_err(|e| format!("Invalid backup JSON structure: {}", e))?;
 
+        // Create safety backup snapshot before overwriting database
+        if let Ok(current_backup) = self.export_backup_json() {
+            if let Some(dir) = self.config_manager.get_data_dir() {
+                let safety_dir = dir.join("backups");
+                let _ = std::fs::create_dir_all(&safety_dir);
+                let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+                let safety_file = safety_dir.join(format!("pre_restore_safety_{}.json", timestamp));
+                let _ = std::fs::write(safety_file, current_backup);
+            }
+        }
+
         let db = self.db_manager.get_db()?;
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
 

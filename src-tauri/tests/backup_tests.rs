@@ -63,4 +63,10 @@ fn test_full_backup_export_and_import_lifecycle() {
     let snippets = snippet_service2.get_snippets().unwrap();
     assert_eq!(snippets.len(), 1);
     assert_eq!(snippets[0].title, "Test Snippet");
+
+    // Verify pre-restore safety snapshot was created in temp2
+    let safety_dir = temp2.path().join("backups");
+    assert!(safety_dir.exists());
+    let safety_files: Vec<_> = std::fs::read_dir(safety_dir).unwrap().collect();
+    assert!(!safety_files.is_empty());
 }
