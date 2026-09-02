@@ -142,11 +142,31 @@ impl UpdaterService {
         })
     }
 
+    pub fn validate_download_url(download_url: &str) -> Result<(), String> {
+        let url = reqwest::Url::parse(download_url)
+            .map_err(|e| format!("Invalid update download URL: {}", e))?;
+
+        let host = url.host_str().unwrap_or("");
+        if !["github.com", "objects.githubusercontent.com"].contains(&host)
+            && !host.ends_with(".github.com")
+        {
+            return Err(format!("Untrusted update download URL domain: {}", host));
+        }
+
+        if url.scheme() != "https" {
+            return Err("Update download URL must use HTTPS".to_string());
+        }
+
+        Ok(())
+    }
+
     pub async fn download_and_install_update(
         download_url: &str,
         data_dir: Option<&Path>,
         app_handle: AppHandle,
     ) -> Result<String, String> {
+        Self::validate_download_url(download_url)?;
+
         let client = reqwest::Client::new();
         let res = client
             .get(download_url)
