@@ -197,7 +197,9 @@ export function SettingsView() {
     try {
       await downloadAndInstallUpdate(info.download_url);
     } catch (err: any) {
-      setUpdateError(err.message || String(err));
+      const msg = err?.message || String(err);
+      setUpdateError(msg);
+      error("Download Failed", msg);
       setIsDownloading(false);
     }
   };
