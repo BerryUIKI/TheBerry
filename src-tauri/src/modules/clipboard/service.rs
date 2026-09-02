@@ -309,9 +309,16 @@ impl ClipboardService {
                 let mut last_text = String::new();
                 let mut last_img_hash: u64 = 0;
                 let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
+                let mut consecutive_errors = 0u32;
 
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(600));
+                    let base_sleep = 500u64;
+                    let sleep_duration = if consecutive_errors > 0 {
+                        std::time::Duration::from_millis(base_sleep * (consecutive_errors.min(20) as u64))
+                    } else {
+                        std::time::Duration::from_millis(base_sleep)
+                    };
+                    std::thread::sleep(sleep_duration);
 
                     if !db_manager.is_ready() {
                         continue;
@@ -319,11 +326,18 @@ impl ClipboardService {
 
                     if clipboard_opt.is_none() {
                         clipboard_opt = arboard::Clipboard::new().ok();
+                        if clipboard_opt.is_none() {
+                            consecutive_errors = consecutive_errors.saturating_add(1);
+                            continue;
+                        }
                     }
+
+                    let mut had_success = false;
 
                     if let Some(ref mut clip) = clipboard_opt {
                         // 1. Check for text updates
                         if let Ok(current_text) = clip.get_text() {
+                            had_success = true;
                             let trimmed = current_text.trim().to_string();
                             if !trimmed.is_empty() && trimmed != last_text {
                                 last_text = trimmed.clone();
@@ -336,6 +350,7 @@ impl ClipboardService {
 
                         // 2. Check for image updates
                         if let Ok(img_data) = clip.get_image() {
+                            had_success = true;
                             let w = img_data.width;
                             let h = img_data.height;
                             if w > 0 && h > 0 && !img_data.bytes.is_empty() {
@@ -361,6 +376,12 @@ impl ClipboardService {
                                 }
                             }
                         }
+                    }
+
+                    if had_success {
+                        consecutive_errors = 0;
+                    } else if clipboard_opt.is_none() {
+                        consecutive_errors = consecutive_errors.saturating_add(1);
                     }
                 }
             })
