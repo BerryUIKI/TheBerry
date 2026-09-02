@@ -13,6 +13,8 @@ pub fn run() {
     let app_state = AppState::new();
     let db_manager_for_listener = app_state.db_manager.clone();
     let config_manager_for_setup = app_state.config_manager.clone();
+    let shutdown_flag_for_listener = app_state.shutdown_flag.clone();
+    let shutdown_rx_for_updater = app_state.shutdown_tx.subscribe();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -65,11 +67,13 @@ pub fn run() {
             modules::clipboard::service::ClipboardService::start_listener(
                 db_manager_for_listener,
                 app.handle().clone(),
+                shutdown_flag_for_listener,
             );
 
             // Start background daily version check daemon
             modules::updater::service::UpdaterService::start_daily_check_daemon(
                 app.handle().clone(),
+                shutdown_rx_for_updater,
             );
 
             Ok(())
@@ -143,6 +147,11 @@ pub fn run() {
             modules::quicklook::commands::quicklook_preview,
             modules::quicklook::commands::quicklook_close,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running TheBerry application");
+        .build(tauri::generate_context!())
+        .expect("error while building TheBerry application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                app_handle.state::<AppState>().trigger_shutdown();
+            }
+        });
 }
