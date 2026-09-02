@@ -79,7 +79,7 @@ export function SnippetsView() {
   };
 
   const filteredSnippets = () => {
-    const q = searchQuery().toLowerCase();
+    const q = searchQuery().trim().toLowerCase();
     const cat = selectedCategory();
     const lang = selectedLanguage();
 
