@@ -82,6 +82,7 @@ impl SnippetService {
         };
 
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(SNIPPETS_TABLE).map_err(|e| e.to_string())?;
@@ -94,6 +95,7 @@ impl SnippetService {
 
     pub fn delete_snippet(&self, id: &str) -> Result<(), String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(SNIPPETS_TABLE).map_err(|e| e.to_string())?;

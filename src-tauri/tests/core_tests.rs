@@ -71,3 +71,54 @@ fn test_database_manager_lifecycle() {
     let read_txn = db.begin_read().expect("failed to begin read");
     drop(read_txn);
 }
+
+#[test]
+fn test_concurrent_database_writes_serialization() {
+    use std::sync::Arc;
+    use the_berry_lib::modules::clipboard::service::ClipboardService;
+    use the_berry_lib::modules::snippets::service::{SnippetPayload, SnippetService};
+
+    let temp = tempdir().expect("failed to create temp dir");
+    let data_dir = temp.path().to_path_buf();
+
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(&data_dir).expect("failed to initialize db");
+
+    let mut handles = Vec::new();
+
+    // Spawn 10 concurrent threads performing writes across clipboard and snippet services
+    for i in 0..10 {
+        let db_clone = db_manager.clone();
+        let handle = std::thread::spawn(move || {
+            if i % 2 == 0 {
+                let clip_service = ClipboardService::new(db_clone);
+                clip_service.add_item(format!("Concurrent clip {}", i), "text".to_string()).unwrap();
+            } else {
+                let snip_service = SnippetService::new(db_clone);
+                snip_service.save_snippet(SnippetPayload {
+                    id: None,
+                    title: format!("Concurrent snippet {}", i),
+                    description: None,
+                    content: format!("content {}", i),
+                    language: Some("rust".to_string()),
+                    category: Some("General".to_string()),
+                    tags: None,
+                    is_favorite: Some(false),
+                }).unwrap();
+            }
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().expect("thread join");
+    }
+
+    let clip_service = ClipboardService::new(db_manager.clone());
+    let history = clip_service.get_history().unwrap();
+    assert_eq!(history.len(), 5);
+
+    let snip_service = SnippetService::new(db_manager);
+    let snippets = snip_service.get_snippets().unwrap();
+    assert_eq!(snippets.len(), 5);
+}
