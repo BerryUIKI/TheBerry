@@ -179,6 +179,25 @@ impl ImageConverterService {
                 encoder.encode(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), image::ExtendedColorType::Rgb8)
                     .map_err(|e| e.to_string())
             }
+            ImageFormat::WebP => {
+                let rgba = dynamic_img.to_rgba8();
+                let mut file = match fs::File::create(&target_path) {
+                    Ok(f) => f,
+                    Err(e) => return ConvertResult {
+                        source_path: task.source_path,
+                        target_path: target_path.to_string_lossy().to_string(),
+                        original_size_bytes: original_size,
+                        converted_size_bytes: 0,
+                        success: false,
+                        error_message: Some(format!("Failed to create destination file: {}", e)),
+                        width: final_w,
+                        height: final_h,
+                    },
+                };
+                let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut file);
+                encoder.encode(rgba.as_raw(), rgba.width(), rgba.height(), image::ExtendedColorType::Rgba8)
+                    .map_err(|e| e.to_string())
+            }
             _ => dynamic_img.save_with_format(&target_path, format).map_err(|e| e.to_string()),
         };
 
