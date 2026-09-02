@@ -27,6 +27,10 @@ pub struct ConvertResult {
     pub height: u32,
 }
 
+pub const MAX_IMAGE_FILE_SIZE: u64 = 100 * 1024 * 1024; // 100 MB
+pub const MAX_IMAGE_DIMENSION: u32 = 16384;
+pub const MAX_TOTAL_PIXELS: u64 = 100_000_000; // 100 MP
+
 pub struct ImageConverterService;
 
 impl ImageConverterService {
@@ -46,6 +50,39 @@ impl ImageConverterService {
         }
 
         let original_size = fs::metadata(&source_path).map(|m| m.len()).unwrap_or(0);
+        if original_size > MAX_IMAGE_FILE_SIZE {
+            return ConvertResult {
+                source_path: task.source_path,
+                target_path: String::new(),
+                original_size_bytes: original_size,
+                converted_size_bytes: 0,
+                success: false,
+                error_message: Some(format!(
+                    "Image file size ({} MB) exceeds maximum allowed limit of 100 MB",
+                    original_size / (1024 * 1024)
+                )),
+                width: 0,
+                height: 0,
+            };
+        }
+
+        if let Ok((w, h)) = image::image_dimensions(&source_path) {
+            if w > MAX_IMAGE_DIMENSION || h > MAX_IMAGE_DIMENSION || (w as u64 * h as u64) > MAX_TOTAL_PIXELS {
+                return ConvertResult {
+                    source_path: task.source_path,
+                    target_path: String::new(),
+                    original_size_bytes: original_size,
+                    converted_size_bytes: 0,
+                    success: false,
+                    error_message: Some(format!(
+                        "Image dimensions ({}x{}) exceed maximum safety limits",
+                        w, h
+                    )),
+                    width: w,
+                    height: h,
+                };
+            }
+        }
 
         let mut dynamic_img = match image::open(&source_path) {
             Ok(img) => img,
