@@ -33,7 +33,7 @@
 ### 5. 🖼️ Lanczos3 Image Converter & Optimization Presets
 - Batch image compression and format conversion across PNG, JPEG, and WebP.
 - High-fidelity Lanczos3 scaling, aspect ratio preservation, and quality tuning.
-- 4 One-click presets (`Web Optimized`, `Lossless PNG`, `Thumbnail 600px`, `Mobile Friendly`).
+- 4 One-click presets (`Web Optimized (WebP 80%)`, `Lossless (PNG)`, `Thumbnail (600px)`, `Mobile (1280px JPG)`).
 - Byte reduction and storage savings percentage telemetry.
 
 ### 6. 📂 Disk-Speed File Search & QuickLook Preview
