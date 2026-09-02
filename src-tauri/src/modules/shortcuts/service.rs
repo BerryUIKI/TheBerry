@@ -40,6 +40,7 @@ impl ShortcutService {
             } else {
                 let _ = window.show();
                 let _ = window.unminimize();
+                let _ = window.set_always_on_top(true);
                 let _ = window.center();
                 let _ = window.set_focus();
             }
