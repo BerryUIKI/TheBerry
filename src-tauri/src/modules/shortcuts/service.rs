@@ -9,11 +9,12 @@ impl ShortcutService {
         let shortcut = Shortcut::from_str(shortcut_str)
             .map_err(|e| format!("Invalid shortcut format '{}': {}", shortcut_str, e))?;
 
-        if !app.global_shortcut().is_registered(shortcut) {
-            app.global_shortcut()
-                .register(shortcut)
-                .map_err(|e| format!("Failed to register global shortcut: {}", e))?;
-        }
+        // Unregister existing shortcuts first to avoid duplicate registration errors on reload
+        let _ = app.global_shortcut().unregister_all();
+
+        app.global_shortcut()
+            .register(shortcut)
+            .map_err(|e| format!("Failed to register global shortcut: {}", e))?;
         Ok(())
     }
 
@@ -24,10 +25,9 @@ impl ShortcutService {
     }
 
     pub fn set_enabled(app: &AppHandle, enabled: bool, shortcut_str: &str) -> Result<(), String> {
+        let _ = Self::unregister_all(app);
         if enabled {
             Self::register_hud_shortcut(app, shortcut_str)?;
-        } else {
-            Self::unregister_all(app)?;
         }
         Ok(())
     }
