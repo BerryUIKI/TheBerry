@@ -44,6 +44,19 @@ fn test_config_manager_load_save() {
 }
 
 #[test]
+fn test_config_manager_corrupted_config_fallback() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let data_dir = temp.path().to_path_buf();
+    let config_file = data_dir.join("config.toml");
+    std::fs::write(&config_file, "invalid_toml_content [[[[ }}}").expect("write malformed config");
+
+    let manager = ConfigManager::new();
+    let config = manager.load_app_config(&data_dir).expect("should not crash on invalid toml");
+    assert_eq!(config.theme, "dark");
+    assert_eq!(config.version, "0.1.4");
+}
+
+#[test]
 fn test_database_manager_lifecycle() {
     let temp = tempdir().expect("failed to create temp dir");
     let data_dir = temp.path().to_path_buf();
