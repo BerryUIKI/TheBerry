@@ -127,6 +127,38 @@ impl LauncherService {
         Ok(())
     }
 
+    pub fn parse_command_line(cmd: &str) -> Vec<String> {
+        let mut args = Vec::new();
+        let mut current = String::new();
+        let mut in_quotes = false;
+        let mut quote_char = ' ';
+
+        for c in cmd.chars() {
+            match c {
+                '"' | '\'' if !in_quotes => {
+                    in_quotes = true;
+                    quote_char = c;
+                }
+                c if in_quotes && c == quote_char => {
+                    in_quotes = false;
+                }
+                c if c.is_whitespace() && !in_quotes => {
+                    if !current.is_empty() {
+                        args.push(current);
+                        current = String::new();
+                    }
+                }
+                _ => {
+                    current.push(c);
+                }
+            }
+        }
+        if !current.is_empty() {
+            args.push(current);
+        }
+        args
+    }
+
     pub fn launch(&self, id: &str) -> Result<String, String> {
         let db = self.db_manager.get_db()?;
         let mut item_opt: Option<LauncherItem> = None;
@@ -143,20 +175,21 @@ impl LauncherService {
 
         if item.is_batch {
             for cmd_str in &item.batch_commands {
-                #[cfg(target_os = "windows")]
-                {
-                    Command::new("cmd")
-                        .args(["/C", cmd_str])
-                        .spawn()
-                        .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
+                let parts = Self::parse_command_line(cmd_str.trim());
+                if parts.is_empty() {
+                    continue;
                 }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    Command::new("sh")
-                        .args(["-c", cmd_str])
-                        .spawn()
-                        .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
+                let mut cmd = Command::new(&parts[0]);
+                if parts.len() > 1 {
+                    cmd.args(&parts[1..]);
                 }
+                if let Some(ref dir) = item.working_dir {
+                    if !dir.is_empty() {
+                        cmd.current_dir(dir);
+                    }
+                }
+                cmd.spawn()
+                    .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
             }
         } else {
             let mut cmd = Command::new(&item.exec_path);

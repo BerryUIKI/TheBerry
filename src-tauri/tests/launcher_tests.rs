@@ -66,3 +66,14 @@ fn test_start_menu_scanner() {
     // Verify scanner executes cleanly without panic
     println!("Discovered {} apps", apps.len());
 }
+
+#[test]
+fn test_parse_command_line() {
+    let parts = LauncherService::parse_command_line(r#"notepad.exe "C:\My Files\notes.txt" --read-only 'arg with spaces'"#);
+    assert_eq!(parts, vec![
+        "notepad.exe".to_string(),
+        r#"C:\My Files\notes.txt"#.to_string(),
+        "--read-only".to_string(),
+        "arg with spaces".to_string()
+    ]);
+}
