@@ -142,6 +142,36 @@ export function LauncherView() {
     setShowModal(true);
   };
 
+  const hasUnsavedChanges = () => {
+    const data = formData();
+    const editing = editingItem();
+    if (!editing) {
+      return (
+        data.name.trim().length > 0 ||
+        data.exec_path.trim().length > 0 ||
+        rawBatchCommands().trim().length > 0
+      );
+    }
+    return (
+      data.name !== editing.name ||
+      (data.description || "") !== (editing.description || "") ||
+      data.exec_path !== editing.exec_path ||
+      (data.working_dir || "") !== (editing.working_dir || "") ||
+      (data.category || "Development") !== (editing.category || "Development") ||
+      rawArgs() !== (editing.arguments || []).join("\n") ||
+      rawBatchCommands() !== (editing.batch_commands || []).join("\n")
+    );
+  };
+
+  const handleCloseModal = () => {
+    if (hasUnsavedChanges()) {
+      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+        return;
+      }
+    }
+    setShowModal(false);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await deleteLauncherItem(id);
@@ -416,11 +446,27 @@ export function LauncherView() {
 
       {/* Add / Edit Target Modal */}
       <Show when={showModal()}>
-        <div class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseModal();
+            }
+          }}
+          class="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in"
+        >
           <div class="bg-card border border-border rounded-lg max-w-md w-full p-5 space-y-4 shadow-xl">
-            <h2 class="text-sm font-bold text-foreground">
-              {editingItem() ? "Edit Launcher Target" : "Add Launcher Target"}
-            </h2>
+            <div class="flex items-center justify-between border-b border-border pb-3">
+              <h2 class="text-sm font-bold text-foreground">
+                {editingItem() ? "Edit Launcher Target" : "Add Launcher Target"}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                <X size={15} />
+              </button>
+            </div>
 
             <form onSubmit={handleSave} class="space-y-3 text-xs">
               <div class="grid grid-cols-2 gap-2">
@@ -551,7 +597,7 @@ export function LauncherView() {
               <div class="flex justify-end space-x-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={handleCloseModal}
                   class="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
                 >
                   Cancel
