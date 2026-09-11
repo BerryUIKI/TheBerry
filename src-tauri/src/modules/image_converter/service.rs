@@ -34,6 +34,40 @@ pub const MAX_TOTAL_PIXELS: u64 = 100_000_000; // 100 MP
 pub struct ImageConverterService;
 
 impl ImageConverterService {
+    fn decode_image_file(source_path: &Path) -> Result<image::DynamicImage, String> {
+        let ext = source_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if ext == "heic" || ext == "heif" || ext == "hif" {
+            let bytes = fs::read(source_path)
+                .map_err(|e| format!("Failed to read HEIC file: {}", e))?;
+            let decoded = heic::DecoderConfig::new()
+                .decode(&bytes, heic::PixelLayout::Rgba8)
+                .map_err(|e| format!("Failed to decode HEIC image: {}", e))?;
+            let buffer = image::RgbaImage::from_raw(decoded.width, decoded.height, decoded.data)
+                .ok_or_else(|| "Failed to construct RGBA image buffer from decoded HEIC data".to_string())?;
+            Ok(image::DynamicImage::ImageRgba8(buffer))
+        } else {
+            match image::open(source_path) {
+                Ok(img) => Ok(img),
+                Err(orig_err) => {
+                    // Fallback: try HEIC decoder in case image is HEIC with unexpected extension
+                    if let Ok(bytes) = fs::read(source_path) {
+                        if let Ok(decoded) = heic::DecoderConfig::new().decode(&bytes, heic::PixelLayout::Rgba8) {
+                            if let Some(buffer) = image::RgbaImage::from_raw(decoded.width, decoded.height, decoded.data) {
+                                return Ok(image::DynamicImage::ImageRgba8(buffer));
+                            }
+                        }
+                    }
+                    Err(format!("Failed to decode image: {}", orig_err))
+                }
+            }
+        }
+    }
+
     pub fn convert_single(task: ConvertTask) -> ConvertResult {
         let source_path = PathBuf::from(&task.source_path);
         if !source_path.exists() {
@@ -66,25 +100,7 @@ impl ImageConverterService {
             };
         }
 
-        if let Ok((w, h)) = image::image_dimensions(&source_path) {
-            if w > MAX_IMAGE_DIMENSION || h > MAX_IMAGE_DIMENSION || (w as u64 * h as u64) > MAX_TOTAL_PIXELS {
-                return ConvertResult {
-                    source_path: task.source_path,
-                    target_path: String::new(),
-                    original_size_bytes: original_size,
-                    converted_size_bytes: 0,
-                    success: false,
-                    error_message: Some(format!(
-                        "Image dimensions ({}x{}) exceed maximum safety limits",
-                        w, h
-                    )),
-                    width: w,
-                    height: h,
-                };
-            }
-        }
-
-        let mut dynamic_img = match image::open(&source_path) {
+        let mut dynamic_img = match Self::decode_image_file(&source_path) {
             Ok(img) => img,
             Err(e) => {
                 return ConvertResult {
@@ -93,12 +109,29 @@ impl ImageConverterService {
                     original_size_bytes: original_size,
                     converted_size_bytes: 0,
                     success: false,
-                    error_message: Some(format!("Failed to decode image: {}", e)),
+                    error_message: Some(e),
                     width: 0,
                     height: 0,
                 };
             }
         };
+
+        let (orig_w, orig_h) = (dynamic_img.width(), dynamic_img.height());
+        if orig_w > MAX_IMAGE_DIMENSION || orig_h > MAX_IMAGE_DIMENSION || (orig_w as u64 * orig_h as u64) > MAX_TOTAL_PIXELS {
+            return ConvertResult {
+                source_path: task.source_path,
+                target_path: String::new(),
+                original_size_bytes: original_size,
+                converted_size_bytes: 0,
+                success: false,
+                error_message: Some(format!(
+                    "Image dimensions ({}x{}) exceed maximum safety limits",
+                    orig_w, orig_h
+                )),
+                width: orig_w,
+                height: orig_h,
+            };
+        }
 
         // Apply Resizing if requested
         if let (Some(w), Some(h)) = (task.resize_width, task.resize_height) {
