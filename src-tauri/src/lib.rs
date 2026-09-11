@@ -121,6 +121,8 @@ pub fn run() {
             modules::launcher::commands::batch_import_launcher_items,
             // Image Converter Module
             modules::image_converter::commands::convert_images,
+            modules::image_converter::commands::convert_single_image,
+            modules::image_converter::commands::scan_image_paths,
             // File Search Module
             modules::file_search::commands::search_files,
             modules::file_search::commands::get_system_drives,

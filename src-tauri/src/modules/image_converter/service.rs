@@ -183,6 +183,19 @@ impl ImageConverterService {
                 .to_path_buf(),
         };
 
+        if let Err(e) = fs::create_dir_all(&target_dir) {
+            return ConvertResult {
+                source_path: task.source_path,
+                target_path: String::new(),
+                original_size_bytes: original_size,
+                converted_size_bytes: 0,
+                success: false,
+                error_message: Some(format!("Failed to create output directory: {}", e)),
+                width: 0,
+                height: 0,
+            };
+        }
+
         let target_path = target_dir.join(format!("{}_converted.{}", stem, ext));
 
         let format = match ext {
@@ -263,5 +276,65 @@ impl ImageConverterService {
 
     pub fn convert_batch(tasks: Vec<ConvertTask>) -> Vec<ConvertResult> {
         tasks.into_iter().map(Self::convert_single).collect()
+    }
+
+    pub fn is_supported_image_file(path: &Path) -> bool {
+        if !path.is_file() {
+            return false;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        matches!(
+            ext.as_str(),
+            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" | "heic" | "heif" | "hif"
+        )
+    }
+
+    pub fn scan_image_paths(paths: Vec<String>, recursive: bool) -> Vec<String> {
+        let mut results = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+
+        for path_str in paths {
+            let path = Path::new(&path_str);
+            if !path.exists() {
+                continue;
+            }
+
+            if path.is_file() {
+                if Self::is_supported_image_file(path) {
+                    let canon = path.to_string_lossy().to_string();
+                    if seen.insert(canon.clone()) {
+                        results.push(canon);
+                    }
+                }
+            } else if path.is_dir() {
+                if recursive {
+                    for entry in walkdir::WalkDir::new(path).follow_links(true).into_iter().filter_map(|e| e.ok()) {
+                        let sub_path = entry.path();
+                        if Self::is_supported_image_file(sub_path) {
+                            let canon = sub_path.to_string_lossy().to_string();
+                            if seen.insert(canon.clone()) {
+                                results.push(canon);
+                            }
+                        }
+                    }
+                } else if let Ok(entries) = fs::read_dir(path) {
+                    for entry in entries.filter_map(|e| e.ok()) {
+                        let sub_path = entry.path();
+                        if Self::is_supported_image_file(&sub_path) {
+                            let canon = sub_path.to_string_lossy().to_string();
+                            if seen.insert(canon.clone()) {
+                                results.push(canon);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        results
     }
 }
