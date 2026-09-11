@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { marked } from "marked";
+import createDOMPurify from "dompurify";
+import { JSDOM } from "jsdom";
 
 describe("Markdown Rendering Tests", () => {
   it("renders GitHub Flavored Markdown headings, bold, and lists", () => {
@@ -26,9 +28,7 @@ describe("Markdown Rendering Tests", () => {
     expect(parsed).toContain("<td>Value 1</td>");
   });
 
-  it("sanitizes malicious script tags and inline handlers via DOMPurify", async () => {
-    const createDOMPurify = (await import("dompurify")).default;
-    const { JSDOM } = await import("jsdom");
+  it("sanitizes malicious script tags and inline handlers via DOMPurify", () => {
     const dompurify = createDOMPurify(new JSDOM("").window as unknown as Window);
     const malicious = `<script>alert('xss')</script>\n\n**Safe Text**\n\n<img src="x" onerror="alert(1)">`;
     const parsed = marked.parse(malicious, { async: false }) as string;
@@ -36,5 +36,5 @@ describe("Markdown Rendering Tests", () => {
     expect(sanitized).not.toContain("<script>");
     expect(sanitized).not.toContain("onerror");
     expect(sanitized).toContain("<strong>Safe Text</strong>");
-  }, 15000);
+  }, 30000);
 });

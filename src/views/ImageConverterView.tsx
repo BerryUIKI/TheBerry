@@ -225,59 +225,66 @@ export function ImageConverterView() {
     const customOut = outputDir().trim();
 
     const newResults: ConvertResult[] = [];
+    const concurrency = Math.min(4, list.length);
+    let completedCount = 0;
+    let nextIndex = 0;
 
-    for (let i = 0; i < list.length; i++) {
-      if (isCancelledRef) {
-        break;
-      }
+    const worker = async () => {
+      while (nextIndex < list.length && !isCancelledRef) {
+        const i = nextIndex++;
+        const filePath = list[i];
+        const fname = filePath.split(/[\\/]/).pop() || filePath;
+        setCurrentFileName(fname);
 
-      const filePath = list[i];
-      const fname = filePath.split(/[\\/]/).pop() || filePath;
-      setCurrentFileName(fname);
-      setProgressCurrent(i + 1);
-
-      // Determine task output dir
-      let effectiveOutputDir: string | undefined = undefined;
-      if (autoCreateSubfolder()) {
-        if (customOut) {
-          effectiveOutputDir = `${customOut}/${subName}`;
-        } else {
-          const parentDir = filePath.substring(0, Math.max(filePath.lastIndexOf("\\"), filePath.lastIndexOf("/")));
-          effectiveOutputDir = parentDir ? `${parentDir}/${subName}` : subName;
+        // Determine task output dir
+        let effectiveOutputDir: string | undefined = undefined;
+        if (autoCreateSubfolder()) {
+          if (customOut) {
+            effectiveOutputDir = `${customOut}/${subName}`;
+          } else {
+            const parentDir = filePath.substring(0, Math.max(filePath.lastIndexOf("\\"), filePath.lastIndexOf("/")));
+            effectiveOutputDir = parentDir ? `${parentDir}/${subName}` : subName;
+          }
+        } else if (customOut) {
+          effectiveOutputDir = customOut;
         }
-      } else if (customOut) {
-        effectiveOutputDir = customOut;
-      }
 
-      const task: ConvertTask = {
-        source_path: filePath,
-        target_format: targetFormat(),
-        quality: quality(),
-        output_dir: effectiveOutputDir,
-        resize_width: enableResize() ? resizeWidth() : undefined,
-        resize_height: enableResize() ? resizeHeight() : undefined,
-        preserve_aspect_ratio: enableResize() ? preserveAspect() : undefined,
-      };
-
-      try {
-        const res = await convertSingleImage(task);
-        newResults.push(res);
-        setResults([...newResults]);
-      } catch (err) {
-        const failRes: ConvertResult = {
+        const task: ConvertTask = {
           source_path: filePath,
-          target_path: "",
-          original_size_bytes: 0,
-          converted_size_bytes: 0,
-          success: false,
-          error_message: String(err),
-          width: 0,
-          height: 0,
+          target_format: targetFormat(),
+          quality: quality(),
+          output_dir: effectiveOutputDir,
+          resize_width: enableResize() ? resizeWidth() : undefined,
+          resize_height: enableResize() ? resizeHeight() : undefined,
+          preserve_aspect_ratio: enableResize() ? preserveAspect() : undefined,
         };
-        newResults.push(failRes);
-        setResults([...newResults]);
+
+        try {
+          const res = await convertSingleImage(task);
+          newResults.push(res);
+          setResults([...newResults]);
+        } catch (err) {
+          const failRes: ConvertResult = {
+            source_path: filePath,
+            target_path: "",
+            original_size_bytes: 0,
+            converted_size_bytes: 0,
+            success: false,
+            error_message: String(err),
+            width: 0,
+            height: 0,
+          };
+          newResults.push(failRes);
+          setResults([...newResults]);
+        }
+
+        completedCount++;
+        setProgressCurrent(completedCount);
       }
-    }
+    };
+
+    const workers = Array.from({ length: concurrency }, () => worker());
+    await Promise.all(workers);
 
     setConverting(false);
     setCurrentFileName("");
