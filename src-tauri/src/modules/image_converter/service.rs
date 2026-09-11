@@ -1,7 +1,11 @@
-use image::imageops::FilterType;
+use fast_image_resize::images::Image as FastImage;
+use fast_image_resize::{FilterType as FastFilterType, PixelType, ResizeAlg, ResizeOptions, Resizer};
 use image::ImageFormat;
+use jpeg_encoder::{ColorType as JpegColorType, Encoder as JpegEncoder, SamplingFactor};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,6 +70,38 @@ impl ImageConverterService {
                 }
             }
         }
+    }
+
+    fn fast_resize(
+        img: &image::DynamicImage,
+        target_w: u32,
+        target_h: u32,
+    ) -> Result<image::DynamicImage, String> {
+        let (src_w, src_h) = (img.width(), img.height());
+        if src_w == target_w && src_h == target_h {
+            return Ok(img.clone());
+        }
+
+        let rgba_img = img.to_rgba8();
+        let src_image = FastImage::from_vec_u8(
+            src_w,
+            src_h,
+            rgba_img.into_raw(),
+            PixelType::U8x4,
+        )
+        .map_err(|e| format!("Fast resize source creation error: {}", e))?;
+
+        let mut dst_image = FastImage::new(target_w, target_h, PixelType::U8x4);
+        let mut resizer = Resizer::new();
+        let options = ResizeOptions::new().resize_alg(ResizeAlg::Convolution(FastFilterType::Lanczos3));
+        resizer
+            .resize(&src_image, &mut dst_image, &options)
+            .map_err(|e| format!("Fast resize execution error: {}", e))?;
+
+        let out_rgba = image::RgbaImage::from_raw(target_w, target_h, dst_image.into_vec())
+            .ok_or_else(|| "Failed to construct RGBA buffer after fast resize".to_string())?;
+
+        Ok(image::DynamicImage::ImageRgba8(out_rgba))
     }
 
     pub fn convert_single(task: ConvertTask) -> ConvertResult {
@@ -133,30 +169,34 @@ impl ImageConverterService {
             };
         }
 
-        // Apply Resizing if requested
+        // Apply SIMD-accelerated Resizing if requested
         if let (Some(w), Some(h)) = (task.resize_width, task.resize_height) {
             if w > 0 && h > 0 {
-                if task.preserve_aspect_ratio.unwrap_or(true) {
-                    dynamic_img = dynamic_img.resize(w, h, FilterType::Lanczos3);
+                let (target_w, target_h) = if task.preserve_aspect_ratio.unwrap_or(true) {
+                    let scale = (w as f32 / orig_w as f32).min(h as f32 / orig_h as f32);
+                    ((orig_w as f32 * scale).round().max(1.0) as u32, (orig_h as f32 * scale).round().max(1.0) as u32)
                 } else {
-                    dynamic_img = dynamic_img.resize_exact(w, h, FilterType::Lanczos3);
+                    (w, h)
+                };
+                if let Ok(resized) = Self::fast_resize(&dynamic_img, target_w, target_h) {
+                    dynamic_img = resized;
                 }
             }
         } else if let Some(w) = task.resize_width {
-            if w > 0 {
-                let current_w = dynamic_img.width();
-                let current_h = dynamic_img.height();
-                let scale = w as f32 / current_w as f32;
-                let target_h = (current_h as f32 * scale).round() as u32;
-                dynamic_img = dynamic_img.resize_exact(w, target_h.max(1), FilterType::Lanczos3);
+            if w > 0 && w != orig_w {
+                let scale = w as f32 / orig_w as f32;
+                let target_h = (orig_h as f32 * scale).round().max(1.0) as u32;
+                if let Ok(resized) = Self::fast_resize(&dynamic_img, w, target_h) {
+                    dynamic_img = resized;
+                }
             }
         } else if let Some(h) = task.resize_height {
-            if h > 0 {
-                let current_w = dynamic_img.width();
-                let current_h = dynamic_img.height();
-                let scale = h as f32 / current_h as f32;
-                let target_w = (current_w as f32 * scale).round() as u32;
-                dynamic_img = dynamic_img.resize_exact(target_w.max(1), h, FilterType::Lanczos3);
+            if h > 0 && h != orig_h {
+                let scale = h as f32 / orig_h as f32;
+                let target_w = (orig_w as f32 * scale).round().max(1.0) as u32;
+                if let Ok(resized) = Self::fast_resize(&dynamic_img, target_w, h) {
+                    dynamic_img = resized;
+                }
             }
         }
 
@@ -172,7 +212,7 @@ impl ImageConverterService {
             "webp" => "webp",
             "jpeg" | "jpg" => "jpg",
             "png" => "png",
-            _ => "webp",
+            _ => "jpg",
         };
 
         let target_dir = match &task.output_dir {
@@ -202,13 +242,12 @@ impl ImageConverterService {
             "webp" => ImageFormat::WebP,
             "jpg" => ImageFormat::Jpeg,
             "png" => ImageFormat::Png,
-            _ => ImageFormat::WebP,
+            _ => ImageFormat::Jpeg,
         };
 
         let save_result = match format {
             ImageFormat::Jpeg => {
-                let rgb_img = dynamic_img.to_rgb8();
-                let mut file = match fs::File::create(&target_path) {
+                let file = match fs::File::create(&target_path) {
                     Ok(f) => f,
                     Err(e) => return ConvertResult {
                         source_path: task.source_path,
@@ -221,13 +260,25 @@ impl ImageConverterService {
                         height: final_h,
                     },
                 };
-                let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut file, task.quality.clamp(1, 100));
-                encoder.encode(rgb_img.as_raw(), rgb_img.width(), rgb_img.height(), image::ExtendedColorType::Rgb8)
-                    .map_err(|e| e.to_string())
+                let mut writer = BufWriter::with_capacity(128 * 1024, file);
+                let mut encoder = JpegEncoder::new(&mut writer, task.quality.clamp(1, 100));
+                encoder.set_sampling_factor(SamplingFactor::R_4_2_0);
+                let rgb_img = dynamic_img.to_rgb8();
+                encoder.encode(
+                    rgb_img.as_raw(),
+                    final_w as u16,
+                    final_h as u16,
+                    JpegColorType::Rgb,
+                )
+                .map_err(|e| format!("JPEG encoding failed: {}", e))
+                .and_then(|_| {
+                    std::io::Write::flush(&mut writer)
+                        .map_err(|e| format!("Failed to flush JPEG buffer: {}", e))
+                })
             }
             ImageFormat::WebP => {
                 let rgba = dynamic_img.to_rgba8();
-                let mut file = match fs::File::create(&target_path) {
+                let file = match fs::File::create(&target_path) {
                     Ok(f) => f,
                     Err(e) => return ConvertResult {
                         source_path: task.source_path,
@@ -240,11 +291,36 @@ impl ImageConverterService {
                         height: final_h,
                     },
                 };
-                let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut file);
+                let mut writer = BufWriter::with_capacity(128 * 1024, file);
+                let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut writer);
                 encoder.encode(rgba.as_raw(), rgba.width(), rgba.height(), image::ExtendedColorType::Rgba8)
                     .map_err(|e| e.to_string())
+                    .and_then(|_| {
+                        std::io::Write::flush(&mut writer)
+                            .map_err(|e| format!("Failed to flush WebP buffer: {}", e))
+                    })
             }
-            _ => dynamic_img.save_with_format(&target_path, format).map_err(|e| e.to_string()),
+            _ => {
+                let file = match fs::File::create(&target_path) {
+                    Ok(f) => f,
+                    Err(e) => return ConvertResult {
+                        source_path: task.source_path,
+                        target_path: target_path.to_string_lossy().to_string(),
+                        original_size_bytes: original_size,
+                        converted_size_bytes: 0,
+                        success: false,
+                        error_message: Some(format!("Failed to create destination file: {}", e)),
+                        width: final_w,
+                        height: final_h,
+                    },
+                };
+                let mut writer = BufWriter::with_capacity(128 * 1024, file);
+                dynamic_img.write_to(&mut writer, format).map_err(|e| e.to_string())
+                    .and_then(|_| {
+                        std::io::Write::flush(&mut writer)
+                            .map_err(|e| format!("Failed to flush image buffer: {}", e))
+                    })
+            }
         };
 
         match save_result {
@@ -275,7 +351,7 @@ impl ImageConverterService {
     }
 
     pub fn convert_batch(tasks: Vec<ConvertTask>) -> Vec<ConvertResult> {
-        tasks.into_iter().map(Self::convert_single).collect()
+        tasks.into_par_iter().map(Self::convert_single).collect()
     }
 
     pub fn is_supported_image_file(path: &Path) -> bool {
