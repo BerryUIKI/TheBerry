@@ -5,6 +5,7 @@ export const en = {
   "nav.launcher": "App Launcher",
   "nav.image_converter": "Image Converter",
   "nav.file_search": "File Search",
+  "nav.toolbox": "Toolbox",
   "nav.settings": "Settings",
 
   // TitleBar

@@ -5,6 +5,7 @@ export const zh = {
   "nav.launcher": "应用启动器",
   "nav.image_converter": "图片转换",
   "nav.file_search": "文件搜索",
+  "nav.toolbox": "工具箱",
   "nav.settings": "系统设置",
 
   // TitleBar

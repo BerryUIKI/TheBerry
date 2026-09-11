@@ -52,7 +52,7 @@ export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.4",
+    version: "0.1.5",
     theme: "dark",
     language: "en",
     close_to_tray: true,

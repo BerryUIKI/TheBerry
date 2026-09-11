@@ -12,6 +12,7 @@ import { SnippetsView } from "./views/SnippetsView";
 import { LauncherView } from "./views/LauncherView";
 import { ImageConverterView } from "./views/ImageConverterView";
 import { FileSearchView } from "./views/FileSearchView";
+import { ToolboxView } from "./views/ToolboxView";
 import { SettingsView } from "./views/SettingsView";
 import { Switch, Match } from "solid-js";
 
@@ -109,6 +110,9 @@ export function App() {
               </Match>
               <Match when={activeView() === "file_search"}>
                 <FileSearchView />
+              </Match>
+              <Match when={activeView() === "toolbox"}>
+                <ToolboxView />
               </Match>
               <Match when={activeView() === "settings"}>
                 <SettingsView />

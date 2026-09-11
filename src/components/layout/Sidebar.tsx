@@ -7,6 +7,7 @@ import {
   Rocket,
   Image as ImageIcon,
   Search,
+  Boxes,
   Settings,
   FolderDot,
 } from "lucide-solid";
@@ -23,6 +24,7 @@ const navDefs: NavItemDef[] = [
   { id: "launcher", key: "nav.launcher", icon: Rocket },
   { id: "image_converter", key: "nav.image_converter", icon: ImageIcon },
   { id: "file_search", key: "nav.file_search", icon: Search },
+  { id: "toolbox", key: "nav.toolbox", icon: Boxes },
 ];
 
 export function Sidebar() {
