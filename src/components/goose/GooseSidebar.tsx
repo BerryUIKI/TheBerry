@@ -34,7 +34,26 @@ interface GooseSidebarProps {
 
 export function GooseSidebar(props: GooseSidebarProps) {
   const { t, language, assistantName } = useI18n();
-  const [messages, setMessages] = createSignal<GooseChatMessage[]>([]);
+  const [messages, setMessages] = createSignal<GooseChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem("berry_goose_messages");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  createEffect(() => {
+    try {
+      const msgs = messages();
+      if (msgs.length > 0) {
+        const cleaned = msgs.slice(-50).map((m) => ({ ...m, isStreaming: false }));
+        localStorage.setItem("berry_goose_messages", JSON.stringify(cleaned));
+      }
+    } catch {
+      // ignore
+    }
+  });
   const [inputValue, setInputValue] = createSignal("");
   const [isGenerating, setIsGenerating] = createSignal(false);
   const [status, setStatus] = createSignal<GooseStatus | null>(null);
@@ -216,6 +235,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
   const handleClearHistory = () => {
     setMessages([]);
+    localStorage.removeItem("berry_goose_messages");
     setSessionId("sess_" + Math.random().toString(36).substring(2, 9));
   };
 

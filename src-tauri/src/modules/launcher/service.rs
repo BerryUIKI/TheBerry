@@ -106,6 +106,7 @@ impl LauncherService {
         };
 
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
@@ -118,6 +119,7 @@ impl LauncherService {
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
@@ -125,6 +127,38 @@ impl LauncherService {
         }
         write_txn.commit().map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    pub fn parse_command_line(cmd: &str) -> Vec<String> {
+        let mut args = Vec::new();
+        let mut current = String::new();
+        let mut in_quotes = false;
+        let mut quote_char = ' ';
+
+        for c in cmd.chars() {
+            match c {
+                '"' | '\'' if !in_quotes => {
+                    in_quotes = true;
+                    quote_char = c;
+                }
+                c if in_quotes && c == quote_char => {
+                    in_quotes = false;
+                }
+                c if c.is_whitespace() && !in_quotes => {
+                    if !current.is_empty() {
+                        args.push(current);
+                        current = String::new();
+                    }
+                }
+                _ => {
+                    current.push(c);
+                }
+            }
+        }
+        if !current.is_empty() {
+            args.push(current);
+        }
+        args
     }
 
     pub fn launch(&self, id: &str) -> Result<String, String> {
@@ -143,36 +177,61 @@ impl LauncherService {
 
         if item.is_batch {
             for cmd_str in &item.batch_commands {
+                let parts = Self::parse_command_line(cmd_str.trim());
+                if parts.is_empty() {
+                    continue;
+                }
+                let mut cmd = Command::new(&parts[0]);
+                if parts.len() > 1 {
+                    cmd.args(&parts[1..]);
+                }
+                if let Some(ref dir) = item.working_dir {
+                    if !dir.is_empty() {
+                        cmd.current_dir(dir);
+                    }
+                }
+                cmd.spawn()
+                    .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
+            }
+        } else {
+            let path_lower = item.exec_path.to_lowercase();
+            if path_lower.ends_with(".lnk") {
                 #[cfg(target_os = "windows")]
                 {
-                    Command::new("cmd")
-                        .args(["/C", cmd_str])
-                        .spawn()
-                        .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
+                    let mut cmd = Command::new("cmd");
+                    cmd.args(["/C", "start", "", &item.exec_path]);
+                    if let Some(ref dir) = item.working_dir {
+                        if !dir.is_empty() {
+                            cmd.current_dir(dir);
+                        }
+                    }
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to launch shortcut '{}': {}", item.exec_path, e))?;
                 }
                 #[cfg(not(target_os = "windows"))]
                 {
-                    Command::new("sh")
-                        .args(["-c", cmd_str])
-                        .spawn()
-                        .map_err(|e| format!("Failed to spawn batch command '{}': {}", cmd_str, e))?;
+                    let mut cmd = Command::new(&item.exec_path);
+                    cmd.args(&item.arguments);
+                    cmd.spawn()
+                        .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
                 }
-            }
-        } else {
-            let mut cmd = Command::new(&item.exec_path);
-            cmd.args(&item.arguments);
-            if let Some(ref dir) = item.working_dir {
-                if !dir.is_empty() {
-                    cmd.current_dir(dir);
+            } else {
+                let mut cmd = Command::new(&item.exec_path);
+                cmd.args(&item.arguments);
+                if let Some(ref dir) = item.working_dir {
+                    if !dir.is_empty() {
+                        cmd.current_dir(dir);
+                    }
                 }
+                cmd.spawn()
+                    .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
             }
-            cmd.spawn()
-                .map_err(|e| format!("Failed to launch '{}': {}", item.exec_path, e))?;
         }
 
         // Increment launch counter
         item.launch_count += 1;
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;

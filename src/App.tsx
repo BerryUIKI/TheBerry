@@ -12,6 +12,7 @@ import { SnippetsView } from "./views/SnippetsView";
 import { LauncherView } from "./views/LauncherView";
 import { ImageConverterView } from "./views/ImageConverterView";
 import { FileSearchView } from "./views/FileSearchView";
+import { ToolboxView } from "./views/ToolboxView";
 import { SettingsView } from "./views/SettingsView";
 import { Switch, Match } from "solid-js";
 
@@ -36,11 +37,12 @@ export function App() {
       return;
     }
 
+    const isTyping =
+      ["INPUT", "TEXTAREA", "SELECT"].includes((e.target as HTMLElement)?.tagName) ||
+      (e.target as HTMLElement)?.isContentEditable;
+
     // Toggle shortcuts cheatsheet with '?' (Shift + /) or 'F1'
-    if (
-      (e.key === "?" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) ||
-      e.key === "F1"
-    ) {
+    if (!isTyping && (e.key === "?" || e.key === "F1")) {
       e.preventDefault();
       setIsShortcutsOpen((prev) => !prev);
       return;
@@ -108,6 +110,9 @@ export function App() {
               </Match>
               <Match when={activeView() === "file_search"}>
                 <FileSearchView />
+              </Match>
+              <Match when={activeView() === "toolbox"}>
+                <ToolboxView />
               </Match>
               <Match when={activeView() === "settings"}>
                 <SettingsView />

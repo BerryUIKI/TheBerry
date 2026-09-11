@@ -23,101 +23,9 @@ import {
   RefreshCw,
 } from "lucide-solid";
 
-interface ProviderPreset {
-  id: AIConfig["active_provider"];
-  name: string;
-  defaultBaseUrl: string;
-  defaultRequestFormat: AIConfig["request_format"];
-  defaultModel: string;
-  models: string[];
-  requiresApiKey: boolean;
-  helpUrl: string;
-}
+import { PROVIDER_PRESETS, ProviderPreset } from "./presets";
 
-const PROVIDER_PRESETS: ProviderPreset[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    defaultBaseUrl: "https://api.openai.com/v1",
-    defaultRequestFormat: "openai",
-    defaultModel: "gpt-4o",
-    models: ["gpt-4o", "gpt-4o-mini", "o3-mini", "gpt-4-turbo"],
-    requiresApiKey: true,
-    helpUrl: "https://platform.openai.com/api-keys",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic Claude",
-    defaultBaseUrl: "https://api.anthropic.com/v1",
-    defaultRequestFormat: "anthropic",
-    defaultModel: "claude-3-5-sonnet-20241022",
-    models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
-    requiresApiKey: true,
-    helpUrl: "https://console.anthropic.com/",
-  },
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    defaultRequestFormat: "gemini",
-    defaultModel: "gemini-1.5-flash",
-    models: ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-flash-latest"],
-    requiresApiKey: true,
-    helpUrl: "https://aistudio.google.com/app/apikey",
-  },
-  {
-    id: "ollama",
-    name: "Ollama (Local)",
-    defaultBaseUrl: "http://localhost:11434/v1",
-    defaultRequestFormat: "ollama",
-    defaultModel: "llama3.2",
-    models: ["llama3.2", "qwen2.5:7b", "deepseek-r1:8b", "mistral", "phi3"],
-    requiresApiKey: false,
-    helpUrl: "https://ollama.com/",
-  },
-  {
-    id: "deepseek",
-    name: "DeepSeek",
-    defaultBaseUrl: "https://api.deepseek.com/v1",
-    defaultRequestFormat: "openai",
-    defaultModel: "deepseek-chat",
-    models: ["deepseek-chat", "deepseek-reasoner"],
-    requiresApiKey: true,
-    helpUrl: "https://platform.deepseek.com/api_keys",
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    defaultBaseUrl: "https://api.groq.com/openai/v1",
-    defaultRequestFormat: "openai",
-    defaultModel: "llama-3.3-70b-versatile",
-    models: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"],
-    requiresApiKey: true,
-    helpUrl: "https://console.groq.com/keys",
-  },
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    defaultBaseUrl: "https://openrouter.ai/api/v1",
-    defaultRequestFormat: "openai",
-    defaultModel: "auto",
-    models: ["auto", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.3-70b-instruct", "google/gemini-pro-1.5"],
-    requiresApiKey: true,
-    helpUrl: "https://openrouter.ai/keys",
-  },
-  {
-    id: "custom",
-    name: "Custom API Endpoint",
-    defaultBaseUrl: "http://localhost:8000/v1/chat/completions",
-    defaultRequestFormat: "custom",
-    defaultModel: "default",
-    models: ["default"],
-    requiresApiKey: false,
-    helpUrl: "https://github.com/aaif-goose/goose",
-  },
-];
-
-  export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
+export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, error } = useToast();
   const { setLanguage: setGlobalLanguage } = useI18n();
   const [activeTab, setActiveTab] = createSignal<"provider" | "params" | "profile" | "extensions" | "daemon">("provider");
@@ -152,18 +60,21 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   // Live Model Fetching
   const [fetchedModels, setFetchedModels] = createSignal<string[]>([]);
   const [isFetchingModels, setIsFetchingModels] = createSignal(false);
+  const [initialConfig, setInitialConfig] = createSignal<AIConfig | null>(null);
 
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
       if (cfg) {
-        setConfig({
+        const fullCfg: AIConfig = {
           ...cfg,
           request_format: cfg.request_format || "openai",
           language: cfg.language || "en",
           user_name: cfg.user_name || "You",
           user_avatar: cfg.user_avatar || "",
-        });
+        };
+        setConfig(fullCfg);
+        setInitialConfig(JSON.parse(JSON.stringify(fullCfg)));
       }
     } catch (e) {
       console.warn("Failed to load AI configuration:", e);
@@ -173,6 +84,21 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   onMount(() => {
     loadConfig();
   });
+
+  const hasUnsavedChanges = () => {
+    const init = initialConfig();
+    if (!init) return false;
+    return JSON.stringify(config()) !== JSON.stringify(init);
+  };
+
+  const handleClose = () => {
+    if (hasUnsavedChanges()) {
+      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved AI configuration changes. Discard changes?")) {
+        return;
+      }
+    }
+    props.onClose();
+  };
 
   const handleFetchModels = async () => {
     setIsFetchingModels(true);
@@ -290,7 +216,14 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
 
   return (
     <Show when={props.isOpen}>
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 p-4">
+      <div
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            handleClose();
+          }
+        }}
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 p-4"
+      >
         <div
           onClick={(e) => e.stopPropagation()}
           class="bg-card border border-border rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150"
@@ -307,7 +240,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
               </div>
             </div>
             <button
-              onClick={props.onClose}
+              onClick={handleClose}
               class="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
             >
               <X size={16} />
@@ -771,7 +704,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
                             <p class="text-[11px] text-muted-foreground font-mono">{srv.command} {srv.args.join(" ")}</p>
                           </div>
                           <button
-                            onClick={() => handleDeleteMcpServer(idx())}
+                            onClick={() => handleRemoveMcpServer(idx())}
                             class="text-destructive hover:bg-destructive/10 p-1.5 rounded"
                           >
                             <Trash2 size={13} />
@@ -859,7 +792,7 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
             <div class="flex items-center space-x-2">
               <button
                 type="button"
-                onClick={props.onClose}
+                onClick={handleClose}
                 class="px-3.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-colors font-medium"
               >
                 Cancel

@@ -39,4 +39,20 @@ describe("Tauri IPC Service Wrapper", () => {
       "Backend DB locked"
     );
   });
+
+  it("handles object errors with message property", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce({ message: "Network timeout" });
+
+    await expect(safeInvoke("get_app_config")).rejects.toThrow(
+      "Network timeout"
+    );
+  });
+
+  it("handles empty or unknown errors gracefully", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(null);
+
+    await expect(safeInvoke("trigger_check_update")).rejects.toThrow(
+      "IPC command 'trigger_check_update' failed"
+    );
+  });
 });

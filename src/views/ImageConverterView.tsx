@@ -1,11 +1,15 @@
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { ConvertResult, ConvertTask } from "../types/imageConverter";
-import { convertImages } from "../services/imageConverter";
+import { convertSingleImage, scanImagePaths } from "../services/imageConverter";
+import { previewWithQuickLook } from "../services/quicklook";
 import { useToast } from "../context/ToastContext";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Image,
   FolderOpen,
+  FolderPlus,
   Play,
+  Square,
   Trash2,
   CheckCircle2,
   AlertCircle,
@@ -13,16 +17,31 @@ import {
   Sliders,
   UploadCloud,
   Layers,
+  Eye,
+  FolderCheck,
 } from "lucide-solid";
 
 export function ImageConverterView() {
-  const { success, error, info } = useToast();
+  const { success, error, info, warning } = useToast();
   const [fileList, setFileList] = createSignal<string[]>([]);
-  const [targetFormat, setTargetFormat] = createSignal<"webp" | "jpeg" | "png">("webp");
+  // Requirement 5: Target format defaults to JPEG
+  const [targetFormat, setTargetFormat] = createSignal<"webp" | "jpeg" | "png">("jpeg");
   const [quality, setQuality] = createSignal<number>(85);
   const [outputDir, setOutputDir] = createSignal<string>("");
+
+  // Requirement 4: Option to auto-create subfolder in output directory
+  const [autoCreateSubfolder, setAutoCreateSubfolder] = createSignal<boolean>(false);
+  const [subfolderName, setSubfolderName] = createSignal<string>("converted");
+
+  // Requirement 1 & 2: Progress tracking & cancellation
   const [converting, setConverting] = createSignal<boolean>(false);
+  const [progressCurrent, setProgressCurrent] = createSignal<number>(0);
+  const [progressTotal, setProgressTotal] = createSignal<number>(0);
+  const [currentFileName, setCurrentFileName] = createSignal<string>("");
   const [results, setResults] = createSignal<ConvertResult[]>([]);
+  let isCancelledRef = false;
+
+  // Requirement 3: Drag & Drop state
   const [isDragOver, setIsDragOver] = createSignal<boolean>(false);
 
   // Resize Controls
@@ -30,6 +49,56 @@ export function ImageConverterView() {
   const [resizeWidth, setResizeWidth] = createSignal<number | undefined>(undefined);
   const [resizeHeight, setResizeHeight] = createSignal<number | undefined>(undefined);
   const [preserveAspect, setPreserveAspect] = createSignal<boolean>(true);
+
+  // Setup Tauri Drag & Drop listener
+  onMount(() => {
+    let unlistenDragDrop: (() => void) | undefined;
+
+    const setupListener = async () => {
+      try {
+        const appWindow = getCurrentWebviewWindow();
+        unlistenDragDrop = await appWindow.onDragDropEvent(async (event) => {
+          if (event.payload.type === "over" || event.payload.type === "enter") {
+            setIsDragOver(true);
+          } else if (event.payload.type === "leave") {
+            setIsDragOver(false);
+          } else if (event.payload.type === "drop") {
+            setIsDragOver(false);
+            const paths = event.payload.paths;
+            if (paths && paths.length > 0) {
+              await addScannedPaths(paths);
+            }
+          }
+        });
+      } catch (e) {
+        console.warn("Failed to attach Tauri drag drop listener:", e);
+      }
+    };
+
+    setupListener();
+
+    onCleanup(() => {
+      if (unlistenDragDrop) {
+        unlistenDragDrop();
+      }
+    });
+  });
+
+  const addScannedPaths = async (paths: string[]) => {
+    try {
+      const scanned = await scanImagePaths(paths, true);
+      if (scanned && scanned.length > 0) {
+        setFileList((prev) => Array.from(new Set([...prev, ...scanned])));
+        success("Images Added", `Added ${scanned.length} image file(s) to queue`);
+      } else {
+        warning("No Images Found", "The dropped file(s) or folder(s) did not contain supported image formats");
+      }
+    } catch (err) {
+      console.warn("Failed to scan paths:", err);
+      // Fallback direct addition
+      setFileList((prev) => Array.from(new Set([...prev, ...paths])));
+    }
+  };
 
   const applyPreset = (preset: "web" | "lossless" | "thumbnail" | "mobile") => {
     switch (preset) {
@@ -74,17 +143,33 @@ export function ImageConverterView() {
         filters: [
           {
             name: "Images",
-            extensions: ["png", "jpg", "jpeg", "webp", "bmp", "tiff"],
+            extensions: ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "heic", "heif", "hif"],
           },
         ],
       });
 
       if (selected && Array.isArray(selected)) {
-        setFileList((prev) => Array.from(new Set([...prev, ...selected])));
-        success("Images Added", `Added ${selected.length} image file(s) to queue`);
+        await addScannedPaths(selected);
       }
     } catch (err) {
       console.warn("Picker error:", err);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    try {
+      const { open } = await import("@tauri-apps/plugin-dialog");
+      const selected = await open({
+        directory: true,
+        multiple: true,
+      });
+
+      if (selected) {
+        const folders = Array.isArray(selected) ? selected : [selected];
+        await addScannedPaths(folders);
+      }
+    } catch (err) {
+      console.warn("Folder picker error:", err);
     }
   };
 
@@ -112,32 +197,103 @@ export function ImageConverterView() {
   const handleClearAll = () => {
     setFileList([]);
     setResults([]);
+    setProgressCurrent(0);
+    setProgressTotal(0);
+    setCurrentFileName("");
   };
 
+  // Requirement 2: Stop / Cancel conversion
+  const handleStopConvert = () => {
+    if (converting()) {
+      isCancelledRef = true;
+      warning("Stopping...", "Cancelling image conversion process");
+    }
+  };
+
+  // Requirement 1 & 2: Incremental conversion with progress bar and cancellation
   const handleConvert = async () => {
-    if (fileList().length === 0) return;
+    const list = fileList();
+    if (list.length === 0 || converting()) return;
+
     setConverting(true);
+    isCancelledRef = false;
+    setProgressCurrent(0);
+    setProgressTotal(list.length);
     setResults([]);
 
-    const tasks: ConvertTask[] = fileList().map((path) => ({
-      source_path: path,
-      target_format: targetFormat(),
-      quality: quality(),
-      output_dir: outputDir() || undefined,
-      resize_width: enableResize() ? resizeWidth() : undefined,
-      resize_height: enableResize() ? resizeHeight() : undefined,
-      preserve_aspect_ratio: enableResize() ? preserveAspect() : undefined,
-    }));
+    const subName = subfolderName().trim() || "converted";
+    const customOut = outputDir().trim();
 
-    try {
-      const res = await convertImages(tasks);
-      setResults(res);
-      const successfulCount = res.filter((r) => r.success).length;
-      success("Conversion Complete", `Successfully processed ${successfulCount}/${tasks.length} images`);
-    } catch (err) {
-      error("Conversion Failed", String(err));
-    } finally {
-      setConverting(false);
+    const newResults: ConvertResult[] = [];
+    const concurrency = Math.min(4, list.length);
+    let completedCount = 0;
+    let nextIndex = 0;
+
+    const worker = async () => {
+      while (nextIndex < list.length && !isCancelledRef) {
+        const i = nextIndex++;
+        const filePath = list[i];
+        const fname = filePath.split(/[\\/]/).pop() || filePath;
+        setCurrentFileName(fname);
+
+        // Determine task output dir
+        let effectiveOutputDir: string | undefined = undefined;
+        if (autoCreateSubfolder()) {
+          if (customOut) {
+            effectiveOutputDir = `${customOut}/${subName}`;
+          } else {
+            const parentDir = filePath.substring(0, Math.max(filePath.lastIndexOf("\\"), filePath.lastIndexOf("/")));
+            effectiveOutputDir = parentDir ? `${parentDir}/${subName}` : subName;
+          }
+        } else if (customOut) {
+          effectiveOutputDir = customOut;
+        }
+
+        const task: ConvertTask = {
+          source_path: filePath,
+          target_format: targetFormat(),
+          quality: quality(),
+          output_dir: effectiveOutputDir,
+          resize_width: enableResize() ? resizeWidth() : undefined,
+          resize_height: enableResize() ? resizeHeight() : undefined,
+          preserve_aspect_ratio: enableResize() ? preserveAspect() : undefined,
+        };
+
+        try {
+          const res = await convertSingleImage(task);
+          newResults.push(res);
+          setResults([...newResults]);
+        } catch (err) {
+          const failRes: ConvertResult = {
+            source_path: filePath,
+            target_path: "",
+            original_size_bytes: 0,
+            converted_size_bytes: 0,
+            success: false,
+            error_message: String(err),
+            width: 0,
+            height: 0,
+          };
+          newResults.push(failRes);
+          setResults([...newResults]);
+        }
+
+        completedCount++;
+        setProgressCurrent(completedCount);
+      }
+    };
+
+    const workers = Array.from({ length: concurrency }, () => worker());
+    await Promise.all(workers);
+
+    setConverting(false);
+    setCurrentFileName("");
+
+    if (isCancelledRef) {
+      warning("Conversion Stopped", `Stopped after processing ${newResults.length} of ${list.length} images`);
+    } else {
+      const successfulCount = newResults.filter((r) => r.success).length;
+      success("Conversion Complete", `Successfully processed ${successfulCount}/${list.length} images`);
     }
   };
 
@@ -158,8 +314,29 @@ export function ImageConverterView() {
     return Math.round(((orig - conv) / orig) * 100);
   };
 
+  const progressPercent = () => {
+    if (progressTotal() === 0) return 0;
+    return Math.round((progressCurrent() / progressTotal()) * 100);
+  };
+
   return (
-    <div class="h-full flex flex-col p-6 space-y-4 overflow-hidden">
+    <div
+      class={`h-full flex flex-col p-6 space-y-4 overflow-hidden relative transition-colors ${
+        isDragOver() ? "bg-primary/5 ring-2 ring-primary ring-inset rounded-lg" : ""
+      }`}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setIsDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsDragOver(false);
+      }}
+    >
       {/* Header */}
       <div class="flex items-center justify-between">
         <div>
@@ -168,7 +345,7 @@ export function ImageConverterView() {
             <span>Batch Image Compressor & Converter</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Bulk convert PNG, JPG, and WebP images with resizing and Lanczos3 quality optimization
+            Bulk convert JPEG, PNG, WebP, and Apple HEIC/HEIF images with folder scanning and Lanczos3 quality optimization
           </p>
         </div>
 
@@ -181,20 +358,46 @@ export function ImageConverterView() {
             Clear List
           </button>
           <button
+            onClick={handleSelectFolder}
+            disabled={converting()}
+            class="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/80 flex items-center space-x-1.5 transition-all border border-border active:scale-95 shadow-xs disabled:opacity-50"
+            title="Scan folder recursively for all images"
+          >
+            <FolderPlus size={14} />
+            <span>Add Folder</span>
+          </button>
+          <button
             onClick={handleSelectFiles}
-            class="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/80 flex items-center space-x-1.5 transition-all border border-border active:scale-95 shadow-xs"
+            disabled={converting()}
+            class="px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:bg-secondary/80 flex items-center space-x-1.5 transition-all border border-border active:scale-95 shadow-xs disabled:opacity-50"
           >
             <FolderOpen size={14} />
             <span>Add Files</span>
           </button>
-          <button
-            disabled={fileList().length === 0 || converting()}
-            onClick={handleConvert}
-            class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-sm disabled:opacity-50 active:scale-95"
+
+          {/* Requirement 1 & 2: Start Convert or Stop conversion button */}
+          <Show
+            when={converting()}
+            fallback={
+              <button
+                disabled={fileList().length === 0}
+                onClick={handleConvert}
+                class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-sm disabled:opacity-50 active:scale-95"
+              >
+                <Play size={13} />
+                <span>Convert ({fileList().length})</span>
+              </button>
+            }
           >
-            <Play size={13} />
-            <span>{converting() ? "Converting..." : `Convert (${fileList().length})`}</span>
-          </button>
+            <button
+              onClick={handleStopConvert}
+              class="px-4 py-1.5 bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-medium rounded-lg flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 animate-pulse"
+              title="Stop ongoing conversion"
+            >
+              <Square size={12} fill="currentColor" />
+              <span>Stop ({progressCurrent()}/{progressTotal()})</span>
+            </button>
+          </Show>
         </div>
       </div>
 
@@ -207,6 +410,12 @@ export function ImageConverterView() {
             <span>Quick Presets:</span>
           </span>
           <div class="flex items-center space-x-1.5 flex-wrap">
+            <button
+              onClick={() => applyPreset("mobile")}
+              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
+            >
+              Standard JPEG (85%)
+            </button>
             <button
               onClick={() => applyPreset("web")}
               class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
@@ -225,21 +434,15 @@ export function ImageConverterView() {
             >
               Thumbnail (600px)
             </button>
-            <button
-              onClick={() => applyPreset("mobile")}
-              class="px-2 py-0.5 rounded-md bg-muted hover:bg-primary/20 text-foreground text-[11px] font-medium transition-colors border border-border/70 active:scale-95"
-            >
-              Mobile (1280px JPG)
-            </button>
           </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
-          {/* Format Selection */}
+          {/* Format Selection - Default JPEG */}
           <div>
             <label class="block font-medium text-muted-foreground mb-1">Target Format</label>
             <div class="flex items-center space-x-1">
-              {(["webp", "jpeg", "png"] as const).map((fmt) => (
+              {(["jpeg", "webp", "png"] as const).map((fmt) => (
                 <button
                   onClick={() => setTargetFormat(fmt)}
                   class={`flex-1 py-1.5 rounded-lg uppercase font-semibold text-xs transition-all active:scale-95 ${
@@ -291,8 +494,36 @@ export function ImageConverterView() {
           </div>
         </div>
 
-        {/* Resizing Accordion / Settings */}
-        <div class="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between text-xs gap-2">
+        {/* Output Subfolder & Resizing Row */}
+        <div class="pt-2 border-t border-border/40 flex flex-wrap items-center justify-between text-xs gap-3">
+          {/* Requirement 4: Auto-create subfolder option */}
+          <div class="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="auto_subfolder"
+              checked={autoCreateSubfolder()}
+              onChange={(e) => setAutoCreateSubfolder(e.currentTarget.checked)}
+              class="rounded cursor-pointer text-primary focus:ring-primary"
+            />
+            <label for="auto_subfolder" class="font-medium text-foreground cursor-pointer flex items-center space-x-1">
+              <FolderCheck size={13} class="text-primary" />
+              <span>Auto-create subfolder in output directory</span>
+            </label>
+            <Show when={autoCreateSubfolder()}>
+              <div class="flex items-center space-x-1 ml-1 animate-in fade-in">
+                <span class="text-muted-foreground text-[11px]">/</span>
+                <input
+                  type="text"
+                  value={subfolderName()}
+                  onInput={(e) => setSubfolderName(e.currentTarget.value)}
+                  placeholder="converted"
+                  class="w-28 px-2 py-0.5 bg-background border border-input rounded-md text-xs text-foreground font-mono"
+                />
+              </div>
+            </Show>
+          </div>
+
+          {/* Resizing Accordion */}
           <div class="flex items-center space-x-2">
             <input
               type="checkbox"
@@ -303,12 +534,12 @@ export function ImageConverterView() {
             />
             <label for="enable_resize" class="font-medium text-foreground cursor-pointer flex items-center space-x-1">
               <Sliders size={13} class="text-primary" />
-              <span>Enable Lanczos3 Resizing</span>
+              <span>Enable Resizing</span>
             </label>
           </div>
 
           <Show when={enableResize()}>
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-3 w-full sm:w-auto pt-1 sm:pt-0">
               <div class="flex items-center space-x-1">
                 <span class="text-muted-foreground text-[11px]">Width:</span>
                 <input
@@ -346,7 +577,7 @@ export function ImageConverterView() {
                   class="rounded cursor-pointer"
                 />
                 <label for="lock_aspect" class="text-[11px] text-muted-foreground cursor-pointer">
-                  Lock Aspect Ratio
+                  Lock Aspect
                 </label>
               </div>
             </div>
@@ -354,13 +585,52 @@ export function ImageConverterView() {
         </div>
       </div>
 
+      {/* Requirement 1: Dedicated Animated Progress Bar */}
+      <Show when={converting() || (progressTotal() > 0 && progressCurrent() > 0)}>
+        <div class="p-3.5 bg-card border border-border rounded-xl space-y-2 shadow-sm animate-in fade-in">
+          <div class="flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2 font-medium truncate flex-1 mr-2">
+              <Show
+                when={converting()}
+                fallback={
+                  <span class="flex items-center space-x-1.5 text-foreground font-semibold">
+                    <CheckCircle2 size={14} class="text-emerald-500" />
+                    <span>Processed {results().filter((r) => r.success).length} of {progressTotal()} items</span>
+                  </span>
+                }
+              >
+                <span class="flex items-center space-x-1.5 text-primary font-semibold">
+                  <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  <span>Converting ({progressCurrent()}/{progressTotal()}):</span>
+                </span>
+                <span class="text-muted-foreground font-mono truncate text-[11px]">{currentFileName()}</span>
+              </Show>
+            </div>
+            <span class="font-mono font-bold text-primary text-xs flex-shrink-0">{progressPercent()}%</span>
+          </div>
+
+          {/* Progress track */}
+          <div class="w-full bg-secondary/80 rounded-full h-2 overflow-hidden border border-border/50">
+            <div
+              class={`h-full transition-all duration-200 ease-out rounded-full ${
+                converting() ? "bg-primary" : "bg-emerald-500"
+              }`}
+              style={{ width: `${progressPercent()}%` }}
+            />
+          </div>
+        </div>
+      </Show>
+
       {/* Summary Banner if results exist */}
-      <Show when={results().length > 0}>
-        <div class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-sm animate-in fade-in">
+      <Show when={!converting() && results().length > 0}>
+        <div class="p-3 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-sm animate-in fade-in">
           <div class="flex items-center space-x-2">
             <Sparkles size={16} class="text-emerald-500" />
             <span class="font-medium text-foreground">
-              Processed {results().filter((r) => r.success).length} of {results().length} images
+              Total converted: {results().filter((r) => r.success).length} of {results().length} images
             </span>
           </div>
 
@@ -386,17 +656,17 @@ export function ImageConverterView() {
               onClick={handleSelectFiles}
               class={`h-56 flex flex-col items-center justify-center space-y-3 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${
                 isDragOver()
-                  ? "border-primary bg-primary/5 shadow-md"
+                  ? "border-primary bg-primary/10 shadow-md"
                   : "border-border hover:border-primary/50 bg-card/40 hover:bg-card/70"
               }`}
             >
-              <UploadCloud size={38} class="text-muted-foreground/60" />
+              <UploadCloud size={38} class={`transition-transform duration-200 ${isDragOver() ? "text-primary scale-110" : "text-muted-foreground/60"}`} />
               <div class="text-center">
                 <p class="text-xs font-semibold text-foreground">
-                  Click to select images or drag and drop files here
+                  Drag and drop image files or folders here, or click to browse
                 </p>
                 <p class="text-[11px] text-muted-foreground mt-0.5">
-                  Supports batch converting PNG, JPG, JPEG, and WebP files with Lanczos3 scaling
+                  Supports dropping folders (recursive scan) and converting JPEG, PNG, WebP, and Apple HEIC/HEIF files
                 </p>
               </div>
             </div>
@@ -409,8 +679,14 @@ export function ImageConverterView() {
                 const filename = path.split(/[\\/]/).pop();
 
                 return (
-                  <div class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-primary/30 transition-all group">
-                    <div class="flex items-center space-x-3 min-w-0">
+                  <div
+                    onDblClick={() => previewWithQuickLook(path)}
+                    class="p-3.5 bg-card border border-border rounded-xl flex items-center justify-between text-xs shadow-xs hover:border-primary/30 transition-all group cursor-pointer"
+                  >
+                    <div
+                      onClick={() => previewWithQuickLook(path)}
+                      class="flex items-center space-x-3 min-w-0 flex-1"
+                    >
                       <Image size={16} class="text-primary flex-shrink-0" />
                       <div class="min-w-0">
                         <p class="font-medium text-foreground truncate">{filename}</p>
@@ -418,7 +694,7 @@ export function ImageConverterView() {
                       </div>
                     </div>
 
-                    <div class="flex items-center space-x-3 flex-shrink-0">
+                    <div class="flex items-center space-x-3 flex-shrink-0 ml-3">
                       <Show when={res()}>
                         {(result) => (
                           <div class="flex items-center space-x-2">
@@ -444,8 +720,24 @@ export function ImageConverterView() {
                       </Show>
 
                       <button
-                        onClick={() => handleRemoveFile(path)}
-                        class="p-1 text-muted-foreground hover:text-destructive rounded-md hover:bg-secondary transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          previewWithQuickLook(path);
+                        }}
+                        title="Preview Image (Space / Click)"
+                        class="p-1 text-muted-foreground hover:text-primary rounded-md hover:bg-secondary transition-colors"
+                      >
+                        <Eye size={14} />
+                      </button>
+
+                      <button
+                        disabled={converting()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFile(path);
+                        }}
+                        title="Remove from list"
+                        class="p-1 text-muted-foreground hover:text-destructive rounded-md hover:bg-secondary transition-colors disabled:opacity-30"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -460,3 +752,4 @@ export function ImageConverterView() {
     </div>
   );
 }
+

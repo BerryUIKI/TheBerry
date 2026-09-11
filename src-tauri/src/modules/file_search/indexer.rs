@@ -21,6 +21,7 @@ pub struct SearchQuery {
     pub pattern: String,
     pub search_root: Option<String>,
     pub max_results: Option<usize>,
+    pub max_depth: Option<usize>,
     pub file_type_filter: Option<String>, // "all" | "file" | "dir" | "image" | "doc" | "code"
     pub case_sensitive: Option<bool>,
 }
@@ -78,6 +79,7 @@ impl FileSearchEngine {
         }
 
         let max_results = query.max_results.unwrap_or(250);
+        let max_depth = query.max_depth.unwrap_or(9);
         let case_sensitive = query.case_sensitive.unwrap_or(false);
         let pattern_cmp = if case_sensitive {
             pattern_trimmed.to_string()
@@ -104,7 +106,7 @@ impl FileSearchEngine {
 
         let walker = WalkDir::new(&root_path)
             .follow_links(false)
-            .max_depth(9)
+            .max_depth(max_depth)
             .into_iter()
             .filter_entry(|e| {
                 let file_name = e.file_name().to_string_lossy();
@@ -143,26 +145,18 @@ impl FileSearchEngine {
                     .unwrap_or("")
                     .to_lowercase();
 
+                static IMAGE_EXTS: &[&str] = &["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "avif"];
+                static CODE_EXTS: &[&str] = &["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md", "sql", "sh", "ps1", "bat"];
+                static DOC_EXTS: &[&str] = &["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv"];
+
                 // Apply type filters
                 if let Some(ref filter) = query.file_type_filter {
                     match filter.as_str() {
                         "dir" if !is_dir => continue,
                         "file" if is_dir => continue,
-                        "image" => {
-                            if !["png", "jpg", "jpeg", "webp", "gif", "svg", "bmp", "ico", "tiff", "avif"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
-                        "code" => {
-                            if !["rs", "ts", "tsx", "js", "jsx", "py", "go", "cpp", "c", "h", "html", "css", "json", "toml", "yaml", "md", "sql", "sh", "ps1", "bat"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
-                        "doc" => {
-                            if !["pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "txt", "md", "csv"].contains(&ext.as_str()) {
-                                continue;
-                            }
-                        }
+                        "image" if !IMAGE_EXTS.contains(&ext.as_str()) => continue,
+                        "code" if !CODE_EXTS.contains(&ext.as_str()) => continue,
+                        "doc" if !DOC_EXTS.contains(&ext.as_str()) => continue,
                         _ => {}
                     }
                 }
@@ -198,12 +192,13 @@ impl FileSearchEngine {
         {
             if path.is_dir() {
                 Command::new("explorer")
-                    .arg(&path)
+                    .arg(path.as_os_str())
                     .spawn()
                     .map_err(|e| format!("Failed to open folder: {}", e))?;
             } else {
                 Command::new("explorer")
-                    .args(["/select,", path.to_str().unwrap_or_default()])
+                    .arg("/select,")
+                    .arg(path.as_os_str())
                     .spawn()
                     .map_err(|e| format!("Failed to select file in explorer: {}", e))?;
             }

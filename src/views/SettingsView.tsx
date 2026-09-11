@@ -52,7 +52,7 @@ export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.4",
+    version: "0.1.5",
     theme: "dark",
     language: "en",
     close_to_tray: true,
@@ -197,7 +197,9 @@ export function SettingsView() {
     try {
       await downloadAndInstallUpdate(info.download_url);
     } catch (err: any) {
-      setUpdateError(err.message || String(err));
+      const msg = err?.message || String(err);
+      setUpdateError(msg);
+      error("Download Failed", msg);
       setIsDownloading(false);
     }
   };
@@ -633,12 +635,16 @@ export function SettingsView() {
                   type="button"
                   onClick={async () => {
                     const nextVal = !config().global_shortcuts_enabled;
-                    await handleSave({ global_shortcuts_enabled: nextVal });
-                    await setGlobalShortcutsEnabled(nextVal);
-                    info(
-                      nextVal ? "Global Shortcuts Enabled" : "Global Shortcuts Disabled",
-                      nextVal ? "Press Alt+Space to open Quick Access HUD" : "Global hotkeys unregistered"
-                    );
+                    try {
+                      await setGlobalShortcutsEnabled(nextVal);
+                      await handleSave({ global_shortcuts_enabled: nextVal });
+                      info(
+                        nextVal ? "Global Shortcuts Enabled" : "Global Shortcuts Disabled",
+                        nextVal ? "Press Alt+Space to open Quick Access HUD" : "Global hotkeys unregistered"
+                      );
+                    } catch (err: any) {
+                      error("Shortcut Registration Failed", err?.message || String(err));
+                    }
                   }}
                   class={`w-8 h-4 rounded-full transition-colors relative ${
                     config().global_shortcuts_enabled ? "bg-primary" : "bg-muted"

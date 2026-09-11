@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { marked } from "marked";
+import createDOMPurify from "dompurify";
+import { JSDOM } from "jsdom";
 
 describe("Markdown Rendering Tests", () => {
   it("renders GitHub Flavored Markdown headings, bold, and lists", () => {
@@ -25,4 +27,14 @@ describe("Markdown Rendering Tests", () => {
     expect(parsed).toContain("<th>Column 1</th>");
     expect(parsed).toContain("<td>Value 1</td>");
   });
+
+  it("sanitizes malicious script tags and inline handlers via DOMPurify", () => {
+    const dompurify = createDOMPurify(new JSDOM("").window as unknown as Window);
+    const malicious = `<script>alert('xss')</script>\n\n**Safe Text**\n\n<img src="x" onerror="alert(1)">`;
+    const parsed = marked.parse(malicious, { async: false }) as string;
+    const sanitized = dompurify.sanitize(parsed);
+    expect(sanitized).not.toContain("<script>");
+    expect(sanitized).not.toContain("onerror");
+    expect(sanitized).toContain("<strong>Safe Text</strong>");
+  }, 30000);
 });

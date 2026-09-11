@@ -1,6 +1,6 @@
 [package]
 name = "the-berry"
-version = "0.1.4"
+version = "0.1.5"
 description = "TheBerry - Personal Desktop Utilities Suite"
 authors = ["BerryUIKI"]
 edition = "2021"
@@ -27,6 +27,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2.5"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+heic = "0.1.6"
 thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
@@ -36,6 +37,10 @@ base64 = "0.22"
 reqwest = { version = "0.12", default-features = false, features = ["default-tls", "json", "stream"] }
 semver = "1.0"
 futures-util = "0.3"
+keyring = "4.2.0"
+jpeg-encoder = { version = "0.7", features = ["simd"] }
+fast_image_resize = { version = "6.1", features = ["image", "rayon"] }
+rayon = "1.12"
 
 [dev-dependencies]
 tempfile = "3.17"

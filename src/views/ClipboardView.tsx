@@ -44,15 +44,23 @@ export function ClipboardView() {
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
   const [batchMode, setBatchMode] = createSignal(false);
 
+  let loadSequence = 0;
   const loadHistory = async () => {
+    const seq = ++loadSequence;
     setLoading(true);
     try {
       const list = await getClipboardHistory();
-      setItems(list);
+      if (seq === loadSequence) {
+        setItems(list);
+      }
     } catch (e) {
-      console.warn("Failed to load clipboard history:", e);
+      if (seq === loadSequence) {
+        console.warn("Failed to load clipboard history:", e);
+      }
     } finally {
-      setLoading(false);
+      if (seq === loadSequence) {
+        setLoading(false);
+      }
     }
   };
 
@@ -223,7 +231,7 @@ export function ClipboardView() {
   };
 
   const filteredItems = () => {
-    const q = searchQuery().toLowerCase();
+    const q = searchQuery().trim().toLowerCase();
     const filter = activeFilter();
 
     return items().filter((item) => {

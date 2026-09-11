@@ -58,7 +58,7 @@ impl UpdaterService {
         if let (Ok(cur_v), Ok(lat_v)) = (Version::parse(clean_cur), Version::parse(clean_lat)) {
             lat_v > cur_v
         } else {
-            clean_lat != clean_cur
+            false
         }
     }
 
@@ -142,11 +142,31 @@ impl UpdaterService {
         })
     }
 
+    pub fn validate_download_url(download_url: &str) -> Result<(), String> {
+        let url = reqwest::Url::parse(download_url)
+            .map_err(|e| format!("Invalid update download URL: {}", e))?;
+
+        let host = url.host_str().unwrap_or("");
+        if !["github.com", "objects.githubusercontent.com"].contains(&host)
+            && !host.ends_with(".github.com")
+        {
+            return Err(format!("Untrusted update download URL domain: {}", host));
+        }
+
+        if url.scheme() != "https" {
+            return Err("Update download URL must use HTTPS".to_string());
+        }
+
+        Ok(())
+    }
+
     pub async fn download_and_install_update(
         download_url: &str,
         data_dir: Option<&Path>,
         app_handle: AppHandle,
     ) -> Result<String, String> {
+        Self::validate_download_url(download_url)?;
+
         let client = reqwest::Client::new();
         let res = client
             .get(download_url)
@@ -158,7 +178,7 @@ impl UpdaterService {
         let total_size = res.content_length();
         let target_filename = download_url
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("the-berry-update.exe");
 
         let updates_dir = if let Some(root) = data_dir {
@@ -272,11 +292,17 @@ impl UpdaterService {
     }
 
     /// Background daemon that silently checks GitHub for updates once every 24 hours
-    pub fn start_daily_check_daemon(app_handle: AppHandle) {
+    pub fn start_daily_check_daemon(app_handle: AppHandle, mut shutdown_rx: tokio::sync::watch::Receiver<bool>) {
         tauri::async_runtime::spawn(async move {
+            tokio::select! {
+                _ = shutdown_rx.changed() => return,
+                _ = tokio::time::sleep(Duration::from_secs(10)) => {}
+            }
+
             loop {
-                // Check on startup after 10 seconds, then once every 24 hours
-                tokio::time::sleep(Duration::from_secs(10)).await;
+                if *shutdown_rx.borrow() {
+                    break;
+                }
 
                 if let Ok(info) = Self::check_latest_release(CURRENT_APP_VERSION).await {
                     if info.has_update {
@@ -284,8 +310,11 @@ impl UpdaterService {
                     }
                 }
 
-                // Sleep 24 hours before next check
-                tokio::time::sleep(Duration::from_secs(86400)).await;
+                // Sleep 24 hours before next check, interrupting immediately if shutdown signal received
+                tokio::select! {
+                    _ = shutdown_rx.changed() => break,
+                    _ = tokio::time::sleep(Duration::from_secs(86400)) => {}
+                }
             }
         });
     }

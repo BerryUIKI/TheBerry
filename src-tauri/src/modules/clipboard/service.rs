@@ -126,6 +126,7 @@ impl ClipboardService {
         };
 
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -193,6 +194,7 @@ impl ClipboardService {
 
         let db = self.db_manager.get_db()?;
         let serialized = serde_json::to_vec(&item).map_err(|e| e.to_string())?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -205,6 +207,7 @@ impl ClipboardService {
 
     pub fn toggle_pin(&self, id: &str) -> Result<ClipboardItem, String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         let mut updated_item: Option<ClipboardItem> = None;
         {
@@ -231,6 +234,7 @@ impl ClipboardService {
 
     pub fn delete_item(&self, id: &str) -> Result<(), String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
@@ -242,6 +246,7 @@ impl ClipboardService {
 
     pub fn clear_unpinned(&self) -> Result<usize, String> {
         let db = self.db_manager.get_db()?;
+        let _write_guard = self.db_manager.write_lock();
         let write_txn = db.begin_write().map_err(|e| e.to_string())?;
         let mut removed = 0;
         {
@@ -302,16 +307,31 @@ impl ClipboardService {
     }
 
     /// Background listener daemon that monitors OS clipboard changes for text and images
-    pub fn start_listener(db_manager: Arc<DatabaseManager>, app_handle: AppHandle) {
+    pub fn start_listener(
+        db_manager: Arc<DatabaseManager>,
+        app_handle: AppHandle,
+        shutdown_flag: Arc<std::sync::atomic::AtomicBool>,
+    ) {
         std::thread::Builder::new()
             .name("clipboard-daemon".to_string())
             .spawn(move || {
                 let mut last_text = String::new();
                 let mut last_img_hash: u64 = 0;
                 let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
+                let mut consecutive_errors = 0u32;
 
-                loop {
-                    std::thread::sleep(std::time::Duration::from_millis(600));
+                while !shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                    let base_sleep = 500u64;
+                    let sleep_duration = if consecutive_errors > 0 {
+                        std::time::Duration::from_millis(base_sleep * (consecutive_errors.min(20) as u64))
+                    } else {
+                        std::time::Duration::from_millis(base_sleep)
+                    };
+                    std::thread::sleep(sleep_duration);
+
+                    if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                        break;
+                    }
 
                     if !db_manager.is_ready() {
                         continue;
@@ -319,11 +339,18 @@ impl ClipboardService {
 
                     if clipboard_opt.is_none() {
                         clipboard_opt = arboard::Clipboard::new().ok();
+                        if clipboard_opt.is_none() {
+                            consecutive_errors = consecutive_errors.saturating_add(1);
+                            continue;
+                        }
                     }
+
+                    let mut had_success = false;
 
                     if let Some(ref mut clip) = clipboard_opt {
                         // 1. Check for text updates
                         if let Ok(current_text) = clip.get_text() {
+                            had_success = true;
                             let trimmed = current_text.trim().to_string();
                             if !trimmed.is_empty() && trimmed != last_text {
                                 last_text = trimmed.clone();
@@ -336,6 +363,7 @@ impl ClipboardService {
 
                         // 2. Check for image updates
                         if let Ok(img_data) = clip.get_image() {
+                            had_success = true;
                             let w = img_data.width;
                             let h = img_data.height;
                             if w > 0 && h > 0 && !img_data.bytes.is_empty() {
@@ -361,6 +389,12 @@ impl ClipboardService {
                                 }
                             }
                         }
+                    }
+
+                    if had_success {
+                        consecutive_errors = 0;
+                    } else if clipboard_opt.is_none() {
+                        consecutive_errors = consecutive_errors.saturating_add(1);
                     }
                 }
             })

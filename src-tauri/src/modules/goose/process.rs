@@ -14,6 +14,12 @@ pub struct GooseProcessManager {
     custom_binary_path: Arc<RwLock<Option<String>>>,
 }
 
+impl Default for GooseProcessManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GooseProcessManager {
     pub fn new() -> Self {
         let binary_path = Self::discover_binary(None);

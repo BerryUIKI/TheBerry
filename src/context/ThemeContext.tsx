@@ -40,7 +40,10 @@ export function ThemeProvider(props: { children: JSX.Element }) {
           setThemeState(saved);
           applyThemeToDOM(saved);
         } else {
-          const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const prefersDark =
+            typeof window !== "undefined" && typeof window.matchMedia === "function"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+              : true;
           const initial = prefersDark ? "dark" : "light";
           setThemeState(initial);
           applyThemeToDOM(initial);

@@ -94,7 +94,7 @@ impl QuickLookService {
         // Check if pipe is currently accessible
         let mut is_running = false;
         if let Some(ref p) = pipe_path {
-            if let Ok(_) = OpenOptions::new().write(true).open(p) {
+            if OpenOptions::new().write(true).open(p).is_ok() {
                 is_running = true;
             }
         }
@@ -102,7 +102,7 @@ impl QuickLookService {
         let is_installed = binary_path.is_some() || is_running;
 
         QuickLookStatus {
-            is_supported_os: true,
+            is_supported_os: std::env::consts::OS == "windows",
             is_installed,
             is_running,
             binary_path: binary_path.map(|p| p.to_string_lossy().to_string()),
@@ -148,6 +148,8 @@ impl QuickLookService {
 
         let message_type = match payload.mode.as_deref() {
             Some("switch") => "QuickLook.App.PipeMessages.Switch",
+            Some("show") | Some("preview") => "QuickLook.App.PipeMessages.Toggle",
+            Some("close") => "QuickLook.App.PipeMessages.Close",
             _ => "QuickLook.App.PipeMessages.Toggle",
         };
 
@@ -160,7 +162,7 @@ impl QuickLookService {
         if let Some(bin_path) = Self::discover_binary() {
             let mut cmd = Command::new(&bin_path);
             cmd.arg(&abs_path);
-            if let Ok(_) = cmd.spawn() {
+            if cmd.spawn().is_ok() {
                 return Ok(true);
             }
         }

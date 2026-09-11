@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TheBerry - 办公效率工具箱 (增量原型 v2)</title>
+  <style>
+    /* ==========================================================================
+       1. 严格还原 TheBerry 既有视觉变量体系 (Rose 玫红 + 浅灰桌面)
+       ========================================================================== */
+    :root {
+      /* 浅色底盘与面板 */
+      --bg-app: #f9fafb;         /* gray-50 */
+      --bg-sidebar: #f3f4f6;     /* gray-100 */
+      --bg-panel: #ffffff;       /* white */
+      --bg-card: #ffffff;
+      --bg-hover: #e5e7eb;       /* gray-200 */
+      --bg-subtle: #f9fafb;
+
+      /* 边框 */
+      --border: #e5e7eb;         /* gray-200 */
+      --border-dark: #d1d5db;    /* gray-300 */
+
+      /* 既有 TheBerry 玫红品牌色 (Rose-600) */
+      --accent: #e11d48;         /* rose-600 */
+      --accent-hover: #be123c;   /* rose-700 */
+      --accent-light: #ffe4e6;   /* rose-100 */
+      --accent-subtle: #fff1f2;  /* rose-50 */
+      --accent-text: #e11d48;
+
+      /* 文字层级 (紧凑桌面 12-14px) */
+      --text-main: #111827;      /* gray-900 */
+      --text-muted: #4b5563;     /* gray-600 */
+      --text-dim: #9ca3af;       /* gray-400 */
+      --text-white: #ffffff;
+
+      /* 状态与辅助色 */
+      --success-bg: #ecfdf5;     /* emerald-50 */
+      --success-text: #059669;   /* emerald-600 */
+      --success-border: #a7f3d0;
+      --dev-bg: #f3f4f6;         /* gray-100 */
+      --dev-text: #6b7280;       /* gray-500 */
+      --dev-border: #e5e7eb;
+
+      /* 规格 */
+      --h-titlebar: 36px;
+      --w-sidebar: 224px;
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+
+      /* 轻阴影 (Tailwind shadow-sm / shadow) */
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* 深色主题 (保留现有深色规范) */
+    [data-theme="dark"] {
+      --bg-app: #111827;         /* gray-900 */
+      --bg-sidebar: #1f2937;     /* gray-800 */
+      --bg-panel: #1f2937;       /* gray-800 */
+      --bg-card: #27303f;
+      --bg-hover: #374151;       /* gray-700 */
+      --bg-subtle: #1a202c;
+
+      --border: #374151;         /* gray-700 */
+      --border-dark: #4b5563;    /* gray-600 */
+
+      --accent: #f43f5e;         /* rose-500 */
+      --accent-hover: #fb7185;
+      --accent-light: #4c1d24;
+      --accent-subtle: #35141b;
+      --accent-text: #fb7185;
+
+      --text-main: #f9fafb;      /* gray-50 */
+      --text-muted: #9ca3af;     /* gray-400 */
+      --text-dim: #6b7280;       /* gray-500 */
+
+      --success-bg: #064e3b;
+      --success-text: #34d399;
+      --success-border: #047857;
+      --dev-bg: #374151;
+      --dev-text: #9ca3af;
+      --dev-border: #4b5563;
+
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ==========================================================================
+       2. 基础排版与重置
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-main);
+      background-color: var(--bg-app);
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-dark);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* ==========================================================================
+       3. 页面骨架：36px 标题栏 + 224px 左侧栏 + 主工作区
+       ========================================================================== */
+    .app-root {
+      display: flex;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 3.1 36px 现有样式自定义标题栏 */
+    .app-titlebar {
+      height: var(--h-titlebar);
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 12px;
+      flex-shrink: 0;
+      z-index: 50;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: -0.2px;
+    }
+
+    .proto-badge {
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border: 1px solid var(--accent-light);
+      font-weight: 600;
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 标题栏功能按钮 */
+    .tb-btn {
+      height: 24px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 11.5px;
+      gap: 5px;
+      border: 1px solid transparent;
+      transition: all 120ms ease;
+    }
+    .tb-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    .tb-btn.search-pill {
+      background: var(--bg-sidebar);
+      border-color: var(--border);
+      padding: 0 10px;
+    }
+    .tb-btn.search-pill:hover {
+      border-color: var(--border-dark);
+      background: var(--bg-panel);
+    }
+    .kbd-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 0 4px;
+      border-radius: 2px;
+      color: var(--text-dim);
+    }
+
+    .window-actions {
+      display: flex;
+      align-items: center;
+      margin-left: 8px;
+      gap: 2px;
+    }
+    .win-action-btn {
+      width: 26px;
+      height: 24px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+    }
+    .win-action-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+    .win-action-btn.win-close:hover {
+      background: #e11d48;
+      color: #ffffff;
+    }
+
+    /* 3.2 布局主体 (Sidebar + Main) */
+    .app-workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - var(--h-titlebar));
+      overflow: hidden;
+    }
+
+    /* 224px 固定浅灰左侧栏 */
+    .app-sidebar {
+      width: var(--w-sidebar);
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-shrink: 0;
+      padding: 12px 10px 10px;
+    }
+
+    .sidebar-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-dim);
+      padding: 4px 8px 6px;
+    }
+
+    .sidebar-nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      list-style: none;
+    }
+
+    .nav-btn {
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 100ms ease;
+    }
+    .nav-btn-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+    /* 关键：保留现有玫红主色填充 + 白字的激活样式 */
+    .nav-btn.active {
+      background: var(--accent);
+      color: var(--text-white);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+    .nav-btn.active svg {
+      color: var(--text-white);
+    }
+
+    .nav-new-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: var(--radius-sm);
+      background: #ffe4e6;
+      color: #be123c;
+    }
+    .nav-btn.active .nav-new-tag {
+      background: rgba(255, 255, 255, 0.25);
+      color: #ffffff;
+    }
+
+    /* 侧栏底部信息与系统设置 */
+    .sidebar-footer {
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .data-dir-info {
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 10.5px;
+      color: var(--text-dim);
+    }
+    .data-dir-label {
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .data-dir-path {
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 3.3 主视口内容区 */
+    .app-main {
+      flex: 1;
+      height: 100%;
+      background: var(--bg-app);
+      overflow-y: auto;
+      position: relative;
+    }
+
+    /* 视图切换容器 */
+    .view-page {
+      display: none;
+      height: 100%;
+    }
+    .view-page.active {
+      display: block;
+    }
+
+    /* ==========================================================================
+       4. 工具箱内容页 (Toolbox View) - 沿用 h-full p-6 结构
+       ========================================================================== */
+    .toolbox-container {
+      height: 100%;
+      padding: 24px; /* p-6 */
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* 页面标题与副标题 */
+    .page-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .page-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* 搜索与分类筛选栏 */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      background: var(--bg-panel);
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .category-tabs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      height: 28px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+      transition: all 120ms ease;
+    }
+    .tab-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-main);
+    }
+    .tab-btn.active {
+      background: var(--accent-subtle);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .search-input-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 220px;
+      height: 28px;
+      background: var(--bg-app);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 8px;
+    }
+    .search-input-box:focus-within {
+      border-color: var(--accent);
+      background: var(--bg-panel);
+    }
+    .search-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      width: 100%;
+      font-size: 12px;
+      color: var(--text-main);
+    }
+    .search-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    /* 小节标题 */
+    .sub-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .sub-section-hint {
+      font-size: 11.5px;
+      color: var(--text-dim);
+      font-weight: normal;
+    }
+
+    /* 最近使用 (Recents) - 紧凑横向卡片 */
+    .recents-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .recent-item-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      transition: border-color 120ms ease;
+    }
+    .recent-item-card:hover {
+      border-color: var(--border-dark);
+    }
+    .recent-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .tool-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-md);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .recent-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .recent-item-sub {
+      font-size: 11.5px;
+      color: var(--text-dim);
+    }
+
+    /* 全部工具网格 (12 个卡片) */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .tool-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 124px;
+      box-shadow: var(--shadow-sm);
+      transition: all 120ms ease;
+    }
+    .tool-card:hover {
+      border-color: var(--border-dark);
+      box-shadow: var(--shadow-md);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .card-meta {
+      flex: 1;
+      overflow: hidden;
+    }
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 状态与格式小标签 */
+    .status-badge {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+    .status-badge.available {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
+    }
+    .status-badge.in-dev {
+      background: var(--dev-bg);
+      color: var(--dev-text);
+      border: 1px solid var(--dev-border);
+    }
+
+    .format-tag {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      background: var(--bg-sidebar);
+      padding: 1px 6px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .card-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+
+    .star-icon-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      transition: color 100ms;
+    }
+    .star-icon-btn:hover, .star-icon-btn.active {
+      color: #f59e0b;
+    }
+
+    .open-tool-btn {
+      height: 24px;
+      padding: 0 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      transition: all 100ms;
+    }
+    .open-tool-btn:hover {
+      background: var(--accent);
+      color: var(--text-white);
+      border-color: var(--accent);
+    }
+    .open-tool-btn.primary {
+      background: var(--accent);
+      color: var(--text-white);
+      border-color: var(--accent);
+    }
+    .open-tool-btn.primary:hover {
+      background: var(--accent-hover);
+    }
+
+    /* ==========================================================================
+       5. 图片格式转换子视图 (ImageConverterView 保持现有风格)
+       ========================================================================== */
+    .converter-subview {
+      padding: 24px;
+      max-width: 1120px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .subview-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 28px;
+      padding: 0 10px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text-main);
+      font-weight: 500;
+      box-shadow: var(--shadow-sm);
+    }
+    .back-btn:hover {
+      background: var(--bg-hover);
+    }
+
+    .converter-header {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .converter-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action-primary {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: var(--radius-md);
+      background: var(--accent);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 600;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-action-primary:hover {
+      background: var(--accent-hover);
+    }
+    .btn-action-secondary {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dark);
+      color: var(--text-main);
+      font-size: 13px;
+      font-weight: 500;
+      gap: 6px;
+    }
+    .btn-action-secondary:hover {
+      background: var(--bg-hover);
+    }
+
+    /* 快捷预设区 */
+    .presets-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .preset-pill {
+      height: 24px;
+      padding: 0 10px;
+      border-radius: 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+    .preset-pill:hover, .preset-pill.active {
+      background: var(--accent-subtle);
+      border-color: var(--accent-light);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* 参数控制面板 (Format / Quality / Output Folder) */
+    .settings-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .form-select, .form-input {
+      height: 30px;
+      padding: 0 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-dark);
+      background: var(--bg-app);
+      font-size: 12px;
+      color: var(--text-main);
+    }
+
+    /* 拖放区与文件列表 */
+    .drop-zone {
+      border: 2px dashed var(--border-dark);
+      background: var(--bg-panel);
+      border-radius: var(--radius-md);
+      padding: 28px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 120ms ease;
+    }
+    .drop-zone:hover {
+      border-color: var(--accent);
+      background: var(--accent-subtle);
+    }
+
+    .mock-file-table {
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      border-collapse: collapse;
+      font-size: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+    .mock-file-table th {
+      text-align: left;
+      padding: 8px 12px;
+      background: var(--bg-sidebar);
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border);
+    }
+    .mock-file-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
+    }
+
+    /* ==========================================================================
+       6. 占位页面 (用于证明原有 5 个导航项与设置完整保留)
+       ========================================================================== */
+    .placeholder-view {
+      padding: 40px 24px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+    }
+    .placeholder-box {
+      max-width: 420px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 32px 24px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* ==========================================================================
+       7. 模态层：Ctrl+K 搜索弹层与 Toast
+       ========================================================================== */
+    .cmd-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 80px;
+      z-index: 100;
+    }
+    .cmd-overlay.open {
+      display: flex;
+    }
+    .cmd-dialog {
+      width: 520px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+    }
+    .cmd-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cmd-input-field {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 13.5px;
+      color: var(--text-main);
+    }
+    .cmd-list {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .cmd-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .cmd-row:hover {
+      background: var(--bg-hover);
+    }
+
+    /* Toast 提示 */
+    .toast-tray {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 120;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .toast-badge {
+      background: #1f2937;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      pointer-events: auto;
+      animation: fadeIn 120ms ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 800px) {
+      .settings-panel {
+        grid-template-columns: 1fr;
+      }
+      .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .search-input-box {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-root">
+    <!-- ====================================================================
+         1. 36px 原生风格自定义标题栏
+         ==================================================================== -->
+    <header class="app-titlebar">
+      <div class="titlebar-left">
+        <div class="brand-logo">
+          <!-- TheBerry 浆果图标 -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+          </svg>
+          <span>TheBerry</span>
+        </div>
+        <span class="proto-badge">增量原型 v2</span>
+      </div>
+
+      <!-- 右侧保留：全局搜索 Ctrl+K、豆花 AI、快捷键、主题切换与窗口三键 -->
+      <div class="titlebar-right">
+        <button class="tb-btn search-pill" id="titleSearchBtn" title="全局搜索 (Ctrl+K)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>全局搜索</span>
+          <span class="kbd-tag">Ctrl K</span>
+        </button>
+
+        <button class="tb-btn" id="douhuaAiBtn" title="豆花 AI 助手">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+          </svg>
+          <span>豆花 AI</span>
+        </button>
+
+        <button class="tb-btn" id="shortcutsBtn" title="常用快捷键一览">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"></path>
+          </svg>
+          <span>快捷键</span>
+        </button>
+
+        <button class="tb-btn" id="themeBtn" title="切换浅色 / 深色主题">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+          </svg>
+        </button>
+
+        <!-- 窗口操作按键 -->
+        <div class="window-actions">
+          <button class="win-action-btn" title="最小化">
+            <svg width="10" height="10" viewBox="0 0 10 10"><line x1="1" y1="5" x2="9" y2="5" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+          <button class="win-action-btn" title="最大化">
+            <svg width="10" height="10" viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+          <button class="win-action-btn win-close" title="关闭">
+            <svg width="10" height="10" viewBox="0 0 10 10"><line x1="2" y1="2" x2="8" y2="8" stroke="currentColor" stroke-width="1.2"/><line x1="8" y1="2" x2="2" y2="8" stroke="currentColor" stroke-width="1.2"/></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         2. 布局主体：224px 侧栏 + 主工作区
+         ==================================================================== -->
+    <div class="app-workspace">
+      <!-- 224px 固定浅灰侧栏 -->
+      <aside class="app-sidebar">
+        <div>
+          <!-- 分组标题 Utilities Suite -->
+          <div class="sidebar-section-label">Utilities Suite</div>
+          <ul class="sidebar-nav-list">
+            <!-- 1. 剪贴板 -->
+            <li>
+              <button class="nav-btn" data-target="clipboardView">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                  </svg>
+                  <span>剪贴板</span>
+                </div>
+              </button>
+            </li>
+
+            <!-- 2. 代码片段 -->
+            <li>
+              <button class="nav-btn" data-target="snippetsView">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>
+                  </svg>
+                  <span>代码片段</span>
+                </div>
+              </button>
+            </li>
+
+            <!-- 3. 应用启动器 -->
+            <li>
+              <button class="nav-btn" data-target="launcherView">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                  <span>应用启动器</span>
+                </div>
+              </button>
+            </li>
+
+            <!-- 4. 图片转换 (现有入口) -->
+            <li>
+              <button class="nav-btn" data-target="imageDirectView">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <span>图片转换</span>
+                </div>
+              </button>
+            </li>
+
+            <!-- 5. 文件搜索 -->
+            <li>
+              <button class="nav-btn" data-target="fileSearchView">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <span>文件搜索</span>
+                </div>
+              </button>
+            </li>
+
+            <!-- ★ 新增：工具箱入口 (在 5 个原有项之后，网格图标 + 新增角标) -->
+            <li>
+              <button class="nav-btn active" data-target="toolboxView" id="toolboxNavBtn">
+                <div class="nav-btn-left">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                  </svg>
+                  <span>工具箱</span>
+                </div>
+                <span class="nav-new-tag">新</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 底部：数据目录信息与系统设置 -->
+        <div class="sidebar-footer">
+          <div class="data-dir-info">
+            <div class="data-dir-label">本地数据目录</div>
+            <div class="data-dir-path" title="C:\Users\ArtSu\AppData\Roaming\TheBerry">C:\Users\ArtSu\AppData\Roaming\TheBerry</div>
+          </div>
+
+          <button class="nav-btn" data-target="settingsView" style="margin-top: 2px;">
+            <div class="nav-btn-left">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span>系统设置</span>
+            </div>
+          </button>
+        </div>
+      </aside>
+
+      <!-- 主内容画板 -->
+      <main class="app-main">
+        <!-- ================================================================
+             页面 1：工具箱主视图 (Toolbox View)
+             ================================================================ -->
+        <div class="view-page active" id="toolboxView">
+          <div class="toolbox-container">
+            <!-- 标题栏：h-full / p-6 语言风格 -->
+            <div class="page-header">
+              <div>
+                <h1 class="page-title">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                    <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                    <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                  </svg>
+                  <span>工具箱</span>
+                </h1>
+                <p class="page-desc">集中管理你开发的办公与效率工具</p>
+              </div>
+            </div>
+
+            <!-- 搜索与分类筛选条 -->
+            <div class="filter-bar">
+              <div class="category-tabs" id="categoryTabs">
+                <button class="tab-btn active" data-cat="all">全部</button>
+                <button class="tab-btn" data-cat="format">格式转换</button>
+                <button class="tab-btn" data-cat="doc">文档处理</button>
+                <button class="tab-btn" data-cat="image">图片工具</button>
+                <button class="tab-btn" data-cat="text">文本数据</button>
+                <button class="tab-btn" data-cat="system">系统工具</button>
+              </div>
+
+              <div class="search-input-box">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--text-dim);">
+                  <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" class="search-input" id="toolboxSearchInput" placeholder="搜索工具箱..." />
+              </div>
+            </div>
+
+            <!-- 最近使用 (Recents) -->
+            <div>
+              <div class="sub-section-title">
+                <span>最近使用</span>
+                <span class="sub-section-hint">点击快速进入</span>
+              </div>
+              <div class="recents-row">
+                <!-- 1. 图片格式转换 (已可用) -->
+                <div class="recent-item-card">
+                  <div class="recent-item-left">
+                    <div class="tool-avatar">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="recent-item-title">图片格式转换</div>
+                      <div class="recent-item-sub">PNG / JPG / WebP / AVIF</div>
+                    </div>
+                  </div>
+                  <button class="open-tool-btn primary" id="recentOpenImgBtn">打开</button>
+                </div>
+
+                <!-- 2. OCR 文字识别 (开发中) -->
+                <div class="recent-item-card">
+                  <div class="recent-item-left">
+                    <div class="tool-avatar" style="background: var(--bg-sidebar); color: var(--text-muted);">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="recent-item-title">OCR 文字识别</div>
+                      <div class="recent-item-sub">离线截屏与图片文字识别</div>
+                    </div>
+                  </div>
+                  <button class="open-tool-btn mock-in-dev-btn">打开</button>
+                </div>
+
+                <!-- 3. Markdown 转换 (开发中) -->
+                <div class="recent-item-card">
+                  <div class="recent-item-left">
+                    <div class="tool-avatar" style="background: var(--bg-sidebar); color: var(--text-muted);">
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline>
+                      </svg>
+                    </div>
+                    <div>
+                      <div class="recent-item-title">Markdown 转换</div>
+                      <div class="recent-item-sub">MD 转 Word / HTML 排版</div>
+                    </div>
+                  </div>
+                  <button class="open-tool-btn mock-in-dev-btn">打开</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 全部工具网格 (12 个卡片) -->
+            <div>
+              <div class="sub-section-title">
+                <span>全部工具</span>
+                <span class="sub-section-hint" id="toolCountLabel">共 12 个工具</span>
+              </div>
+              <div class="tools-grid" id="toolsGridContainer">
+                <!-- 12 个卡片由 JS 渲染 -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             页面 2：图片格式转换子视图 (ImageConverterView 保持现有风格)
+             ================================================================ -->
+        <div class="view-page" id="imageConverterSubview">
+          <div class="converter-subview">
+            <div class="subview-top">
+              <button class="back-btn" id="backToToolboxBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+                <span>返回工具箱</span>
+              </button>
+              <span style="font-size: 11.5px; color: var(--text-dim);">工具箱 / 图片工具</span>
+            </div>
+
+            <!-- 转换器头部操作 -->
+            <div class="converter-header">
+              <div>
+                <h2 style="font-size: 16px; font-weight: 700; color: var(--text-main);">图片格式转换</h2>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+                  支持批量格式转换与体积优化，支持 PNG, JPG, WebP, AVIF 等格式
+                </p>
+              </div>
+              <div class="converter-actions">
+                <button class="btn-action-secondary" id="subviewAddFilesBtn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>添加文件 (Add Files)</span>
+                </button>
+                <button class="btn-action-primary" id="subviewConvertBtn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  <span>开始转换 (Convert)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Presets -->
+            <div class="presets-bar">
+              <span style="font-weight: 600;">Quick Presets:</span>
+              <button class="preset-pill active" data-format="WEBP" data-quality="80">网页通用 (WebP 80%)</button>
+              <button class="preset-pill" data-format="AVIF" data-quality="65">极致高压缩 (AVIF 65%)</button>
+              <button class="preset-pill" data-format="PNG" data-quality="100">无损保真 (PNG 100%)</button>
+              <button class="preset-pill" data-format="JPG" data-quality="85">兼容照片 (JPG 85%)</button>
+            </div>
+
+            <!-- 参数设置面板 -->
+            <div class="settings-panel">
+              <div class="form-group">
+                <label class="form-label">目标格式 (Format)</label>
+                <select class="form-select" id="targetFormatSelect">
+                  <option value="WEBP">WebP (推荐)</option>
+                  <option value="AVIF">AVIF (高压缩率)</option>
+                  <option value="PNG">PNG (无损透明)</option>
+                  <option value="JPG">JPG (传统图像)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">质量控制 (Quality: <span id="qualityNumDisplay">80%</span>)</label>
+                <input type="range" id="qualityRangeInput" min="10" max="100" value="80" style="accent-color: var(--accent);" />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">输出目录 (Output Folder)</label>
+                <div style="display: flex; gap: 6px;">
+                  <input type="text" class="form-input" value="C:\Users\ArtSu\Pictures\Converted\" readonly style="flex: 1;" />
+                  <button class="btn-action-secondary" style="height: 30px; padding: 0 8px;">浏览</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 拖放区域 (Drag & Drop Zone) -->
+            <div class="drop-zone" id="subviewDropZone">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <div style="font-weight: 600; font-size: 13.5px; color: var(--text-main);">
+                拖放图片文件或文件夹到此处
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-dim);">
+                支持 PNG, JPG, JPEG, WEBP, BMP, AVIF, TIFF · 纯本地沙盒转换
+              </div>
+            </div>
+
+            <!-- 文件列表表格 -->
+            <table class="mock-file-table">
+              <thead>
+                <tr>
+                  <th>文件名</th>
+                  <th>原始大小</th>
+                  <th>目标格式</th>
+                  <th>状态</th>
+                  <th style="text-align: right;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="subviewFileTbody">
+                <tr>
+                  <td><strong>sample_mockup_01.png</strong></td>
+                  <td>3.4 MB</td>
+                  <td><span class="format-tag">WEBP</span></td>
+                  <td><span class="status-badge available">就绪</span></td>
+                  <td style="text-align: right;"><button class="open-tool-btn" style="height: 22px; font-size: 11px;">移除</button></td>
+                </tr>
+                <tr>
+                  <td><strong>dashboard_overview.jpg</strong></td>
+                  <td>1.8 MB</td>
+                  <td><span class="format-tag">WEBP</span></td>
+                  <td><span class="status-badge available">就绪</span></td>
+                  <td style="text-align: right;"><button class="open-tool-btn" style="height: 22px; font-size: 11px;">移除</button></td>
+                </tr>
+                <tr>
+                  <td><strong>brand_banner_full.png</strong></td>
+                  <td>5.2 MB</td>
+                  <td><span class="format-tag">WEBP</span></td>
+                  <td><span class="status-badge available">就绪</span></td>
+                  <td style="text-align: right;"><button class="open-tool-btn" style="height: 22px; font-size: 11px;">移除</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             占位页面：验证原有入口全部完整保留
+             ================================================================ -->
+        <div class="view-page" id="clipboardView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">剪贴板历史 (原有模块)</h3>
+              <p style="font-size: 12.5px;">此页面为现有 TheBerry 剪贴板历史工作区，布局与路由完整保留。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-page" id="snippetsView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">代码片段 (原有模块)</h3>
+              <p style="font-size: 12.5px;">此页面为现有 TheBerry 代码片段工作区，布局与路由完整保留。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-page" id="launcherView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">应用启动器 (原有模块)</h3>
+              <p style="font-size: 12.5px;">此页面为现有 TheBerry 快速启动器工作区，布局与路由完整保留。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-page" id="imageDirectView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">图片转换 (原有独立入口)</h3>
+              <p style="font-size: 12.5px;">现有侧栏直达的单工具入口保持原位不变。</p>
+              <button class="btn-action-primary" id="gotoConverterSubBtn" style="margin-top: 6px;">打开转换操作台</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-page" id="fileSearchView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">文件搜索 (原有模块)</h3>
+              <p style="font-size: 12.5px;">此页面为现有 TheBerry 本地极速搜索工作区，布局与路由完整保留。</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="view-page" id="settingsView">
+          <div class="placeholder-view">
+            <div class="placeholder-box">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color: var(--accent);">
+                <circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <h3 style="font-size: 16px; font-weight: 600;">系统设置 (原有模块)</h3>
+              <p style="font-size: 12.5px;">此页面为现有 TheBerry 全局系统偏好设置。</p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ====================================================================
+         3. 模态层：Ctrl+K 全局搜索弹窗
+         ==================================================================== -->
+    <div class="cmd-overlay" id="cmdOverlay">
+      <div class="cmd-dialog">
+        <div class="cmd-header">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+            <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" class="cmd-input-field" id="cmdModalInput" placeholder="全局搜索功能、工具或设置..." />
+          <span class="kbd-tag">Esc 关闭</span>
+        </div>
+        <div class="cmd-list" id="cmdModalList">
+          <!-- 动态搜索列表 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         4. 全局 Toast 提示容器
+         ==================================================================== -->
+    <div class="toast-tray" id="toastTray"></div>
+  </div>
+
+  <!-- ======================================================================
+       5. 纯原生交互控制逻辑 (Vanilla JS, 无外部网络依赖)
+       ====================================================================== -->
+  <script>
+    (function () {
+      // 12 个工具定义 (严格包含要求清单)
+      const TOOLS_LIST = [
+        {
+          id: 'img-convert',
+          name: '图片格式转换',
+          cat: 'image',
+          catName: '图片工具',
+          desc: '批量格式转码与画质压缩',
+          tag: 'WEBP/JPG/PNG',
+          status: 'available',
+          isFav: true,
+          icon: 'image'
+        },
+        {
+          id: 'pdf-to-img',
+          name: 'PDF 转图片',
+          cat: 'format',
+          catName: '格式转换',
+          desc: '逐页渲染为高清 PNG 或 JPG',
+          tag: 'PDF → 图片',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'file'
+        },
+        {
+          id: 'pdf-merge-split',
+          name: 'PDF 合并拆分',
+          cat: 'doc',
+          catName: '文档处理',
+          desc: '多页文档拼接与指定页面截取',
+          tag: 'PDF 页面重组',
+          status: 'in-dev',
+          isFav: true,
+          icon: 'layers'
+        },
+        {
+          id: 'word-to-pdf',
+          name: 'Word 转 PDF',
+          cat: 'format',
+          catName: '格式转换',
+          desc: '本地离线 DOCX 转格式版面保真',
+          tag: 'DOCX → PDF',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'file-text'
+        },
+        {
+          id: 'excel-csv',
+          name: 'Excel/CSV 转换',
+          cat: 'text',
+          catName: '文本数据',
+          desc: '数据清洗、去重与表格互转',
+          tag: 'XLSX ↔ CSV',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'table'
+        },
+        {
+          id: 'batch-rename',
+          name: '批量重命名',
+          cat: 'system',
+          catName: '系统工具',
+          desc: '多规则替换、前缀序号批处理',
+          tag: '文件名正则',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'edit'
+        },
+        {
+          id: 'img-compress',
+          name: '图片压缩',
+          cat: 'image',
+          catName: '图片工具',
+          desc: '智能无损体积瘦身算法',
+          tag: '无损瘦身',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'minimize'
+        },
+        {
+          id: 'ocr-local',
+          name: 'OCR 文字识别',
+          cat: 'image',
+          catName: '图片工具',
+          desc: '离线截屏与图片文字识别提取',
+          tag: '离线识别',
+          status: 'in-dev',
+          isFav: true,
+          icon: 'eye'
+        },
+        {
+          id: 'markdown-convert',
+          name: 'Markdown 转换',
+          cat: 'doc',
+          catName: '文档处理',
+          desc: 'MD 转 Word / 微信公众号排版',
+          tag: 'MD ↔ DOCX',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'file-text'
+        },
+        {
+          id: 'json-yaml',
+          name: 'JSON/YAML 转换',
+          cat: 'text',
+          catName: '文本数据',
+          desc: '结构化数据校验、格式化与互转',
+          tag: 'JSON ↔ YAML',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'code'
+        },
+        {
+          id: 'qrcode-tool',
+          name: '二维码工具',
+          cat: 'system',
+          catName: '系统工具',
+          desc: '二维码生成与离线识别解码',
+          tag: 'QR 编解码',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'grid'
+        },
+        {
+          id: 'file-hash',
+          name: '文件哈希',
+          cat: 'system',
+          catName: '系统工具',
+          desc: '计算 MD5, SHA256 完整性指纹',
+          tag: 'MD5 / SHA256',
+          status: 'in-dev',
+          isFav: false,
+          icon: 'hash'
+        }
+      ];
+
+      // 图标生成器
+      function renderSvg(name) {
+        const iconMap = {
+          image: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>',
+          file: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>',
+          layers: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>',
+          'file-text': '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>',
+          table: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line><line x1="12" y1="3" x2="12" y2="21"></line></svg>',
+          edit: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
+          minimize: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
+          eye: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
+          code: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+          grid: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
+          hash: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>'
+        };
+        return iconMap[name] || iconMap.grid;
+      }
+
+      // 状态
+      let activeCategory = 'all';
+      let searchQuery = '';
+
+      const toolsGridEl = document.getElementById('toolsGridContainer');
+      const toolCountLabel = document.getElementById('toolCountLabel');
+
+      // 渲染 12 个工具卡片
+      function renderCards() {
+        let filtered = TOOLS_LIST;
+
+        if (activeCategory !== 'all') {
+          filtered = filtered.filter(t => t.cat === activeCategory);
+        }
+
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase().trim();
+          filtered = filtered.filter(t => 
+            t.name.toLowerCase().includes(q) || 
+            t.desc.toLowerCase().includes(q) || 
+            t.tag.toLowerCase().includes(q)
+          );
+        }
+
+        toolCountLabel.textContent = `共 ${filtered.length} 个工具`;
+
+        toolsGridEl.innerHTML = filtered.map(t => {
+          const isAvail = t.status === 'available';
+          return `
+            <div class="tool-card" data-tool-id="${t.id}">
+              <div class="card-top">
+                <div class="tool-avatar" style="${isAvail ? '' : 'background: var(--bg-sidebar); color: var(--text-muted);'}">
+                  ${renderSvg(t.icon)}
+                </div>
+                <div class="card-meta">
+                  <div class="card-title-row">
+                    <span class="card-name">${t.name}</span>
+                    <span class="status-badge ${isAvail ? 'available' : 'in-dev'}">${isAvail ? '已可用' : '开发中'}</span>
+                  </div>
+                  <div class="card-desc">${t.desc}</div>
+                </div>
+              </div>
+
+              <div class="card-bottom">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <button class="star-icon-btn ${t.isFav ? 'active' : ''}" data-star-id="${t.id}" title="${t.isFav ? '已收藏' : '收藏'}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="${t.isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                  </button>
+                  <span class="format-tag">${t.tag}</span>
+                </div>
+
+                <button class="open-tool-btn ${isAvail ? 'primary' : ''}" data-action="open" data-tool-id="${t.id}">
+                  打开
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // 绑定收藏
+        toolsGridEl.querySelectorAll('.star-icon-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const sid = btn.dataset.starId;
+            const target = TOOLS_LIST.find(x => x.id === sid);
+            if (target) {
+              target.isFav = !target.isFav;
+              renderCards();
+              showToast(target.isFav ? `已收藏「${target.name}」` : `已取消「${target.name}」收藏`);
+            }
+          });
+        });
+
+        // 绑定卡片与打开按钮点击
+        toolsGridEl.querySelectorAll('.tool-card').forEach(card => {
+          card.addEventListener('click', () => {
+            const tid = card.dataset.toolId;
+            handleToolClick(tid);
+          });
+        });
+      }
+
+      function handleToolClick(toolId) {
+        if (toolId === 'img-convert') {
+          showView('imageConverterSubview');
+          showToast('已进入「图片格式转换」工作区');
+        } else {
+          showToast('该工具仍在开发中');
+        }
+      }
+
+      // 视图路由切换
+      function showView(viewId) {
+        document.querySelectorAll('.view-page').forEach(page => page.classList.remove('active'));
+        const targetPage = document.getElementById(viewId);
+        if (targetPage) {
+          targetPage.classList.add('active');
+        }
+
+        // 侧栏激活样式联动
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.target === viewId || (viewId === 'imageConverterSubview' && btn.dataset.target === 'toolboxView'));
+        });
+      }
+
+      // 侧栏导航点击
+      document.querySelectorAll('.nav-btn[data-target]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.dataset.target;
+          showView(target);
+        });
+      });
+
+      // 顶部分类筛选
+      document.querySelectorAll('#categoryTabs .tab-btn').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('#categoryTabs .tab-btn').forEach(b => b.classList.remove('active'));
+          tab.classList.add('active');
+          activeCategory = tab.dataset.cat;
+          renderCards();
+        });
+      });
+
+      // 搜索框过滤
+      const searchInput = document.getElementById('toolboxSearchInput');
+      searchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value;
+        renderCards();
+      });
+
+      // 最近使用快捷按钮
+      document.getElementById('recentOpenImgBtn').addEventListener('click', () => {
+        showView('imageConverterSubview');
+        showToast('已进入「图片格式转换」工作区');
+      });
+      document.querySelectorAll('.mock-in-dev-btn').forEach(b => {
+        b.addEventListener('click', () => showToast('该工具仍在开发中'));
+      });
+
+      // 返回工具箱
+      document.getElementById('backToToolboxBtn').addEventListener('click', () => {
+        showView('toolboxView');
+      });
+      document.getElementById('gotoConverterSubBtn').addEventListener('click', () => {
+        showView('imageConverterSubview');
+      });
+
+      // 图片转换子视图快捷预设联动
+      document.querySelectorAll('.preset-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          const fmt = pill.dataset.format;
+          const q = pill.dataset.quality;
+          document.getElementById('targetFormatSelect').value = fmt;
+          document.getElementById('qualityRangeInput').value = q;
+          document.getElementById('qualityNumDisplay').textContent = `${q}%`;
+          showToast(`已应用预设：${pill.textContent}`);
+        });
+      });
+
+      // 滑块变动
+      document.getElementById('qualityRangeInput').addEventListener('input', (e) => {
+        document.getElementById('qualityNumDisplay').textContent = `${e.target.value}%`;
+      });
+
+      // 子视图添加文件模拟
+      document.getElementById('subviewAddFilesBtn').addEventListener('click', () => {
+        const tbody = document.getElementById('subviewFileTbody');
+        const count = tbody.children.length + 1;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>screenshot_${count}.png</strong></td>
+          <td>2.1 MB</td>
+          <td><span class="format-tag">${document.getElementById('targetFormatSelect').value}</span></td>
+          <td><span class="status-badge available">就绪</span></td>
+          <td style="text-align: right;"><button class="open-tool-btn" style="height: 22px; font-size: 11px;">移除</button></td>
+        `;
+        tr.querySelector('button').addEventListener('click', () => tr.remove());
+        tbody.appendChild(tr);
+        showToast('已添加 1 个文件');
+      });
+
+      // 子视图开始转换模拟
+      document.getElementById('subviewConvertBtn').addEventListener('click', () => {
+        showToast('开始转换：任务已在后台多线程队列中处理...');
+      });
+
+      // 子视图拖放区模拟
+      document.getElementById('subviewDropZone').addEventListener('click', () => {
+        document.getElementById('subviewAddFilesBtn').click();
+      });
+
+      // 主题切换
+      const themeBtn = document.getElementById('themeBtn');
+      themeBtn.addEventListener('click', () => {
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        showToast(`已切换为 ${next === 'dark' ? '深色' : '浅色'} 模式`);
+      });
+
+      // Ctrl+K 搜索弹窗逻辑
+      const cmdOverlay = document.getElementById('cmdOverlay');
+      const cmdModalInput = document.getElementById('cmdModalInput');
+      const cmdModalList = document.getElementById('cmdModalList');
+
+      function openCmdModal() {
+        cmdOverlay.classList.add('open');
+        cmdModalInput.value = '';
+        renderCmdList('');
+        cmdModalInput.focus();
+      }
+
+      function closeCmdModal() {
+        cmdOverlay.classList.remove('open');
+      }
+
+      function renderCmdList(filter) {
+        const q = filter.toLowerCase().trim();
+        const items = TOOLS_LIST.filter(t => !q || t.name.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q));
+        if (items.length === 0) {
+          cmdModalList.innerHTML = '<div style="padding: 12px; text-align: center; color: var(--text-dim);">未找到匹配项</div>';
+          return;
+        }
+        cmdModalList.innerHTML = items.map(t => `
+          <div class="cmd-row" data-id="${t.id}">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="color: var(--accent);">${renderSvg(t.icon)}</span>
+              <strong>${t.name}</strong>
+              <span style="font-size: 11px; color: var(--text-dim);">${t.catName}</span>
+            </div>
+            <span class="status-badge ${t.status === 'available' ? 'available' : 'in-dev'}">${t.status === 'available' ? '已可用' : '开发中'}</span>
+          </div>
+        `).join('');
+
+        cmdModalList.querySelectorAll('.cmd-row').forEach(row => {
+          row.addEventListener('click', () => {
+            const id = row.dataset.id;
+            closeCmdModal();
+            handleToolClick(id);
+          });
+        });
+      }
+
+      document.getElementById('titleSearchBtn').addEventListener('click', openCmdModal);
+      cmdModalInput.addEventListener('input', (e) => renderCmdList(e.target.value));
+      cmdOverlay.addEventListener('click', (e) => {
+        if (e.target === cmdOverlay) closeCmdModal();
+      });
+
+      // 标题栏按钮提示
+      document.getElementById('douhuaAiBtn').addEventListener('click', () => showToast('豆花 AI 抽屉已唤出'));
+      document.getElementById('shortcutsBtn').addEventListener('click', () => showToast('快捷键：Ctrl+K 全局搜索，Esc 关闭弹层'));
+
+      // 键盘快捷键监听
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if (cmdOverlay.classList.contains('open')) closeCmdModal();
+          else openCmdModal();
+        }
+        if (e.key === 'Escape') {
+          closeCmdModal();
+        }
+      });
+
+      // Toast 轻提示
+      function showToast(text) {
+        const tray = document.getElementById('toastTray');
+        const toast = document.createElement('div');
+        toast.className = 'toast-badge';
+        toast.innerHTML = `
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: #fb7185;">
+            <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>${text}</span>
+        `;
+        tray.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transition = 'opacity 150ms ease';
+          setTimeout(() => toast.remove(), 150);
+        }, 2000);
+      }
+
+      // 初始化渲染
+      renderCards();
+    })();
+  </script>
+</body>
+</html>

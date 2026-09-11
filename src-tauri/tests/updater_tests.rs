@@ -19,3 +19,16 @@ fn test_target_asset_keyword_valid() {
     #[cfg(target_os = "windows")]
     assert_eq!(kw, "windows_x64");
 }
+
+#[test]
+fn test_validate_download_url_security() {
+    assert!(UpdaterService::validate_download_url("https://github.com/BerryUIKI/TheBerry/releases/download/v0.1.0/app.exe").is_ok());
+    assert!(UpdaterService::validate_download_url("https://objects.githubusercontent.com/github-production-release-asset/app.exe").is_ok());
+    assert!(UpdaterService::validate_download_url("https://raw.github.com/BerryUIKI/TheBerry/app.exe").is_ok());
+    
+    // Malicious or unapproved domains must fail
+    assert!(UpdaterService::validate_download_url("http://github.com/app.exe").is_err()); // HTTP not HTTPS
+    assert!(UpdaterService::validate_download_url("https://malicious-site.com/app.exe").is_err());
+    assert!(UpdaterService::validate_download_url("https://github.com.evil.com/app.exe").is_err());
+    assert!(UpdaterService::validate_download_url("not a url").is_err());
+}

@@ -33,12 +33,13 @@
 ### 5. 🖼️ Lanczos3 Image Converter & Optimization Presets
 - Batch image compression and format conversion across PNG, JPEG, and WebP.
 - High-fidelity Lanczos3 scaling, aspect ratio preservation, and quality tuning.
-- 4 One-click presets (`Web Optimized`, `Lossless PNG`, `Thumbnail 600px`, `Mobile Friendly`).
+- 4 One-click presets (`Web Optimized (WebP 80%)`, `Lossless (PNG)`, `Thumbnail (600px)`, `Mobile (1280px JPG)`).
 - Byte reduction and storage savings percentage telemetry.
 
-### 6. 📂 Disk-Speed File Search
+### 6. 📂 Disk-Speed File Search & QuickLook Preview
 - Instant multi-drive file matching with substring keyword highlighting.
 - Sortable table columns (Name, Size, Path) and 1-click Explorer reveal.
+- Native Windows QuickLook spacebar file previews integrated into File Search, Spotlight, and Image Converter.
 
 ### 7. ⚙️ Native Boot Autostart, Data Backup & Auto-Updater
 - Native Windows Registry `Run` key autostart toggle (no UAC elevation needed).
@@ -68,8 +69,10 @@ graph TD
 ## 🚀 Getting Started
 
 ### Prerequisites
+- Windows 10 (version 1903+) or Windows 11 (x64)
 - Node.js (v20+) & [pnpm](https://pnpm.io/)
 - [Rust & Cargo](https://www.rust-lang.org/tools/install) (1.78+)
+- *(Optional)* [QuickLook](https://github.com/QL-Win/QuickLook) for native desktop spacebar previews
 
 ### Development Commands
 ```bash

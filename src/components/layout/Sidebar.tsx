@@ -1,3 +1,4 @@
+import { For } from "solid-js";
 import { useApp, ViewType } from "../../context/AppContext";
 import { useI18n, TranslationKey } from "../../context/I18nContext";
 import {
@@ -6,6 +7,7 @@ import {
   Rocket,
   Image as ImageIcon,
   Search,
+  Boxes,
   Settings,
   FolderDot,
 } from "lucide-solid";
@@ -22,6 +24,7 @@ const navDefs: NavItemDef[] = [
   { id: "launcher", key: "nav.launcher", icon: Rocket },
   { id: "image_converter", key: "nav.image_converter", icon: ImageIcon },
   { id: "file_search", key: "nav.file_search", icon: Search },
+  { id: "toolbox", key: "nav.toolbox", icon: Boxes },
 ];
 
 export function Sidebar() {
@@ -35,23 +38,25 @@ export function Sidebar() {
           Utilities Suite
         </div>
 
-        {navDefs.map((item) => {
-          const isActive = activeView() === item.id;
-          const Icon = item.icon;
-          return (
-            <button
-              onClick={() => setActiveView(item.id)}
-              class={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-all ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
-              }`}
-            >
-              <Icon size={16} class={isActive ? "text-primary-foreground" : "text-muted-foreground"} />
-              <span class="truncate">{t(item.key)}</span>
-            </button>
-          );
-        })}
+        <For each={navDefs}>
+          {(item) => {
+            const isActive = () => activeView() === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                onClick={() => setActiveView(item.id)}
+                class={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                  isActive()
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
+                }`}
+              >
+                <Icon size={16} class={isActive() ? "text-primary-foreground" : "text-muted-foreground"} />
+                <span class="truncate">{t(item.key)}</span>
+              </button>
+            );
+          }}
+        </For>
       </div>
 
       {/* Bottom info & Settings */}

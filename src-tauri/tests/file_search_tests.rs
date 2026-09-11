@@ -33,6 +33,7 @@ fn test_file_search_traversal_and_filters() {
         pattern: "guide".to_string(),
         search_root: Some(root.to_string_lossy().to_string()),
         max_results: Some(50),
+        max_depth: None,
         file_type_filter: Some("all".to_string()),
         case_sensitive: Some(false),
     };
@@ -45,6 +46,7 @@ fn test_file_search_traversal_and_filters() {
         pattern: "main".to_string(),
         search_root: Some(root.to_string_lossy().to_string()),
         max_results: Some(50),
+        max_depth: None,
         file_type_filter: Some("code".to_string()),
         case_sensitive: Some(false),
     };
