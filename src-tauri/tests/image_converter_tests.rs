@@ -90,3 +90,29 @@ fn test_image_converter_resizing() {
     assert_eq!(res.width, 50);
     assert_eq!(res.height, 50);
 }
+
+#[test]
+fn test_heic_corrupted_or_mock_handling() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let input_heic = temp.path().join("sample.heic");
+    let out_dir = temp.path().join("output");
+    std::fs::create_dir_all(&out_dir).expect("create out dir");
+
+    // Write invalid/corrupt bytes to simulate corrupt HEIC file
+    std::fs::write(&input_heic, b"corrupted heic payload").expect("write corrupt heic");
+
+    let heic_task = ConvertTask {
+        source_path: input_heic.to_string_lossy().to_string(),
+        target_format: "jpeg".to_string(),
+        quality: 85,
+        output_dir: Some(out_dir.to_string_lossy().to_string()),
+        resize_width: None,
+        resize_height: None,
+        preserve_aspect_ratio: None,
+    };
+
+    let res = ImageConverterService::convert_single(heic_task);
+    assert!(!res.success);
+    assert!(res.error_message.is_some());
+}
+

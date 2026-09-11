@@ -76,7 +76,7 @@ export function ImageConverterView() {
         filters: [
           {
             name: "Images",
-            extensions: ["png", "jpg", "jpeg", "webp", "bmp", "tiff"],
+            extensions: ["png", "jpg", "jpeg", "webp", "bmp", "tiff", "heic", "heif", "hif"],
           },
         ],
       });
@@ -170,7 +170,7 @@ export function ImageConverterView() {
             <span>Batch Image Compressor & Converter</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Bulk convert PNG, JPG, and WebP images with resizing and Lanczos3 quality optimization
+            Bulk convert PNG, JPG, WebP, and Apple HEIC/HEIF images with resizing and Lanczos3 quality optimization
           </p>
         </div>
 
@@ -398,7 +398,7 @@ export function ImageConverterView() {
                   Click to select images or drag and drop files here
                 </p>
                 <p class="text-[11px] text-muted-foreground mt-0.5">
-                  Supports batch converting PNG, JPG, JPEG, and WebP files with Lanczos3 scaling
+                  Supports batch converting PNG, JPG, JPEG, WebP, and Apple HEIC/HEIF files with Lanczos3 scaling
                 </p>
               </div>
             </div>
