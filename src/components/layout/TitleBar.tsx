@@ -12,7 +12,7 @@ export function TitleBar() {
   const { setActiveView } = useApp();
   const { t, assistantName } = useI18n();
   const [isMaximized, setIsMaximized] = createSignal(false);
-  const [appVersion, setAppVersion] = createSignal("0.1.5");
+  const [appVersion, setAppVersion] = createSignal("0.1.6");
   const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
 
   onMount(() => {
