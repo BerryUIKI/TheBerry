@@ -5,6 +5,7 @@ import { getSnippets, copyExpandedSnippet } from "../services/snippets";
 import { searchFiles, openFilePath, revealInExplorer } from "../services/fileSearch";
 import { previewWithQuickLook } from "../services/quicklook";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Search,
   Rocket,
@@ -31,6 +32,7 @@ type FilterTag = "all" | "app" | "clipboard" | "snippet" | "file";
 
 export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, info } = useToast();
+  const { t } = useI18n();
   const [query, setQuery] = createSignal("");
   const [activeFilter, setActiveFilter] = createSignal<FilterTag>("all");
   const [selectedIndex, setSelectedIndex] = createSignal(0);
@@ -294,12 +296,12 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
     }
   };
 
-  const filterTabs: { id: FilterTag; label: string; prefix: string }[] = [
-    { id: "all", label: "All", prefix: "" },
-    { id: "app", label: "Apps", prefix: "@app " },
-    { id: "clipboard", label: "Clipboard", prefix: "@clip " },
-    { id: "snippet", label: "Snippets", prefix: "@snip " },
-    { id: "file", label: "Files", prefix: "@file " },
+  const filterTabs = () => [
+    { id: "all" as FilterTag, label: t("spotlight.tab_all"), prefix: "" },
+    { id: "app" as FilterTag, label: t("spotlight.tab_apps"), prefix: "@app " },
+    { id: "clipboard" as FilterTag, label: t("spotlight.tab_clipboard"), prefix: "@clip " },
+    { id: "snippet" as FilterTag, label: t("spotlight.tab_snippets"), prefix: "@snip " },
+    { id: "file" as FilterTag, label: t("spotlight.tab_files"), prefix: "@file " },
   ];
 
   return (
@@ -323,7 +325,7 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
                 setQuery(e.currentTarget.value);
                 performSearch(e.currentTarget.value);
               }}
-              placeholder="Search or type @app, @clip, @snip, @file..."
+              placeholder={t("spotlight.placeholder")}
               class="w-full bg-transparent border-none text-sm text-foreground focus:outline-none placeholder:text-muted-foreground"
             />
             <div class="flex items-center space-x-1 text-[10px] text-muted-foreground px-1.5 py-0.5 rounded bg-muted font-mono border border-border/60">
@@ -334,7 +336,7 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
 
           {/* Filter Pills */}
           <div class="flex items-center space-x-1.5 px-3.5 py-2 border-b border-border/50 bg-muted/20 text-xs">
-            <For each={filterTabs}>
+            <For each={filterTabs()}>
               {(tab) => (
                 <button
                   onClick={() => {
@@ -360,7 +362,7 @@ export function SpotlightModal(props: { isOpen: boolean; onClose: () => void }) 
               fallback={
                 <div class="py-10 text-center space-y-2">
                   <p class="text-xs text-muted-foreground">
-                    {loading() ? "Searching federated indexes..." : "No matching items found."}
+                    {loading() ? t("file_search.searching") : t("spotlight.empty")}
                   </p>
                   <p class="text-[11px] text-muted-foreground/70">
                     Try prefixing with <code class="px-1 py-0.5 rounded bg-muted">@app</code>,{" "}
