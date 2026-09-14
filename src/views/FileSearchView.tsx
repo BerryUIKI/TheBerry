@@ -9,6 +9,7 @@ import {
 import { previewWithQuickLook } from "../services/quicklook";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Search,
   Folder,
@@ -33,6 +34,7 @@ type SortOrder = "asc" | "desc";
 
 export function FileSearchView() {
   const { success, error, info } = useToast();
+  const { t } = useI18n();
   const [queryText, setQueryText] = createSignal("");
   const [drives, setDrives] = createSignal<SystemDrive[]>([]);
   const [selectedRoot, setSelectedRoot] = createSignal<string>("");
@@ -216,10 +218,10 @@ export function FileSearchView() {
         <div>
           <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
             <Search class="text-primary" size={20} />
-            <span>Fast Everything File Search</span>
+            <span>{t("file_search.title")}</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Instant multi-drive local search, extension filtering, and Explorer reveal
+            {t("file_search.subtitle")}
           </p>
         </div>
 
@@ -254,7 +256,7 @@ export function FileSearchView() {
             type="text"
             value={queryText()}
             onInput={(e) => handleInput(e.currentTarget.value)}
-            placeholder="Type filename or wildcard (e.g. *.rs, main.tsx, report)..."
+            placeholder={t("file_search.search_placeholder")}
             class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
         </div>
@@ -268,12 +270,12 @@ export function FileSearchView() {
           }}
           class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
         >
-          <option value="all">All Types</option>
-          <option value="file">Files Only</option>
-          <option value="dir">Folders Only</option>
-          <option value="code">Code Files</option>
-          <option value="doc">Documents</option>
-          <option value="image">Images</option>
+          <option value="all">{t("file_search.filter_all")}</option>
+          <option value="file">Files</option>
+          <option value="dir">Folders</option>
+          <option value="code">{t("file_search.filter_code")}</option>
+          <option value="doc">{t("file_search.filter_docs")}</option>
+          <option value="image">{t("file_search.filter_images")}</option>
         </select>
 
         <button
@@ -281,7 +283,7 @@ export function FileSearchView() {
           disabled={searching()}
           class="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-xs disabled:opacity-50 active:scale-95"
         >
-          <span>{searching() ? "Searching..." : "Search"}</span>
+          <span>{searching() ? t("file_search.searching") : t("titlebar.search")}</span>
         </button>
       </form>
 
@@ -290,9 +292,9 @@ export function FileSearchView() {
         <div class="flex items-center justify-between text-xs text-muted-foreground px-1">
           <div class="flex items-center space-x-3">
             <span>
-              {searching() ? "Scanning file system..." : `Found ${results().length} results`}
+              {searching() ? t("file_search.searching") : t("file_search.found_count", { count: String(results().length) })}
             </span>
-            <span class="text-[11px] font-mono">Scope: {selectedRoot() || "All Drives"}</span>
+            <span class="text-[11px] font-mono">Scope: {selectedRoot() || t("file_search.drive_all")}</span>
           </div>
 
           <div class="flex items-center space-x-2 text-[11px]">

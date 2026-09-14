@@ -9,6 +9,7 @@ import {
   batchImportLauncherItems,
 } from "../services/launcher";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Rocket,
   Play,
@@ -28,6 +29,7 @@ import {
 
 export function LauncherView() {
   const { success, error, info } = useToast();
+  const { t } = useI18n();
   const [items, setItems] = createSignal<LauncherItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [selectedCategory, setSelectedCategory] = createSignal<string>("All");
@@ -297,10 +299,10 @@ export function LauncherView() {
         <div>
           <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
             <Rocket class="text-primary" size={20} />
-            <span>App Launcher & Organizer</span>
+            <span>{t("launcher.title")}</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Quick-launch apps, custom command flags, and multi-instance batch workflows
+            {t("launcher.subtitle")}
           </p>
         </div>
 
@@ -310,14 +312,14 @@ export function LauncherView() {
             class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-md flex items-center space-x-1.5 transition-colors border border-border"
           >
             <Sparkles size={14} class="text-amber-500" />
-            <span>Scan Installed Apps</span>
+            <span>{t("launcher.scan_apps")}</span>
           </button>
           <button
             onClick={handleOpenAdd}
             class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-md hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm"
           >
             <Plus size={14} />
-            <span>Add Target</span>
+            <span>{t("launcher.add_item")}</span>
           </button>
         </div>
       </div>
@@ -338,7 +340,7 @@ export function LauncherView() {
             type="text"
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            placeholder="Search targets or categories..."
+            placeholder={t("launcher.search_placeholder")}
             class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-md text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
           />
         </div>

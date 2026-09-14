@@ -11,6 +11,7 @@ import {
   onClipboardUpdated,
 } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   ClipboardList,
   Pin,
@@ -31,6 +32,7 @@ import {
 
 export function ClipboardView() {
   const { success, error, info } = useToast();
+  const { t } = useI18n();
   const [items, setItems] = createSignal<ClipboardItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [activeFilter, setActiveFilter] = createSignal<"all" | "pinned" | "images" | "links">("all");
@@ -84,10 +86,10 @@ export function ClipboardView() {
     try {
       if (item.content_type === "image" && item.media_path) {
         await copyImageToSystemClipboard(item.media_path);
-        success("Image Copied to Clipboard");
+        success(t("clipboard.copied"));
       } else {
         await copyToSystemClipboard(item.content);
-        success("Text Copied to Clipboard", item.content.slice(0, 40));
+        success(t("clipboard.copied"), item.content.slice(0, 40));
       }
       setCopiedId(item.id);
       setTimeout(() => setCopiedId(null), 1500);
@@ -108,7 +110,7 @@ export function ClipboardView() {
   const handleDelete = async (id: string) => {
     try {
       await deleteClipboardItem(id);
-      success("Item Removed");
+      success(t("clipboard.item_deleted"));
       await loadHistory();
     } catch (e) {
       error("Delete Failed", String(e));
@@ -118,7 +120,7 @@ export function ClipboardView() {
   const handleClear = async () => {
     try {
       await clearClipboardHistory();
-      success("Clipboard History Cleared", "Unpinned items removed");
+      success(t("clipboard.clear_all"), t("clipboard.clear_confirm"));
       await loadHistory();
     } catch (e) {
       error("Clear Failed", String(e));
@@ -131,7 +133,7 @@ export function ClipboardView() {
       await addClipboardItem(newContent().trim());
       setNewContent("");
       setShowAddForm(false);
-      success("Clipboard Item Saved");
+      success(t("clipboard.save"));
       await loadHistory();
     } catch (e) {
       error("Failed to Save Item", String(e));
@@ -167,7 +169,7 @@ export function ClipboardView() {
       }
       setSelectedIds(new Set());
       setBatchMode(false);
-      success("Batch Delete Complete", `Deleted ${ids.length} item(s)`);
+      success(t("clipboard.delete_selected", { count: String(ids.length) }));
       await loadHistory();
     } catch (e) {
       error("Batch Delete Failed", String(e));
@@ -258,14 +260,14 @@ export function ClipboardView() {
         <div>
           <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
             <ClipboardList class="text-primary" size={20} />
-            <span>Clipboard History Manager</span>
+            <span>{t("clipboard.title")}</span>
           </h1>
           <div class="flex items-center space-x-2 mt-0.5">
             <span class="flex items-center space-x-1 text-[11px] text-emerald-500 font-medium">
               <Activity size={12} class="animate-pulse" />
-              <span>Background Listener Active (Text & Images)</span>
+              <span>{t("clipboard.subtitle")}</span>
             </span>
-            <span class="text-xs text-muted-foreground">• {items().length} items in history</span>
+            <span class="text-xs text-muted-foreground">• {items().length}</span>
           </div>
         </div>
 
@@ -282,7 +284,7 @@ export function ClipboardView() {
                 : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-border"
             }`}
           >
-            {batchMode() ? "Exit Select" : "Select"}
+            {batchMode() ? t("clipboard.deselect_all") : t("clipboard.batch_mode")}
           </button>
 
           <button
@@ -290,18 +292,18 @@ export function ClipboardView() {
             class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-xs active:scale-95"
           >
             <Plus size={14} />
-            <span>Add Item</span>
+            <span>{t("clipboard.add_clip")}</span>
           </button>
           <button
             onClick={loadHistory}
-            title="Refresh History"
+            title="Refresh"
             class="p-1.5 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors border border-border"
           >
             <RotateCcw size={14} />
           </button>
           <button
             onClick={handleClear}
-            title="Clear unpinned items"
+            title={t("clipboard.clear_all")}
             class="p-1.5 bg-secondary text-destructive rounded-lg hover:bg-destructive/10 transition-colors border border-border"
           >
             <Trash2 size={14} />
@@ -322,7 +324,7 @@ export function ClipboardView() {
               ) : (
                 <Square size={14} class="text-muted-foreground" />
               )}
-              <span>Select All ({selectedIds().size}/{filteredItems().length})</span>
+              <span>{t("clipboard.select_all")} ({selectedIds().size}/{filteredItems().length})</span>
             </button>
           </div>
 
@@ -333,7 +335,7 @@ export function ClipboardView() {
               class="px-3 py-1 bg-destructive text-destructive-foreground font-medium rounded-lg text-xs hover:bg-destructive/90 disabled:opacity-50 transition-colors flex items-center space-x-1"
             >
               <Trash2 size={12} />
-              <span>Delete Selected ({selectedIds().size})</span>
+              <span>{t("clipboard.delete_selected", { count: String(selectedIds().size) })}</span>
             </button>
           </div>
         </div>
@@ -345,7 +347,7 @@ export function ClipboardView() {
           <textarea
             value={newContent()}
             onInput={(e) => setNewContent(e.currentTarget.value)}
-            placeholder="Type or paste text content to save..."
+            placeholder={t("clipboard.add_placeholder")}
             rows={3}
             class="w-full p-2.5 bg-background border border-input rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
           />
@@ -354,13 +356,13 @@ export function ClipboardView() {
               onClick={() => setShowAddForm(false)}
               class="px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              Cancel
+              {t("clipboard.cancel")}
             </button>
             <button
               onClick={handleAddItem}
               class="px-3.5 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 shadow-xs active:scale-95"
             >
-              Save to Clipboard
+              {t("clipboard.save")}
             </button>
           </div>
         </div>
@@ -374,7 +376,7 @@ export function ClipboardView() {
             type="text"
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            placeholder="Search clipboard history..."
+            placeholder={t("clipboard.search_placeholder")}
             class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
         </div>
@@ -382,10 +384,10 @@ export function ClipboardView() {
         <div class="flex items-center space-x-1">
           {(
             [
-              { id: "all", label: "All" },
-              { id: "pinned", label: "Pinned" },
-              { id: "images", label: "Images" },
-              { id: "links", label: "URLs" },
+              { id: "all", label: t("clipboard.filter_all") },
+              { id: "pinned", label: t("clipboard.filter_pinned") },
+              { id: "images", label: t("clipboard.filter_images") },
+              { id: "links", label: t("clipboard.filter_links") },
             ] as const
           ).map((f) => (
             <button
@@ -411,8 +413,8 @@ export function ClipboardView() {
               <ClipboardList size={28} class="opacity-40" />
               <p class="text-xs">
                 {loading()
-                  ? "Loading history..."
-                  : "No clipboard entries. Any text or screenshot you copy in Windows will appear here automatically."}
+                  ? t("common.loading")
+                  : t("clipboard.empty_desc")}
               </p>
             </div>
           }

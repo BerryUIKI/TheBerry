@@ -1,46 +1,44 @@
 import { Show, For } from "solid-js";
-import { Keyboard, X, Command } from "lucide-solid";
-
-interface ShortcutSection {
-  title: string;
-  items: { keys: string[]; description: string }[];
-}
-
-const shortcutSections: ShortcutSection[] = [
-  {
-    title: "Global & Navigation",
-    items: [
-      { keys: ["Ctrl", "K"], description: "Toggle Spotlight HUD search" },
-      { keys: ["Ctrl", "J"], description: "Toggle Goose AI Assistant drawer" },
-      { keys: ["?"], description: "Toggle keyboard shortcuts cheat-sheet" },
-      { keys: ["Esc"], description: "Close active modal / drawer" },
-    ],
-  },
-  {
-    title: "Spotlight HUD",
-    items: [
-      { keys: ["@app"], description: "Filter only applications" },
-      { keys: ["@clip"], description: "Filter only clipboard items" },
-      { keys: ["@snip"], description: "Filter only snippets" },
-      { keys: ["@file"], description: "Filter only file search" },
-      { keys: ["↑", "↓"], description: "Navigate search results" },
-      { keys: ["Enter"], description: "Launch app / Copy snippet / Open file" },
-      { keys: ["Shift", "Space"], description: "QuickLook native file preview (Windows)" },
-      { keys: ["Ctrl", "C"], description: "Copy item path / content" },
-      { keys: ["Ctrl", "E"], description: "Reveal file/app in Explorer" },
-    ],
-  },
-  {
-    title: "File Search & Clipboard",
-    items: [
-      { keys: ["Space"], description: "QuickLook preview selected file (Windows)" },
-      { keys: ["Ctrl", "Shift", "C"], description: "Quick copy expanded snippet" },
-      { keys: ["Click Thumb"], description: "Zoom full image modal" },
-    ],
-  },
-];
+import { Keyboard, X } from "lucide-solid";
+import { useI18n } from "../context/I18nContext";
 
 export function ShortcutsModal(props: { isOpen: boolean; onClose: () => void }) {
+  const { t, assistantName } = useI18n();
+
+  const shortcutSections = () => [
+    {
+      title: t("shortcuts.sec_global"),
+      items: [
+        { keys: ["Ctrl", "K"], description: t("shortcuts.global_spotlight") },
+        { keys: ["Ctrl", "J"], description: t("shortcuts.global_assistant") },
+        { keys: ["?"], description: t("shortcuts.global_cheatsheet") },
+        { keys: ["Esc"], description: t("shortcuts.global_close") },
+      ],
+    },
+    {
+      title: t("shortcuts.sec_spotlight"),
+      items: [
+        { keys: ["@app"], description: t("shortcuts.spot_filter_app") },
+        { keys: ["@clip"], description: t("shortcuts.spot_filter_clip") },
+        { keys: ["@snip"], description: t("shortcuts.spot_filter_snip") },
+        { keys: ["@file"], description: t("shortcuts.spot_filter_file") },
+        { keys: ["↑", "↓"], description: t("shortcuts.spot_navigate") },
+        { keys: ["Enter"], description: t("shortcuts.spot_action") },
+        { keys: ["Shift", "Space"], description: t("shortcuts.spot_quicklook") },
+        { keys: ["Ctrl", "C"], description: t("shortcuts.spot_copy") },
+        { keys: ["Ctrl", "E"], description: t("shortcuts.spot_reveal") },
+      ],
+    },
+    {
+      title: t("shortcuts.sec_file_clip"),
+      items: [
+        { keys: ["Space"], description: t("shortcuts.fc_quicklook") },
+        { keys: ["Ctrl", "Shift", "C"], description: t("shortcuts.fc_copy_snippet") },
+        { keys: ["Click Thumb"], description: t("shortcuts.fc_zoom_image") },
+      ],
+    },
+  ];
+
   return (
     <Show when={props.isOpen}>
       <div
@@ -57,8 +55,8 @@ export function ShortcutsModal(props: { isOpen: boolean; onClose: () => void }) 
                 <Keyboard size={18} />
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-foreground">Keyboard Shortcuts</h3>
-                <p class="text-[11px] text-muted-foreground">Power-user keyboard navigation guide</p>
+                <h3 class="text-sm font-semibold text-foreground">{t("shortcuts.modal_title")}</h3>
+                <p class="text-[11px] text-muted-foreground">{t("shortcuts.modal_subtitle")}</p>
               </div>
             </div>
             <button
@@ -71,7 +69,7 @@ export function ShortcutsModal(props: { isOpen: boolean; onClose: () => void }) 
 
           {/* Body */}
           <div class="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-            <For each={shortcutSections}>
+            <For each={shortcutSections()}>
               {(section) => (
                 <div>
                   <h4 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">
@@ -102,11 +100,12 @@ export function ShortcutsModal(props: { isOpen: boolean; onClose: () => void }) 
 
           {/* Footer */}
           <div class="px-5 py-3 border-t border-border bg-muted/20 flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Press <kbd class="px-1.5 py-0.5 rounded bg-muted font-mono">Esc</kbd> to close</span>
-            <span class="text-primary font-medium">TheBerry Productivity Suite</span>
+            <span>{t("shortcuts.footer_esc")}</span>
+            <span class="text-primary font-medium">{assistantName()} Productivity Suite</span>
           </div>
         </div>
       </div>
     </Show>
   );
 }
+
