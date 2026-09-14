@@ -1,9 +1,10 @@
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager,
+    AppHandle, Emitter, Manager,
 };
 use crate::core::AppState;
+use crate::modules::clipboard::service::ClipboardService;
 use crate::modules::shortcuts::service::ShortcutService;
 
 pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -12,31 +13,53 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let is_zh = config.language == "zh";
 
     let show_text = if is_zh { "显示主窗口" } else { "Show TheBerry" };
-    let hud_text = if is_zh { "呼出 HUD 快捷窗口 (Alt+Space)" } else { "Toggle HUD (Alt+Space)" };
+    let hud_text = if is_zh { "呼出 Spotlight HUD (Alt+Space)" } else { "Toggle Spotlight HUD (Alt+Space)" };
+    let clear_clips_text = if is_zh { "清空未固定剪贴板记录" } else { "Clear Unpinned Clips" };
+    let image_converter_text = if is_zh { "快速图片格式转换" } else { "Quick Convert Image" };
+    
+    let lang_menu_text = if is_zh { "切换界面语言" } else { "Switch Language" };
+    let lang_en_text = if !is_zh { "✓ English" } else { "  English" };
+    let lang_zh_text = if is_zh { "✓ 简体中文" } else { "  简体中文" };
+
     let shortcut_text = if config.global_shortcuts_enabled {
         if is_zh { "✓ 全局快捷键已启用" } else { "✓ Global Shortcuts Enabled" }
     } else {
         if is_zh { "  启用全局快捷键" } else { "  Enable Global Shortcuts" }
     };
-    let quit_text = if is_zh { "退出" } else { "Quit" };
+    let quit_text = if is_zh { "退出 TheBerry" } else { "Quit TheBerry" };
 
     let show_item = MenuItem::with_id(app, "show", show_text, true, None::<&str>)?;
     let hud_item = MenuItem::with_id(app, "toggle_hud", hud_text, true, None::<&str>)?;
-    let separator1 = PredefinedMenuItem::separator(app)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+
+    let clear_clips_item = MenuItem::with_id(app, "clear_unpinned_clips", clear_clips_text, true, None::<&str>)?;
+    let image_conv_item = MenuItem::with_id(app, "quick_image_converter", image_converter_text, true, None::<&str>)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+
+    let lang_en_item = MenuItem::with_id(app, "lang_en", lang_en_text, true, None::<&str>)?;
+    let lang_zh_item = MenuItem::with_id(app, "lang_zh", lang_zh_text, true, None::<&str>)?;
+    let lang_submenu = Submenu::with_items(app, lang_menu_text, true, &[&lang_en_item, &lang_zh_item])?;
+
     let shortcut_item = MenuItem::with_id(app, "toggle_shortcuts", shortcut_text, true, None::<&str>)?;
-    let separator2 = PredefinedMenuItem::separator(app)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)?;
 
     let menu = Menu::with_items(app, &[
         &show_item,
         &hud_item,
-        &separator1,
+        &sep1,
+        &clear_clips_item,
+        &image_conv_item,
+        &sep2,
+        &lang_submenu,
         &shortcut_item,
-        &separator2,
+        &sep3,
         &quit_item,
     ])?;
 
     let shortcut_item_clone = shortcut_item.clone();
+    let lang_en_clone = lang_en_item.clone();
+    let lang_zh_clone = lang_zh_item.clone();
 
     let builder = TrayIconBuilder::with_id("main-tray")
         .tooltip("TheBerry")
@@ -52,6 +75,43 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
             "toggle_hud" => {
                 ShortcutService::on_hud_shortcut_pressed(app);
+            }
+            "clear_unpinned_clips" => {
+                let state = app.state::<AppState>();
+                let clip_service = ClipboardService::new(state.db_manager.clone());
+                if let Ok(count) = clip_service.clear_unpinned() {
+                    let _ = app.emit("clipboard-cleared", count);
+                }
+            }
+            "quick_image_converter" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+                let _ = app.emit("navigate-view", "image_converter");
+            }
+            "lang_en" => {
+                let state = app.state::<AppState>();
+                let mut cfg = state.config_manager.get_app_config();
+                cfg.language = "en".to_string();
+                if let Some(root) = state.config_manager.get_data_dir() {
+                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                }
+                let _ = lang_en_clone.set_text("✓ English");
+                let _ = lang_zh_clone.set_text("  简体中文");
+                let _ = app.emit("language-changed", "en");
+            }
+            "lang_zh" => {
+                let state = app.state::<AppState>();
+                let mut cfg = state.config_manager.get_app_config();
+                cfg.language = "zh".to_string();
+                if let Some(root) = state.config_manager.get_data_dir() {
+                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                }
+                let _ = lang_en_clone.set_text("  English");
+                let _ = lang_zh_clone.set_text("✓ 简体中文");
+                let _ = app.emit("language-changed", "zh");
             }
             "toggle_shortcuts" => {
                 let state = app.state::<AppState>();
