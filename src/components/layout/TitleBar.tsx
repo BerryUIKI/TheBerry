@@ -1,6 +1,6 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useTheme } from "../../context/ThemeContext";
-import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../services/system";
+import { minimizeWindow, toggleMaximizeWindow, closeWindow, getAppVersion } from "../../services/system";
 import { onUpdateAvailable } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
@@ -12,9 +12,18 @@ export function TitleBar() {
   const { setActiveView } = useApp();
   const { t, assistantName } = useI18n();
   const [isMaximized, setIsMaximized] = createSignal(false);
+  const [appVersion, setAppVersion] = createSignal("0.1.5");
   const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
 
   onMount(() => {
+    getAppVersion()
+      .then((ver) => {
+        if (ver) setAppVersion(ver);
+      })
+      .catch((e) => {
+        console.warn("Failed to fetch app version in TitleBar:", e);
+      });
+
     let unlistenFn: (() => void) | null = null;
     onUpdateAvailable((info) => {
       setAvailableUpdate(info);
@@ -68,7 +77,7 @@ export function TitleBar() {
           TheBerry
         </span>
         <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-          v0.1.2
+          v{appVersion()}
         </span>
 
         {/* Update Notification Pill */}

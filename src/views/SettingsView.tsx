@@ -67,7 +67,7 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.4");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.5");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
