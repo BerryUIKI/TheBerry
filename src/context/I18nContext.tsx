@@ -14,15 +14,18 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType>();
 
 export function I18nProvider(props: { children: JSX.Element }) {
-  const [language, setLanguageState] = createSignal<AppLanguage>("en");
+  const [language, setLanguageState] = createSignal<AppLanguage>(() => {
+    try {
+      const saved = typeof window !== "undefined" ? (localStorage.getItem("berry_language") as AppLanguage | null) : null;
+      if (saved === "en" || saved === "zh") return saved;
+    } catch {
+      // ignore
+    }
+    return "en";
+  });
 
   onMount(async () => {
-    // 1. Check localStorage first
-    const saved = localStorage.getItem("berry_language") as AppLanguage | null;
-    if (saved === "en" || saved === "zh") {
-      setLanguageState(saved);
-    }
-    // 2. Sync from backend config
+    // Sync from backend config if exists
     try {
       const cfg = await getConfig();
       if (cfg?.language === "en" || cfg?.language === "zh") {
@@ -36,9 +39,14 @@ export function I18nProvider(props: { children: JSX.Element }) {
 
   const setLanguage = async (lang: AppLanguage) => {
     setLanguageState(lang);
-    localStorage.setItem("berry_language", lang);
     try {
-      await updateConfig({ language: lang });
+      localStorage.setItem("berry_language", lang);
+    } catch {
+      // ignore
+    }
+    try {
+      const current = await getConfig();
+      await updateConfig({ ...current, language: lang });
     } catch (e) {
       console.error("Failed to persist language to backend config:", e);
     }
