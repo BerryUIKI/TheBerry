@@ -10,6 +10,7 @@ pub struct QuickLookStatus {
     pub error_message: Option<String>,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for QuickLookStatus {
     fn default() -> Self {
         Self {
