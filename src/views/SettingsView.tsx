@@ -82,7 +82,7 @@ export function SettingsView() {
       const cfg = await getConfig();
       setConfigState(cfg);
       const ver = await getAppVersion();
-      setCurrentVersion(ver);
+      if (ver) setCurrentVersion(ver);
       const autoStatus = await isAutostartEnabled();
       setAutostartActive(autoStatus);
       const ql = await getQuickLookStatus();
@@ -210,10 +210,10 @@ export function SettingsView() {
       <div>
         <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
           <Settings class="text-primary" size={20} />
-          <span>Application Settings</span>
+          <span>{t("settings.title")}</span>
         </h1>
         <p class="text-xs text-muted-foreground mt-0.5">
-          Manage system preferences, version updates, persistence paths, and appearance
+          {t("settings.subtitle")}
         </p>
       </div>
 
@@ -230,7 +230,7 @@ export function SettingsView() {
         <div class="flex items-center justify-between">
           <h2 class="text-xs font-semibold text-foreground flex items-center space-x-2">
             <Sparkles size={15} class="text-primary" />
-            <span>Version & Automatic Updates</span>
+            <span>{t("settings.version_card")}</span>
           </h2>
           <button
             disabled={checkingUpdate() || isDownloading()}
@@ -238,28 +238,28 @@ export function SettingsView() {
             class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-md text-xs font-medium flex items-center space-x-1.5 transition-colors border border-border disabled:opacity-50"
           >
             <RefreshCw size={13} class={checkingUpdate() ? "animate-spin" : ""} />
-            <span>{checkingUpdate() ? "Checking..." : "Check for Updates"}</span>
+            <span>{checkingUpdate() ? t("settings.downloading") : t("settings.check_update")}</span>
           </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
           <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
-            <span class="text-muted-foreground">Installed Version:</span>
+            <span class="text-muted-foreground">{t("settings.installed_version")}</span>
             <span class="font-mono font-semibold text-foreground">v{currentVersion()}</span>
           </div>
 
           <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
-            <span class="text-muted-foreground">Update Status:</span>
+            <span class="text-muted-foreground">{t("settings.update_status")}</span>
             <Show
               when={updateInfo()}
-              fallback={<span class="text-muted-foreground">Daily silent check enabled</span>}
+              fallback={<span class="text-muted-foreground">{t("settings.silent_check")}</span>}
             >
               {updateInfo()?.has_update ? (
                 <span class="font-semibold text-primary flex items-center space-x-1">
-                  <span>v{updateInfo()?.latest_version} Available</span>
+                  <span>{t("settings.new_release_ready", { version: updateInfo()?.latest_version || "" })}</span>
                 </span>
               ) : (
-                <span class="text-green-500 font-medium">Up to date</span>
+                <span class="text-green-500 font-medium">{t("settings.up_to_date")}</span>
               )}
             </Show>
           </div>
@@ -280,7 +280,7 @@ export function SettingsView() {
               <div>
                 <h3 class="text-xs font-bold text-foreground flex items-center space-x-1.5">
                   <Sparkles size={14} class="text-primary" />
-                  <span>New Release {updateInfo()?.latest_version} Available</span>
+                  <span>{t("settings.new_release_ready", { version: updateInfo()?.latest_version || "" })}</span>
                 </h3>
                 <Show when={updateInfo()?.asset_name}>
                   <p class="text-[11px] text-muted-foreground mt-0.5 font-mono">
@@ -296,7 +296,7 @@ export function SettingsView() {
                   rel="noreferrer"
                   class="px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground flex items-center space-x-1"
                 >
-                  <span>Changelog</span>
+                  <span>{t("settings.changelog")}</span>
                   <ExternalLink size={11} />
                 </a>
                 <button
@@ -305,7 +305,7 @@ export function SettingsView() {
                   class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
                 >
                   <Download size={13} />
-                  <span>{isDownloading() ? "Downloading..." : "Update Now"}</span>
+                  <span>{isDownloading() ? t("settings.downloading") : t("settings.update_now")}</span>
                 </button>
               </div>
             </div>
@@ -333,11 +333,11 @@ export function SettingsView() {
       <div class="p-4 bg-card border border-border rounded-lg space-y-3">
         <h2 class="text-xs font-semibold text-foreground flex items-center space-x-2">
           <HardDrive size={15} class="text-primary" />
-          <span>Storage & Persistence (redb + TOML)</span>
+          <span>{t("settings.storage_title")}</span>
         </h2>
 
         <div class="space-y-1 text-xs">
-          <label class="text-muted-foreground">Configured Root Storage Directory:</label>
+          <label class="text-muted-foreground">{t("settings.storage_dir_label")}</label>
           <div class="flex items-center space-x-2">
             <div class="flex-1 p-2.5 bg-background border border-input rounded font-mono text-foreground flex items-center space-x-2">
               <FolderDot size={14} class="text-primary flex-shrink-0" />
@@ -357,18 +357,18 @@ export function SettingsView() {
               }}
               class="px-3 py-2.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg text-xs flex items-center space-x-1.5 font-medium transition-colors disabled:opacity-50 border border-border"
             >
-              <span>Open in Explorer</span>
+              <span>{t("settings.open_explorer")}</span>
             </button>
           </div>
           <p class="text-[11px] text-muted-foreground">
-            Contains <code>the_berry.redb</code> embedded database and <code>config.toml</code>. All tool tables and data remain local and offline.
+            {t("settings.storage_desc")}
           </p>
 
           {/* Backup & Restore Action Bar */}
           <div class="pt-2 border-t border-border flex items-center justify-between">
             <div>
-              <span class="font-medium text-foreground text-xs block">Data Backup & Portability</span>
-              <span class="text-[11px] text-muted-foreground">Export or restore all database records and preferences as JSON</span>
+              <span class="font-medium text-foreground text-xs block">{t("settings.backup_title")}</span>
+              <span class="text-[11px] text-muted-foreground">{t("settings.backup_subtitle")}</span>
             </div>
             <div class="flex items-center space-x-2">
               <button
@@ -377,14 +377,14 @@ export function SettingsView() {
                 class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded text-xs font-medium flex items-center space-x-1.5 border border-border transition-colors disabled:opacity-50"
               >
                 <Copy size={13} class="text-primary" />
-                <span>{isExporting() ? "Exporting..." : "Export Backup JSON"}</span>
+                <span>{isExporting() ? "Exporting..." : t("settings.export_btn")}</span>
               </button>
               <button
                 onClick={() => setShowImportModal(true)}
                 class="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded text-xs font-medium flex items-center space-x-1.5 transition-colors"
               >
                 <Upload size={13} />
-                <span>Restore Backup</span>
+                <span>{t("settings.restore_btn")}</span>
               </button>
             </div>
           </div>
@@ -398,7 +398,7 @@ export function SettingsView() {
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-2">
                 <FileArchive size={16} class="text-primary" />
-                <h3 class="font-bold text-sm text-foreground">Restore Full Backup</h3>
+                <h3 class="font-bold text-sm text-foreground">{t("settings.restore_modal_title")}</h3>
               </div>
               <button
                 onClick={() => setShowImportModal(false)}
@@ -409,7 +409,7 @@ export function SettingsView() {
             </div>
 
             <p class="text-xs text-muted-foreground">
-              Paste the exported JSON backup below. This will merge and restore all clipboard history, code snippets, launcher items, and application preferences.
+              {t("settings.restore_modal_desc")}
             </p>
 
             <textarea
@@ -425,14 +425,14 @@ export function SettingsView() {
                 onClick={() => setShowImportModal(false)}
                 class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg text-xs font-medium transition-colors"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleImportBackup}
                 class="px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors shadow-sm"
               >
                 <Check size={14} />
-                <span>Confirm Restore</span>
+                <span>{t("settings.confirm_restore")}</span>
               </button>
             </div>
           </div>
@@ -545,7 +545,7 @@ export function SettingsView() {
 
           {/* System Startup & Tray Behavior */}
           <div class="space-y-3">
-            <label class="font-medium text-foreground block">System & Startup Behavior</label>
+            <label class="font-medium text-foreground block">{t("settings.system_startup")}</label>
             <div class="space-y-2">
               <label class="flex items-center space-x-2 cursor-pointer">
                 <input

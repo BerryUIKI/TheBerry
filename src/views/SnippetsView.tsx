@@ -8,6 +8,7 @@ import {
 } from "../services/snippets";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
+import { useI18n } from "../context/I18nContext";
 import {
   Code,
   Plus,
@@ -27,6 +28,7 @@ import {
 
 export function SnippetsView() {
   const { success, error, info } = useToast();
+  const { t } = useI18n();
   const [snippets, setSnippets] = createSignal<SnippetItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
   const [selectedCategory, setSelectedCategory] = createSignal<string>("All");
@@ -309,10 +311,10 @@ export function SnippetsView() {
         <div>
           <h1 class="text-lg font-bold text-foreground flex items-center space-x-2">
             <Code class="text-primary" size={20} />
-            <span>Code & Text Snippet Library</span>
+            <span>{t("snippets.title")}</span>
           </h1>
           <p class="text-xs text-muted-foreground mt-0.5">
-            Organize reusable code blocks, dynamic templates, SQL queries, and regexes
+            {t("snippets.subtitle")}
           </p>
         </div>
 
@@ -324,7 +326,7 @@ export function SnippetsView() {
             class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-lg flex items-center space-x-1.5 transition-all border border-border/60 active:scale-95 shadow-xs"
           >
             <Download size={13} class="text-muted-foreground" />
-            <span>Export</span>
+            <span>{t("snippets.export")}</span>
           </button>
 
           {/* Import JSON Button */}
@@ -334,7 +336,7 @@ export function SnippetsView() {
             class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-xs font-medium rounded-lg flex items-center space-x-1.5 transition-all border border-border/60 active:scale-95 shadow-xs"
           >
             <Upload size={13} class="text-muted-foreground" />
-            <span>Import</span>
+            <span>{t("snippets.import")}</span>
           </button>
 
           {/* New Snippet Button */}
@@ -343,7 +345,7 @@ export function SnippetsView() {
             class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:bg-primary/90 flex items-center space-x-1.5 transition-all shadow-sm active:scale-95"
           >
             <Plus size={14} />
-            <span>New Snippet</span>
+            <span>{t("snippets.add_snippet")}</span>
           </button>
         </div>
       </div>
@@ -356,7 +358,7 @@ export function SnippetsView() {
             type="text"
             value={searchQuery()}
             onInput={(e) => setSearchQuery(e.currentTarget.value)}
-            placeholder="Search snippets by title, content, or tags..."
+            placeholder={t("snippets.search_placeholder")}
             class="w-full pl-9 pr-3 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-xs"
           />
         </div>
@@ -369,7 +371,7 @@ export function SnippetsView() {
             class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
           >
             <For each={categories()}>
-              {(cat) => <option value={cat}>Category: {cat}</option>}
+              {(cat) => <option value={cat}>{cat}</option>}
             </For>
           </select>
 
@@ -380,7 +382,7 @@ export function SnippetsView() {
             class="px-2.5 py-1.5 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none cursor-pointer"
           >
             <For each={languages()}>
-              {(lang) => <option value={lang}>Language: {lang}</option>}
+              {(lang) => <option value={lang}>{lang}</option>}
             </For>
           </select>
         </div>
