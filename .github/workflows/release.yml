@@ -7,6 +7,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      draft:
+        description: 'Create Draft Release'
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as Pre-release'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -41,6 +52,11 @@ jobs:
         with:
           targets: ${{ matrix.platform.target }}
 
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
       - name: Install Linux build dependencies
         if: matrix.platform.os == 'linux'
         run: |
@@ -50,7 +66,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -70,43 +86,52 @@ jobs:
       - name: Build Tauri Application
         run: pnpm tauri build
 
-      - name: Prepare and Normalize Artifact Names (Windows)
+      - name: Prepare and Normalize Artifact Names & Checksums (Windows)
         if: matrix.platform.os == 'windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist-artifacts
           $msi = Get-ChildItem -Path src-tauri/target/release/bundle/msi/*.msi | Select-Object -First 1
           if ($msi) {
-            Copy-Item -Path $msi.FullName -Destination "dist-artifacts/the-berry_windows_x64.msi"
+            $destMsi = "dist-artifacts/the-berry_windows_x64.msi"
+            Copy-Item -Path $msi.FullName -Destination $destMsi
+            $hash = (Get-FileHash -Path $destMsi -Algorithm SHA256).Hash.ToLower()
+            Set-Content -Path "$destMsi.sha256" -Value "$hash  the-berry_windows_x64.msi"
           }
           $exe = Get-ChildItem -Path src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
           if (-not $exe) {
             $exe = Get-ChildItem -Path src-tauri/target/release/*.exe | Where-Object { $_.Name -like "the-berry*" -and $_.Name -notlike "*.d" } | Select-Object -First 1
           }
           if ($exe) {
-            Copy-Item -Path $exe.FullName -Destination "dist-artifacts/the-berry_windows_x64.exe"
+            $destExe = "dist-artifacts/the-berry_windows_x64.exe"
+            Copy-Item -Path $exe.FullName -Destination $destExe
+            $hash = (Get-FileHash -Path $destExe -Algorithm SHA256).Hash.ToLower()
+            Set-Content -Path "$destExe.sha256" -Value "$hash  the-berry_windows_x64.exe"
           }
 
-      - name: Prepare and Normalize Artifact Names (Linux)
+      - name: Prepare and Normalize Artifact Names & Checksums (Linux)
         if: matrix.platform.os == 'linux'
         run: |
           mkdir -p dist-artifacts
           appimage=$(find src-tauri/target/release/bundle/appimage -name "*.AppImage" | head -n 1)
           if [ -n "$appimage" ]; then
             cp "$appimage" "dist-artifacts/the-berry_linux_x64.AppImage"
+            (cd dist-artifacts && sha256sum the-berry_linux_x64.AppImage > the-berry_linux_x64.AppImage.sha256)
           fi
           deb=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -n 1)
           if [ -n "$deb" ]; then
             cp "$deb" "dist-artifacts/the-berry_linux_x64.deb"
+            (cd dist-artifacts && sha256sum the-berry_linux_x64.deb > the-berry_linux_x64.deb.sha256)
           fi
 
-      - name: Prepare and Normalize Artifact Names (macOS)
+      - name: Prepare and Normalize Artifact Names & Checksums (macOS)
         if: matrix.platform.os == 'macos'
         run: |
           mkdir -p dist-artifacts
           dmg=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -n 1)
           if [ -n "$dmg" ]; then
             cp "$dmg" "dist-artifacts/the-berry_macos_aarch64.dmg"
+            (cd dist-artifacts && shasum -a 256 the-berry_macos_aarch64.dmg > the-berry_macos_aarch64.dmg.sha256)
           fi
 
       - name: Upload Artifacts to GitHub Release
@@ -115,7 +140,9 @@ jobs:
           files: dist-artifacts/*
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
           name: ${{ github.ref_type == 'tag' && github.ref_name || 'TheBerry Latest Release' }}
-          prerelease: false
-          draft: false
+          generate_release_notes: true
+          prerelease: ${{ inputs.prerelease || false }}
+          draft: ${{ inputs.draft || false }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

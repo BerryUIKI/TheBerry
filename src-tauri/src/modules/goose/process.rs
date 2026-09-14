@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::process::Child;
 use tokio::sync::Mutex;
@@ -102,7 +102,7 @@ impl GooseProcessManager {
             #[cfg(target_os = "windows")]
             {
                 if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-                    let prog_bin = Path::new(&local_app_data)
+                    let prog_bin = PathBuf::from(&local_app_data)
                         .join("Programs")
                         .join("goose")
                         .join(bin_name);
