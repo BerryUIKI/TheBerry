@@ -27,7 +27,7 @@ import { PROVIDER_PRESETS, ProviderPreset } from "./presets";
 
 export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, error } = useToast();
-  const { setLanguage: setGlobalLanguage } = useI18n();
+  const { t, assistantName, setLanguage: setGlobalLanguage } = useI18n();
   const [activeTab, setActiveTab] = createSignal<"provider" | "params" | "profile" | "extensions" | "daemon">("provider");
   const [showApiKey, setShowApiKey] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
@@ -232,11 +232,11 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
           <div class="p-4 border-b border-border flex items-center justify-between bg-card/80">
             <div class="flex items-center space-x-2.5">
               <div class="w-10 h-10 rounded-xl overflow-hidden shadow-xs ring-1 ring-border bg-black/10 flex items-center justify-center">
-                <img src="/berry.png" alt="TheBerry" class="w-full h-full object-cover" />
+                <img src="/berry.png" alt={assistantName()} class="w-full h-full object-cover" />
               </div>
               <div>
-                <h2 class="font-semibold text-sm text-foreground">AI Engine & Identity Settings</h2>
-                <p class="text-[11px] text-muted-foreground">Configure LLM providers, user identity & MCP tools</p>
+                <h2 class="font-semibold text-sm text-foreground">{t("ai.modal_title")}</h2>
+                <p class="text-[11px] text-muted-foreground">{t("ai.modal_subtitle")}</p>
               </div>
             </div>
             <button
@@ -258,7 +258,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               }`}
             >
               <Key size={13} />
-              <span>Providers & Keys</span>
+              <span>{t("ai.tab_provider")}</span>
             </button>
 
             <button
@@ -270,7 +270,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               }`}
             >
               <User size={13} />
-              <span>User Profile</span>
+              <span>{t("ai.tab_profile")}</span>
             </button>
 
             <button
@@ -282,7 +282,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               }`}
             >
               <Sliders size={13} />
-              <span>Parameters</span>
+              <span>{t("ai.tab_params")}</span>
             </button>
 
             <button
@@ -294,7 +294,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               }`}
             >
               <Puzzle size={13} />
-              <span>MCP & Tools</span>
+              <span>{t("ai.tab_tools")}</span>
             </button>
 
             <button
@@ -306,7 +306,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
               }`}
             >
               <Cpu size={13} />
-              <span>Goose Daemon</span>
+              <span>{t("ai.tab_daemon")}</span>
             </button>
           </div>
 
@@ -795,7 +795,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 onClick={handleClose}
                 class="px-3.5 py-1.5 rounded-lg border border-border bg-secondary hover:bg-secondary/80 text-foreground transition-colors font-medium"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -804,7 +804,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 class="px-4 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground transition-colors flex items-center space-x-1.5 font-medium shadow-sm disabled:opacity-50"
               >
                 <Save size={13} />
-                <span>{saving() ? "Saving..." : "Save Settings"}</span>
+                <span>{saving() ? t("ai.saving") : t("ai.save_config")}</span>
               </button>
             </div>
           </div>
