@@ -35,6 +35,7 @@ import {
 import { convertImages } from "../services/imageConverter";
 import { getConfig, updateConfig } from "../services/system";
 import { exportFullBackup, importFullBackup } from "../services/backup";
+import { calculateFileHash, batchRenameFiles } from "../services/toolbox";
 
 describe("View Integration Tests", () => {
   beforeEach(() => {
@@ -342,6 +343,46 @@ describe("View Integration Tests", () => {
       const summary = await importFullBackup(backupJson);
       expect(summary.clipboard_count).toBe(10);
       expect(invoke).toHaveBeenCalledWith("import_full_backup", { jsonContent: backupJson });
+    });
+  });
+
+  describe("Toolbox Hub Utilities Logic", () => {
+    it("invokes calculate_file_hash with file path", async () => {
+      const mockResult = {
+        file_path: "C:\\test\\doc.txt",
+        file_name: "doc.txt",
+        file_size: 1024,
+        md5: "098f6bcd4621d373cade4e832627b4f6",
+        sha1: "a94a8fe5ccb19ba61c4c0873d391e987982fbbd3",
+        sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+        sha512: "ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4e20576d003928a50e183e404bc71894c0428624d799971a004417596ff0dd79854283c96",
+      };
+      vi.mocked(invoke).mockResolvedValueOnce(mockResult);
+
+      const res = await calculateFileHash("C:\\test\\doc.txt");
+      expect(res.md5).toBe("098f6bcd4621d373cade4e832627b4f6");
+      expect(res.file_size).toBe(1024);
+      expect(invoke).toHaveBeenCalledWith("calculate_file_hash", { path: "C:\\test\\doc.txt" });
+    });
+
+    it("invokes batch_rename_files with rename item list", async () => {
+      const mockResult = {
+        total: 2,
+        success_count: 2,
+        failure_count: 0,
+        errors: [],
+      };
+      vi.mocked(invoke).mockResolvedValueOnce(mockResult);
+
+      const items = [
+        { original_path: "C:\\test\\a.txt", new_path: "C:\\test\\prefix_a.txt" },
+        { original_path: "C:\\test\\b.txt", new_path: "C:\\test\\prefix_b.txt" },
+      ];
+
+      const res = await batchRenameFiles(items);
+      expect(res.success_count).toBe(2);
+      expect(res.failure_count).toBe(0);
+      expect(invoke).toHaveBeenCalledWith("batch_rename_files", { items });
     });
   });
 });

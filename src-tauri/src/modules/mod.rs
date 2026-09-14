@@ -8,5 +8,6 @@ pub mod launcher;
 pub mod quicklook;
 pub mod shortcuts;
 pub mod snippets;
+pub mod toolbox;
 pub mod updater;
 

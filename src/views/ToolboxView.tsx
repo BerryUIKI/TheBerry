@@ -20,6 +20,10 @@ import {
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../context/I18nContext";
 import { useToast } from "../context/ToastContext";
+import { FileHashModal } from "../components/toolbox/FileHashModal";
+import { BatchRenameModal } from "../components/toolbox/BatchRenameModal";
+import { QrCodeModal } from "../components/toolbox/QrCodeModal";
+import { StructuredDataModal } from "../components/toolbox/StructuredDataModal";
 
 type ToolCategory = "convert" | "document" | "image" | "text" | "system";
 
@@ -96,6 +100,7 @@ const tools: ToolDefinition[] = [
     category: "system",
     tags: ["文件", "规则", "批处理"],
     icon: Tags,
+    available: true,
   },
   {
     id: "image-compressor",
@@ -128,6 +133,7 @@ const tools: ToolDefinition[] = [
     category: "text",
     tags: ["JSON", "YAML", "格式化"],
     icon: Braces,
+    available: true,
   },
   {
     id: "qr-code",
@@ -136,6 +142,7 @@ const tools: ToolDefinition[] = [
     category: "image",
     tags: ["QR", "生成", "识别"],
     icon: QrCode,
+    available: true,
   },
   {
     id: "file-hash",
@@ -144,6 +151,7 @@ const tools: ToolDefinition[] = [
     category: "system",
     tags: ["MD5", "SHA256", "校验"],
     icon: Fingerprint,
+    available: true,
   },
 ];
 
@@ -156,6 +164,8 @@ export function ToolboxView() {
   const [query, setQuery] = createSignal("");
   const [category, setCategory] = createSignal<"all" | ToolCategory>("all");
   const [favorites, setFavorites] = createSignal(new Set(["image-converter", "markdown-converter"]));
+
+  const [activeModal, setActiveModal] = createSignal<"file-hash" | "batch-rename" | "qr-code" | "structured-data" | null>(null);
 
   const localize = (text: LocalizedText) => text[language()];
 
@@ -182,6 +192,22 @@ export function ToolboxView() {
   const openTool = (tool: ToolDefinition) => {
     if (tool.id === "image-converter") {
       setActiveView("image_converter");
+      return;
+    }
+    if (tool.id === "file-hash") {
+      setActiveModal("file-hash");
+      return;
+    }
+    if (tool.id === "batch-rename") {
+      setActiveModal("batch-rename");
+      return;
+    }
+    if (tool.id === "qr-code") {
+      setActiveModal("qr-code");
+      return;
+    }
+    if (tool.id === "structured-data") {
+      setActiveModal("structured-data");
       return;
     }
 
@@ -379,6 +405,22 @@ export function ToolboxView() {
           </div>
         </Show>
       </div>
+      <FileHashModal
+        isOpen={activeModal() === "file-hash"}
+        onClose={() => setActiveModal(null)}
+      />
+      <BatchRenameModal
+        isOpen={activeModal() === "batch-rename"}
+        onClose={() => setActiveModal(null)}
+      />
+      <QrCodeModal
+        isOpen={activeModal() === "qr-code"}
+        onClose={() => setActiveModal(null)}
+      />
+      <StructuredDataModal
+        isOpen={activeModal() === "structured-data"}
+        onClose={() => setActiveModal(null)}
+      />
     </div>
   );
 }
