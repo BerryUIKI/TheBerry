@@ -1,5 +1,6 @@
-import { createContext, createSignal, JSX, useContext, onMount, createEffect } from "solid-js";
+import { createContext, createSignal, JSX, useContext, onMount, onCleanup, createEffect } from "solid-js";
 import { getConfig, updateConfig } from "../services/system";
+import { listen } from "@tauri-apps/api/event";
 
 import { TRANSLATIONS, AppLanguage, TranslationKey } from "../i18n";
 export type { AppLanguage, TranslationKey };
@@ -35,6 +36,25 @@ export function I18nProvider(props: { children: JSX.Element }) {
     } catch (e) {
       console.warn("Failed to load language from backend config:", e);
     }
+
+    let unlistenLang: (() => void) | null = null;
+    listen<string>("language-changed", (event) => {
+      const newLang = event.payload;
+      if (newLang === "en" || newLang === "zh") {
+        setLanguageState(newLang);
+        try {
+          localStorage.setItem("berry_language", newLang);
+        } catch {
+          // ignore
+        }
+      }
+    }).then((unlisten) => {
+      unlistenLang = unlisten;
+    });
+
+    onCleanup(() => {
+      if (unlistenLang) unlistenLang();
+    });
   });
 
   const setLanguage = async (lang: AppLanguage) => {

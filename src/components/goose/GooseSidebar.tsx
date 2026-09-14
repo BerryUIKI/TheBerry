@@ -83,6 +83,19 @@ export function GooseSidebar(props: GooseSidebarProps) {
     fetchStatusAndConfig();
 
     let unlistenFn: (() => void) | null = null;
+    const handleOpenWithPrompt = (e: Event) => {
+      const customEvent = e as CustomEvent<{ prompt: string; autoSend?: boolean }>;
+      if (customEvent.detail?.prompt) {
+        setInputValue(customEvent.detail.prompt);
+        if (customEvent.detail.autoSend) {
+          setTimeout(() => {
+            handleSendMessage();
+          }, 150);
+        }
+      }
+    };
+    window.addEventListener("open-goose-with-prompt", handleOpenWithPrompt);
+
     onGooseStreamChunk((chunk: GooseStreamChunk) => {
       if (chunk.session_id !== sessionId()) return;
 
@@ -121,6 +134,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
     });
 
     onCleanup(() => {
+      window.removeEventListener("open-goose-with-prompt", handleOpenWithPrompt);
       if (unlistenFn) unlistenFn();
     });
   });

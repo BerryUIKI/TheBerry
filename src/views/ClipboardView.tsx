@@ -28,6 +28,9 @@ import {
   CheckSquare,
   Square,
   X,
+  Sparkles,
+  Bot,
+  Languages,
 } from "lucide-solid";
 
 export function ClipboardView() {
@@ -77,7 +80,13 @@ export function ClipboardView() {
       unlistenFn = unlisten;
     });
 
+    const handleRefresh = () => {
+      loadHistory();
+    };
+    window.addEventListener("refresh-clipboard-history", handleRefresh);
+
     onCleanup(() => {
+      window.removeEventListener("refresh-clipboard-history", handleRefresh);
       if (unlistenFn) unlistenFn();
     });
   });
@@ -138,6 +147,14 @@ export function ClipboardView() {
     } catch (e) {
       error("Failed to Save Item", String(e));
     }
+  };
+
+  const handleAskAi = (promptPrefix: string, content: string) => {
+    const prompt = `${promptPrefix}:\n\n${content}`;
+    window.dispatchEvent(new CustomEvent("open-goose"));
+    window.dispatchEvent(new CustomEvent("open-goose-with-prompt", {
+      detail: { prompt, autoSend: true }
+    }));
   };
 
   const toggleSelect = (id: string) => {
@@ -490,6 +507,36 @@ export function ClipboardView() {
                         <Code2 size={10} />
                         <span>Format JSON</span>
                       </button>
+                    </Show>
+
+                    {/* Ask AI Context Quick Actions for Text Items */}
+                    <Show when={item.content_type === "text" && item.content.trim().length > 0}>
+                      <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleAskAi("Please explain and analyze the following content/error", item.content)}
+                          title={t("clipboard.ai_explain")}
+                          class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <Sparkles size={10} />
+                          <span>{t("clipboard.ai_explain")}</span>
+                        </button>
+                        <button
+                          onClick={() => handleAskAi("Please translate the following text accurately", item.content)}
+                          title={t("clipboard.ai_translate")}
+                          class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <Languages size={10} />
+                          <span>{t("clipboard.ai_translate")}</span>
+                        </button>
+                        <button
+                          onClick={() => handleAskAi("Please summarize the following content concisely in bullet points", item.content)}
+                          title={t("clipboard.ai_summarize")}
+                          class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <Bot size={10} />
+                          <span>{t("clipboard.ai_summarize")}</span>
+                        </button>
+                      </div>
                     </Show>
                   </div>
 

@@ -24,6 +24,9 @@ import {
   Eye,
   FileJson,
   X,
+  Bot,
+  Wrench,
+  TestTube,
 } from "lucide-solid";
 
 export function SnippetsView() {
@@ -251,6 +254,15 @@ export function SnippetsView() {
     }
   };
 
+  const handleAskAi = (promptPrefix: string, content: string, language?: string) => {
+    const langHeader = language && language !== "text" ? ` [${language}]` : "";
+    const prompt = `${promptPrefix}${langHeader}:\n\n\`\`\`${language || ""}\n${content}\n\`\`\``;
+    window.dispatchEvent(new CustomEvent("open-goose"));
+    window.dispatchEvent(new CustomEvent("open-goose-with-prompt", {
+      detail: { prompt, autoSend: true }
+    }));
+  };
+
   const handleExportJson = async () => {
     try {
       const data = JSON.stringify(snippets(), null, 2);
@@ -474,6 +486,34 @@ export function SnippetsView() {
                     </span>
 
                     <div class="flex items-center space-x-1.5">
+                      {/* Ask AI Context Menu */}
+                      <div class="flex items-center space-x-1 mr-1">
+                        <button
+                          onClick={() => handleAskAi("Please refactor and optimize the following snippet with best practices", s.content, s.language)}
+                          title={t("snippets.ai_refactor")}
+                          class="px-1.5 py-0.5 text-[10px] text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 rounded font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <Wrench size={10} />
+                          <span>{t("snippets.ai_refactor")}</span>
+                        </button>
+                        <button
+                          onClick={() => handleAskAi("Please explain in detail how this code snippet works and common usage scenarios", s.content, s.language)}
+                          title={t("snippets.ai_explain")}
+                          class="px-1.5 py-0.5 text-[10px] text-sky-500 bg-sky-500/10 hover:bg-sky-500/20 rounded font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <Bot size={10} />
+                          <span>{t("snippets.ai_explain")}</span>
+                        </button>
+                        <button
+                          onClick={() => handleAskAi("Please write comprehensive unit tests with edge cases for this snippet", s.content, s.language)}
+                          title={t("snippets.ai_tests")}
+                          class="px-1.5 py-0.5 text-[10px] text-emerald-500 bg-emerald-500/10 hover:bg-emerald-500/20 rounded font-medium flex items-center space-x-1 transition-colors"
+                        >
+                          <TestTube size={10} />
+                          <span>{t("snippets.ai_tests")}</span>
+                        </button>
+                      </div>
+
                       <button
                         onClick={() => handleOpenEdit(s)}
                         class="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground rounded-md hover:bg-secondary transition-colors"
