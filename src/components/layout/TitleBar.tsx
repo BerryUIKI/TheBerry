@@ -1,7 +1,7 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useTheme } from "../../context/ThemeContext";
-import { minimizeWindow, toggleMaximizeWindow, closeWindow, getAppVersion } from "../../services/system";
-import { onUpdateAvailable } from "../../services/updater";
+import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../services/system";
+import { onUpdateAvailable, getAppVersion } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
 import { useI18n } from "../../context/I18nContext";
@@ -87,7 +87,7 @@ export function TitleBar() {
             class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-semibold flex items-center space-x-1 animate-pulse transition-colors"
           >
             <Sparkles size={10} />
-            <span>Update {availableUpdate()?.latest_version} Available</span>
+            <span>{t("titlebar.update_available", { version: availableUpdate()?.latest_version || "" })}</span>
           </button>
         </Show>
       </div>
@@ -132,7 +132,7 @@ export function TitleBar() {
         {/* Theme Toggle Button */}
         <button
           onClick={toggleTheme}
-          title={theme() === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          title={theme() === "dark" ? t("titlebar.switch_light") : t("titlebar.switch_dark")}
           class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           {theme() === "dark" ? <Sun size={14} /> : <Moon size={14} />}
@@ -143,7 +143,7 @@ export function TitleBar() {
         {/* Minimize Button */}
         <button
           onClick={handleMinimize}
-          title="Minimize"
+          title={t("titlebar.minimize")}
           class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           <Minus size={13} />
@@ -152,7 +152,7 @@ export function TitleBar() {
         {/* Maximize / Restore Button */}
         <button
           onClick={handleToggleMaximize}
-          title={isMaximized() ? "Restore" : "Maximize"}
+          title={isMaximized() ? t("titlebar.restore") : t("titlebar.maximize")}
           class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           {isMaximized() ? <Copy size={12} /> : <Square size={12} />}
@@ -161,7 +161,7 @@ export function TitleBar() {
         {/* Close / Hide Button */}
         <button
           onClick={handleClose}
-          title="Close (Hide to Tray)"
+          title={t("titlebar.close")}
           class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-destructive-foreground hover:bg-destructive transition-all active:scale-90"
         >
           <X size={14} />
