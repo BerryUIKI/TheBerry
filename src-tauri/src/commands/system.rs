@@ -70,10 +70,34 @@ pub fn update_config(config: AppConfig, state: State<AppState>) -> Result<AppCon
         .get_data_dir()
         .ok_or_else(|| "Data directory not configured".to_string())?;
 
+    let mut current = state.config_manager.get_app_config();
+
+    if !config.version.is_empty() {
+        current.version = config.version;
+    }
+    if !config.theme.is_empty() {
+        current.theme = config.theme;
+    }
+    if !config.language.is_empty() {
+        current.language = config.language;
+    }
+    current.close_to_tray = config.close_to_tray;
+    current.autostart = config.autostart;
+    current.global_shortcuts_enabled = config.global_shortcuts_enabled;
+    if !config.hud_shortcut.is_empty() {
+        current.hud_shortcut = config.hud_shortcut;
+    }
+    if config.clipboard_history_limit > 0 {
+        current.clipboard_history_limit = config.clipboard_history_limit;
+    }
+    if !config.custom_data_dir.is_empty() {
+        current.custom_data_dir = config.custom_data_dir;
+    }
+
     state
         .config_manager
-        .save_app_config(&data_dir, &config)
+        .save_app_config(&data_dir, &current)
         .map_err(|e| format!("Failed to save config: {}", e))?;
 
-    Ok(config)
+    Ok(current)
 }

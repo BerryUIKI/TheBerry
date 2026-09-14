@@ -24,6 +24,7 @@ fn default_hud_shortcut() -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AppConfig {
     pub version: String,
     pub theme: String, // "dark" | "light" | "system"
