@@ -148,6 +148,9 @@ pub fn run() {
             modules::quicklook::commands::get_quicklook_status,
             modules::quicklook::commands::quicklook_preview,
             modules::quicklook::commands::quicklook_close,
+            // Toolbox Hub Commands
+            modules::toolbox::commands::calculate_file_hash,
+            modules::toolbox::commands::batch_rename_files,
         ])
         .build(tauri::generate_context!())
         .expect("error while building TheBerry application")
