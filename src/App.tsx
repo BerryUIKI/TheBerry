@@ -1,5 +1,7 @@
 import { createSignal, onMount, onCleanup } from "solid-js";
-import { useApp } from "./context/AppContext";
+import { useApp, ViewType } from "./context/AppContext";
+import { useToast } from "./context/ToastContext";
+import { listen } from "@tauri-apps/api/event";
 import { TitleBar } from "./components/layout/TitleBar";
 import { Sidebar } from "./components/layout/Sidebar";
 import { FirstLaunchModal } from "./components/setup/FirstLaunchModal";
@@ -17,7 +19,8 @@ import { SettingsView } from "./views/SettingsView";
 import { Switch, Match } from "solid-js";
 
 export function App() {
-  const { activeView } = useApp();
+  const { activeView, setActiveView } = useApp();
+  const { success } = useToast();
   const [isSpotlightOpen, setIsSpotlightOpen] = createSignal(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = createSignal(false);
   const [isGooseOpen, setIsGooseOpen] = createSignal(false);
@@ -73,12 +76,36 @@ export function App() {
     window.addEventListener("open-spotlight", handleOpenSpotlight);
     window.addEventListener("open-shortcuts", handleOpenShortcuts);
     window.addEventListener("toggle-goose-sidebar", handleToggleGoose);
+    const handleOpenGoose = () => setIsGooseOpen(true);
+    window.addEventListener("open-goose", handleOpenGoose);
+
+    let unlistenNavigate: (() => void) | null = null;
+    let unlistenCleared: (() => void) | null = null;
+
+    listen<string>("navigate-view", (event) => {
+      const targetView = event.payload as ViewType;
+      if (targetView) {
+        setActiveView(targetView);
+      }
+    }).then((unlisten) => {
+      unlistenNavigate = unlisten;
+    });
+
+    listen("clipboard-cleared", () => {
+      success("Clipboard Cleared", "Unpinned clips removed via system tray");
+      window.dispatchEvent(new CustomEvent("refresh-clipboard-history"));
+    }).then((unlisten) => {
+      unlistenCleared = unlisten;
+    });
 
     onCleanup(() => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("open-spotlight", handleOpenSpotlight);
       window.removeEventListener("open-shortcuts", handleOpenShortcuts);
       window.removeEventListener("toggle-goose-sidebar", handleToggleGoose);
+      window.removeEventListener("open-goose", handleOpenGoose);
+      if (unlistenNavigate) unlistenNavigate();
+      if (unlistenCleared) unlistenCleared();
     });
   });
 
