@@ -13,6 +13,7 @@ import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
 import { setGlobalShortcutsEnabled, setHudShortcut } from "../services/shortcuts";
+import { HotkeyRecorder } from "../components/settings/HotkeyRecorder";
 import { GooseConfigModal } from "../components/goose/GooseConfigModal";
 import { getAIConfig, saveAIConfig } from "../services/goose";
 import { QuickLookStatus } from "../types/quicklook";
@@ -626,11 +627,15 @@ export function SettingsView() {
                 <span>{t("settings.shortcuts_hud")}</span>
               </label>
               <div class="flex items-center space-x-3">
-                <div class="flex items-center space-x-1">
-                  <kbd class="px-2 py-0.5 rounded bg-secondary text-foreground border border-border text-[11px] font-mono font-semibold shadow-xs">
-                    {config().hud_shortcut || "Alt+Space"}
-                  </kbd>
-                </div>
+                <HotkeyRecorder
+                  currentShortcut={config().hud_shortcut || "Alt+Space"}
+                  defaultShortcut="Alt+Space"
+                  onSave={async (newShortcut) => {
+                    await setHudShortcut(newShortcut);
+                    await handleSave({ hud_shortcut: newShortcut });
+                    success("Shortcut Updated", `HUD shortcut set to ${newShortcut}`);
+                  }}
+                />
                 <button
                   type="button"
                   onClick={async () => {
