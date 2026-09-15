@@ -61,6 +61,7 @@ impl FolderSyncService {
         Ok(manifest)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn execute_sync(
         &self,
         app_handle: AppHandle,
@@ -128,15 +129,13 @@ impl FolderSyncService {
             .iter()
             .map_err(|e| format!("Failed to iterate sync_profiles: {}", e))?;
 
-        for item in iter {
-            if let Ok((_k, v)) = item {
-                if let Ok(prof) = serde_json::from_slice::<SyncProfile>(v.value()) {
-                    profiles.push(prof);
-                }
+        for (_k, v) in iter.flatten() {
+            if let Ok(prof) = serde_json::from_slice::<SyncProfile>(v.value()) {
+                profiles.push(prof);
             }
         }
 
-        profiles.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        profiles.sort_by_key(|b| std::cmp::Reverse(b.updated_at));
         Ok(profiles)
     }
 
@@ -276,11 +275,9 @@ impl FolderSyncService {
             .iter()
             .map_err(|e| format!("Failed to iterate sync_history: {}", e))?;
 
-        for item in iter {
-            if let Ok((_k, v)) = item {
-                if let Ok(res) = serde_json::from_slice::<SyncResult>(v.value()) {
-                    list.push(res);
-                }
+        for (_k, v) in iter.flatten() {
+            if let Ok(res) = serde_json::from_slice::<SyncResult>(v.value()) {
+                list.push(res);
             }
         }
 

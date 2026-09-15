@@ -124,11 +124,7 @@ impl Comparator {
         match compare_var {
             CompareVariant::TimeAndSize => {
                 let size_eq = left.size_bytes == right.size_bytes;
-                let time_diff = if left.modified_timestamp_secs >= right.modified_timestamp_secs {
-                    left.modified_timestamp_secs - right.modified_timestamp_secs
-                } else {
-                    right.modified_timestamp_secs - left.modified_timestamp_secs
-                };
+                let time_diff = left.modified_timestamp_secs.abs_diff(right.modified_timestamp_secs);
 
                 if size_eq && time_diff <= Self::TIMESTAMP_TOLERANCE_SECS {
                     summary.equal_items += 1;

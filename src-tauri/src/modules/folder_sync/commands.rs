@@ -23,6 +23,7 @@ pub async fn folder_sync_compare(
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn folder_sync_execute(
     app_handle: AppHandle,
     state: State<'_, AppState>,

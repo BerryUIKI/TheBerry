@@ -174,12 +174,10 @@ fn test_synchronizer_mirror_execution_with_versioning() {
 
     // Verify versioning directory preserved archived files
     let mut found_version_files = false;
-    for entry in walkdir::WalkDir::new(version_dir.path()).min_depth(1) {
-        if let Ok(e) = entry {
-            if e.file_name() == "doc.txt" || e.file_name() == "obsolete.txt" {
-                found_version_files = true;
-                break;
-            }
+    for e in walkdir::WalkDir::new(version_dir.path()).min_depth(1).into_iter().flatten() {
+        if e.file_name() == "doc.txt" || e.file_name() == "obsolete.txt" {
+            found_version_files = true;
+            break;
         }
     }
     assert!(found_version_files, "Old files should be archived in versioning folder");

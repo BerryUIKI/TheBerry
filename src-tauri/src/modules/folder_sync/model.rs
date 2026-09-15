@@ -1,33 +1,23 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CompareVariant {
+    #[default]
     TimeAndSize,
     ContentHash,
     SizeOnly,
 }
 
-impl Default for CompareVariant {
-    fn default() -> Self {
-        Self::TimeAndSize
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SyncVariant {
+    #[default]
     TwoWay,
     Mirror,
     Update,
     Custom,
-}
-
-impl Default for SyncVariant {
-    fn default() -> Self {
-        Self::TwoWay
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -53,18 +43,13 @@ pub enum SyncAction {
     Conflict,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DeletionVariant {
+    #[default]
     RecycleBin,
     Versioning,
     Permanent,
-}
-
-impl Default for DeletionVariant {
-    fn default() -> Self {
-        Self::RecycleBin
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

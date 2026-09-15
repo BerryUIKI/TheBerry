@@ -12,6 +12,7 @@ use std::time::Instant;
 pub struct Synchronizer;
 
 impl Synchronizer {
+    #[allow(clippy::too_many_arguments)]
     pub fn execute_sync<F>(
         job_id: &str,
         left_root: &Path,
@@ -375,7 +376,7 @@ impl Synchronizer {
                         fs::remove_dir_all(path).map_err(|e| format!("Failed to remove directory: {}", e))
                     } else {
                         // Move file to versioning destination
-                        if let Err(_) = fs::rename(path, &backup_dst) {
+                        if fs::rename(path, &backup_dst).is_err() {
                             // Fallback to copy + remove
                             fs::copy(path, &backup_dst).map_err(|e| format!("Failed to backup version: {}", e))?;
                             fs::remove_file(path).map_err(|e| format!("Failed to remove original file: {}", e))?;
