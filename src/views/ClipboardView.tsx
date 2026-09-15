@@ -9,6 +9,8 @@ import {
   copyToSystemClipboard,
   copyImageToSystemClipboard,
   onClipboardUpdated,
+  getClipboardMonitorEnabled,
+  setClipboardMonitorEnabled,
 } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
 import { useI18n } from "../context/I18nContext";
@@ -31,6 +33,8 @@ import {
   Sparkles,
   Bot,
   Languages,
+  Pause,
+  Play,
 } from "lucide-solid";
 
 export function ClipboardView() {
@@ -44,6 +48,7 @@ export function ClipboardView() {
   const [showAddForm, setShowAddForm] = createSignal(false);
   const [loading, setLoading] = createSignal(false);
   const [previewImage, setPreviewImage] = createSignal<string | null>(null);
+  const [monitorEnabled, setMonitorEnabled] = createSignal(true);
 
   // Batch Selection State
   const [selectedIds, setSelectedIds] = createSignal<Set<string>>(new Set());
@@ -71,6 +76,9 @@ export function ClipboardView() {
 
   onMount(() => {
     loadHistory();
+    getClipboardMonitorEnabled()
+      .then((val) => setMonitorEnabled(val))
+      .catch((err) => console.warn("Failed to get clipboard monitor status:", err));
 
     // Subscribe to live background clipboard events
     let unlistenFn: (() => void) | null = null;
@@ -280,15 +288,54 @@ export function ClipboardView() {
             <span>{t("clipboard.title")}</span>
           </h1>
           <div class="flex items-center space-x-2 mt-0.5">
-            <span class="flex items-center space-x-1 text-[11px] text-emerald-500 font-medium">
-              <Activity size={12} class="animate-pulse" />
-              <span>{t("clipboard.subtitle")}</span>
-            </span>
+            <Show
+              when={monitorEnabled()}
+              fallback={
+                <span class="flex items-center space-x-1 text-[11px] text-amber-500 font-medium">
+                  <Activity size={12} />
+                  <span>{t("clipboard.monitor_paused_notice")}</span>
+                </span>
+              }
+            >
+              <span class="flex items-center space-x-1 text-[11px] text-emerald-500 font-medium">
+                <Activity size={12} class="animate-pulse" />
+                <span>{t("clipboard.subtitle")}</span>
+              </span>
+            </Show>
             <span class="text-xs text-muted-foreground">• {items().length}</span>
           </div>
         </div>
 
         <div class="flex items-center space-x-2">
+          {/* Pause / Resume Monitor Toggle */}
+          <button
+            onClick={async () => {
+              const nextVal = !monitorEnabled();
+              try {
+                await setClipboardMonitorEnabled(nextVal);
+                setMonitorEnabled(nextVal);
+                if (nextVal) {
+                  success("Clipboard Monitor", t("clipboard.resume_monitor"));
+                } else {
+                  info("Clipboard Monitor", t("clipboard.monitor_paused_notice"));
+                }
+              } catch (err: any) {
+                error("Monitor Toggle Failed", String(err));
+              }
+            }}
+            title={monitorEnabled() ? "Pause Clipboard Monitor" : "Resume Clipboard Monitor"}
+            class={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all border flex items-center space-x-1 ${
+              monitorEnabled()
+                ? "bg-secondary text-foreground hover:bg-secondary/80 border-border"
+                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+            }`}
+          >
+            <Show when={monitorEnabled()} fallback={<Play size={13} class="text-amber-500" />}>
+              <Pause size={13} class="text-muted-foreground" />
+            </Show>
+            <span>{monitorEnabled() ? "Pause" : "Resume"}</span>
+          </button>
+
           {/* Batch Mode Toggle */}
           <button
             onClick={() => {
@@ -327,6 +374,30 @@ export function ClipboardView() {
           </button>
         </div>
       </div>
+
+      {/* Paused Banner */}
+      <Show when={!monitorEnabled()}>
+        <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs flex items-center justify-between shadow-xs">
+          <div class="flex items-center space-x-2">
+            <Activity size={14} class="flex-shrink-0 text-amber-500" />
+            <span>{t("clipboard.monitor_paused_notice")}</span>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                await setClipboardMonitorEnabled(true);
+                setMonitorEnabled(true);
+                success("Clipboard Monitor", t("clipboard.resume_monitor"));
+              } catch (err: any) {
+                error("Resume Failed", String(err));
+              }
+            }}
+            class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium text-xs transition-colors shadow-xs"
+          >
+            {t("clipboard.resume_monitor")}
+          </button>
+        </div>
+      </Show>
 
       {/* Batch Action Toolbar */}
       <Show when={batchMode()}>

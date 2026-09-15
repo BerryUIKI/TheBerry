@@ -94,6 +94,14 @@ pub struct AIConfig {
     pub custom_mcp_servers: Vec<CustomMcpServer>,
     pub goose_binary_path: String,
     pub auto_start_daemon: bool,
+    #[serde(default = "default_auto_start_ollama")]
+    pub auto_start_ollama: bool,
+    #[serde(default)]
+    pub ollama_binary_path: String,
+}
+
+fn default_auto_start_ollama() -> bool {
+    true
 }
 
 fn default_request_format() -> String {
@@ -127,6 +135,8 @@ impl Default for AIConfig {
             custom_mcp_servers: Vec::new(),
             goose_binary_path: String::new(),
             auto_start_daemon: false,
+            auto_start_ollama: true,
+            ollama_binary_path: String::new(),
         }
     }
 }

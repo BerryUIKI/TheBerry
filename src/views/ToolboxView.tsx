@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   FileText,
   Fingerprint,
+  FolderSync,
   Image as ImageIcon,
   QrCode,
   Search,
@@ -103,6 +104,15 @@ const tools: ToolDefinition[] = [
     available: true,
   },
   {
+    id: "folder-sync",
+    name: { zh: "文件夹同步与比对", en: "Folder Sync & Comparison" },
+    description: { zh: "双向/镜像同步，多线程哈希比对与实时监控", en: "Two-way/mirror sync with hash comparison and RealTimeSync" },
+    category: "system",
+    tags: ["同步", "备份", "FreeFileSync", "比对"],
+    icon: FolderSync,
+    available: true,
+  },
+  {
     id: "image-compressor",
     name: { zh: "图片压缩", en: "Image Compressor" },
     description: { zh: "在保持观感的同时减小图片体积", en: "Reduce image size while preserving quality" },
@@ -192,6 +202,10 @@ export function ToolboxView() {
   const openTool = (tool: ToolDefinition) => {
     if (tool.id === "image-converter") {
       setActiveView("image_converter");
+      return;
+    }
+    if (tool.id === "folder-sync") {
+      setActiveView("folder_sync");
       return;
     }
     if (tool.id === "file-hash") {

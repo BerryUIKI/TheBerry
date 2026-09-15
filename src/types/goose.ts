@@ -59,6 +59,18 @@ export interface AIConfig {
   custom_mcp_servers: CustomMcpServer[];
   goose_binary_path: string;
   auto_start_daemon: boolean;
+  auto_start_ollama?: boolean;
+  ollama_binary_path?: string;
 }
+
+export interface OllamaStatus {
+  is_running: boolean;
+  is_installed: boolean;
+  binary_path: string | null;
+  port: number;
+  models: string[];
+  error_message: string | null;
+}
+
 
 

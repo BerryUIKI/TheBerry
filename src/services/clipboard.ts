@@ -49,3 +49,12 @@ export async function onClipboardUpdated(callback: (item: ClipboardItem) => void
     callback(event.payload);
   });
 }
+
+export async function getClipboardMonitorEnabled(): Promise<boolean> {
+  return safeInvoke<boolean>("get_clipboard_monitor_enabled");
+}
+
+export async function setClipboardMonitorEnabled(enabled: boolean): Promise<boolean> {
+  return safeInvoke<boolean>("set_clipboard_monitor_enabled", { enabled });
+}
+

@@ -18,11 +18,13 @@ import {
   RefreshCw,
   Eye,
   MessageSquare,
+  Square,
+  StopCircle,
 } from "lucide-solid";
 import { useI18n } from "../context/I18nContext";
 import { useTheme } from "../context/ThemeContext";
 import { MarkdownContent } from "../components/common/MarkdownContent";
-import { sendGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/goose";
+import { sendGooseMessage, abortGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/goose";
 import { searchFiles, openFilePath } from "../services/fileSearch";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { previewWithQuickLook } from "../services/quicklook";
@@ -111,18 +113,21 @@ export function HudView() {
       inputRef.focus();
     }
 
-    // Stream listener
+    // Stream listener & Timeout Watchdog
     let unlistenStream: (() => void) | null = null;
     onGooseStreamChunk((chunk) => {
       if (chunk.session_id === "hud-session") {
+        resetAiTimeoutWatchdog();
         if (chunk.delta) {
           setAiResponse((prev) => prev + chunk.delta);
         }
         if (chunk.error) {
           setAiError(chunk.error);
+          clearAiTimeoutWatchdog();
           setIsGenerating(false);
         }
         if (chunk.is_finished) {
+          clearAiTimeoutWatchdog();
           setIsGenerating(false);
         }
       }
@@ -130,21 +135,48 @@ export function HudView() {
       unlistenStream = unlisten;
     });
 
-    // Global keydown listener so Esc always closes the HUD window anywhere
+    // Global keydown listener so Esc interrupts generation or closes HUD
     const handleGlobalKeyDown = async (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        await handleClose();
+        if (isGenerating()) {
+          await handleAbortAI();
+        } else {
+          await handleClose();
+        }
       }
     };
     window.addEventListener("keydown", handleGlobalKeyDown, true);
 
     onCleanup(() => {
+      clearAiTimeoutWatchdog();
       if (unlistenStream) unlistenStream();
       window.removeEventListener("keydown", handleGlobalKeyDown, true);
     });
   });
+
+  // Watchdog timer (60s) for AI streaming timeout
+  let aiTimeoutTimer: any = null;
+  const resetAiTimeoutWatchdog = () => {
+    clearTimeout(aiTimeoutTimer);
+    if (isGenerating()) {
+      aiTimeoutTimer = setTimeout(async () => {
+        if (isGenerating()) {
+          await abortGooseMessage("hud-session").catch(() => {});
+          setIsGenerating(false);
+          setAiError(t("ai.timeout_error"));
+        }
+      }, 60000);
+    }
+  };
+
+  const clearAiTimeoutWatchdog = () => {
+    if (aiTimeoutTimer) {
+      clearTimeout(aiTimeoutTimer);
+      aiTimeoutTimer = null;
+    }
+  };
 
   // Debounced search
   let searchTimer: any = null;
@@ -187,6 +219,9 @@ export function HudView() {
   });
 
   const handleClose = async () => {
+    if (isGenerating()) {
+      await handleAbortAI();
+    }
     try {
       await toggleHudWindow(false);
       const win = getCurrentWebviewWindow();
@@ -198,14 +233,29 @@ export function HudView() {
   };
 
   const handleResetAndClear = () => {
+    clearAiTimeoutWatchdog();
+    if (isGenerating()) {
+      abortGooseMessage("hud-session").catch(() => {});
+    }
     setQuery("");
     setLastPrompt("");
     setAiResponse("");
     setAiError(null);
+    setIsGenerating(false);
     setSearchResults([]);
     setLauncherResults([]);
     setSelectedIndex(0);
     inputRef?.focus();
+  };
+
+  const handleAbortAI = async () => {
+    clearAiTimeoutWatchdog();
+    setIsGenerating(false);
+    try {
+      await abortGooseMessage("hud-session");
+    } catch (e) {
+      console.warn("Failed to abort AI generation:", e);
+    }
   };
 
   const handleSendAI = async (customPrompt?: string) => {
@@ -216,6 +266,7 @@ export function HudView() {
     setAiResponse("");
     setAiError(null);
     setIsGenerating(true);
+    resetAiTimeoutWatchdog();
 
     try {
       await sendGooseMessage({
@@ -223,6 +274,7 @@ export function HudView() {
         prompt: text,
       });
     } catch (err: any) {
+      clearAiTimeoutWatchdog();
       setAiError(err.message || String(err));
       setIsGenerating(false);
     }
@@ -244,7 +296,11 @@ export function HudView() {
   const handleKeyDown = async (e: KeyboardEvent) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      await handleClose();
+      if (isGenerating()) {
+        await handleAbortAI();
+      } else {
+        await handleClose();
+      }
       return;
     }
 
@@ -346,7 +402,21 @@ export function HudView() {
 
           {/* Right Controls */}
           <div class="flex items-center space-x-2 flex-shrink-0">
-            <Show when={query() || isExpanded()}>
+            {/* Show Stop Generation Button when generating */}
+            <Show when={isGenerating()}>
+              <button
+                type="button"
+                onClick={handleAbortAI}
+                title={t("ai.stop_generating")}
+                class="px-2 py-1 rounded-lg bg-destructive/15 hover:bg-destructive/25 text-destructive border border-destructive/30 flex items-center space-x-1 text-xs font-medium transition-all shadow-xs active:scale-95 animate-in fade-in"
+              >
+                <Square size={11} class="fill-current" />
+                <span class="text-[11px] font-semibold">{t("ai.stop_generating")}</span>
+              </button>
+            </Show>
+
+            {/* Clear / Reset Button (when not generating) */}
+            <Show when={!isGenerating() && (query() || isExpanded())}>
               <button
                 onClick={handleResetAndClear}
                 title="Clear / Reset"
@@ -362,7 +432,7 @@ export function HudView() {
               </span>
             </Show>
 
-            <Show when={isGenerating() || isSearching()}>
+            <Show when={isSearching()}>
               <RefreshCw size={14} class="animate-spin text-primary" />
             </Show>
 

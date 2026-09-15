@@ -1,6 +1,13 @@
 import { createSignal, onMount, For, Show } from "solid-js";
-import { AIConfig, CustomMcpServer } from "../../types/goose";
-import { getAIConfig, saveAIConfig, fetchProviderModels } from "../../services/goose";
+import { AIConfig, CustomMcpServer, OllamaStatus } from "../../types/goose";
+import {
+  getAIConfig,
+  saveAIConfig,
+  fetchProviderModels,
+  getOllamaStatus,
+  startOllamaDaemon,
+  stopOllamaDaemon,
+} from "../../services/goose";
 import { useToast } from "../../context/ToastContext";
 import { useI18n } from "../../context/I18nContext";
 import {
@@ -21,6 +28,9 @@ import {
   User,
   Image as ImageIcon,
   RefreshCw,
+  Play,
+  Square,
+  Server,
 } from "lucide-solid";
 
 import { PROVIDER_PRESETS, ProviderPreset } from "./presets";
@@ -50,7 +60,13 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     custom_mcp_servers: [],
     goose_binary_path: "",
     auto_start_daemon: false,
+    auto_start_ollama: true,
+    ollama_binary_path: "",
   });
+
+  // Ollama status state
+  const [ollamaStatus, setOllamaStatus] = createSignal<OllamaStatus | null>(null);
+  const [isOllamaOperating, setIsOllamaOperating] = createSignal(false);
 
   // MCP Server form input
   const [mcpName, setMcpName] = createSignal("");
@@ -62,6 +78,45 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
   const [isFetchingModels, setIsFetchingModels] = createSignal(false);
   const [initialConfig, setInitialConfig] = createSignal<AIConfig | null>(null);
 
+  const refreshOllamaStatus = async () => {
+    try {
+      const st = await getOllamaStatus();
+      setOllamaStatus(st);
+    } catch (e) {
+      console.warn("Failed to fetch Ollama status:", e);
+    }
+  };
+
+  const handleStartOllama = async () => {
+    setIsOllamaOperating(true);
+    try {
+      const st = await startOllamaDaemon();
+      setOllamaStatus(st);
+      if (st.running) {
+        success("Ollama Started", `Ollama is running on port ${st.port}.`);
+      } else {
+        error("Ollama Start Failed", st.error || "Could not launch Ollama daemon.");
+      }
+    } catch (err: any) {
+      error("Ollama Start Error", err.message || String(err));
+    } finally {
+      setIsOllamaOperating(false);
+    }
+  };
+
+  const handleStopOllama = async () => {
+    setIsOllamaOperating(true);
+    try {
+      await stopOllamaDaemon();
+      await refreshOllamaStatus();
+      success("Ollama Stopped", "Ollama daemon process terminated.");
+    } catch (err: any) {
+      error("Ollama Stop Error", err.message || String(err));
+    } finally {
+      setIsOllamaOperating(false);
+    }
+  };
+
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
@@ -72,6 +127,8 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
           language: cfg.language || "en",
           user_name: cfg.user_name || "You",
           user_avatar: cfg.user_avatar || "",
+          auto_start_ollama: cfg.auto_start_ollama !== undefined ? cfg.auto_start_ollama : true,
+          ollama_binary_path: cfg.ollama_binary_path || "",
         };
         setConfig(fullCfg);
         setInitialConfig(JSON.parse(JSON.stringify(fullCfg)));
@@ -83,6 +140,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
 
   onMount(() => {
     loadConfig();
+    refreshOllamaStatus();
   });
 
   const hasUnsavedChanges = () => {
@@ -469,6 +527,91 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     </div>
                   </div>
                 </div>
+
+                {/* Ollama Local Service Daemon Control (Shown when Ollama is selected) */}
+                <Show when={config().active_provider === "ollama" || config().request_format === "ollama"}>
+                  <div class="p-3.5 rounded-xl border border-border bg-card/60 space-y-3 shadow-xs">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center space-x-2">
+                        <div class={`w-2.5 h-2.5 rounded-full ${ollamaStatus()?.running ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
+                        <div>
+                          <h4 class="font-semibold text-foreground flex items-center space-x-1.5">
+                            <Server size={13} class="text-primary" />
+                            <span>{t("ai.ollama_status_title")}</span>
+                          </h4>
+                          <p class="text-[10px] text-muted-foreground">{t("ai.ollama_status_desc")}</p>
+                        </div>
+                      </div>
+                      <div class="flex items-center space-x-2">
+                        <span class={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                          ollamaStatus()?.running
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : "bg-muted text-muted-foreground border-border"
+                        }`}>
+                          {ollamaStatus()?.running ? t("ai.ollama_running") : t("ai.ollama_stopped")}
+                        </span>
+                        <Show when={!ollamaStatus()?.running}>
+                          <button
+                            type="button"
+                            disabled={isOllamaOperating()}
+                            onClick={handleStartOllama}
+                            class="px-2.5 py-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md text-[11px] font-medium flex items-center space-x-1 transition-all disabled:opacity-50 shadow-xs"
+                          >
+                            <Play size={11} />
+                            <span>{isOllamaOperating() ? t("ai.ollama_starting") : t("ai.ollama_start_btn")}</span>
+                          </button>
+                        </Show>
+                        <Show when={ollamaStatus()?.running}>
+                          <button
+                            type="button"
+                            disabled={isOllamaOperating()}
+                            onClick={handleStopOllama}
+                            class="px-2.5 py-1 bg-secondary hover:bg-destructive/10 hover:text-destructive text-muted-foreground border border-border rounded-md text-[11px] font-medium flex items-center space-x-1 transition-all disabled:opacity-50 shadow-xs"
+                          >
+                            <Square size={11} />
+                            <span>{isOllamaOperating() ? t("ai.ollama_stopping") : t("ai.ollama_stop_btn")}</span>
+                          </button>
+                        </Show>
+                        <button
+                          type="button"
+                          onClick={refreshOllamaStatus}
+                          class="p-1 text-muted-foreground hover:text-foreground rounded"
+                          title="Refresh status"
+                        >
+                          <RefreshCw size={12} class={isOllamaOperating() ? "animate-spin" : ""} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Auto-start checkbox */}
+                    <label class="flex items-start space-x-2.5 p-2 rounded-lg bg-secondary/30 border border-border/60 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config().auto_start_ollama ?? true}
+                        onChange={(e) => setConfig({ ...config(), auto_start_ollama: e.currentTarget.checked })}
+                        class="rounded mt-0.5"
+                      />
+                      <div>
+                        <p class="font-medium text-foreground text-xs">{t("ai.ollama_autostart_label")}</p>
+                        <p class="text-[10px] text-muted-foreground leading-relaxed">{t("ai.ollama_autostart_desc")}</p>
+                      </div>
+                    </label>
+
+                    {/* Optional Custom binary path override */}
+                    <div class="space-y-1 pt-1">
+                      <label class="text-[11px] font-medium text-muted-foreground">
+                        {t("ai.ollama_custom_path")}
+                      </label>
+                      <input
+                        type="text"
+                        value={config().ollama_binary_path || ""}
+                        onInput={(e) => setConfig({ ...config(), ollama_binary_path: e.currentTarget.value })}
+                        placeholder="e.g. C:\Users\Username\AppData\Local\Programs\Ollama\ollama.exe"
+                        class="w-full px-2.5 py-1.5 bg-background border border-input rounded text-[11px] font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                </Show>
               </div>
             </Show>
 

@@ -14,6 +14,8 @@ pub fn run() {
     let db_manager_for_listener = app_state.db_manager.clone();
     let config_manager_for_setup = app_state.config_manager.clone();
     let shutdown_flag_for_listener = app_state.shutdown_flag.clone();
+    let clipboard_monitor_for_listener = app_state.clipboard_monitor_enabled.clone();
+    let goose_service_for_setup = app_state.goose_service.clone();
     let shutdown_rx_for_updater = app_state.shutdown_tx.subscribe();
 
     tauri::Builder::default()
@@ -68,6 +70,7 @@ pub fn run() {
                 db_manager_for_listener,
                 app.handle().clone(),
                 shutdown_flag_for_listener,
+                clipboard_monitor_for_listener,
             );
 
             // Start background daily version check daemon
@@ -75,6 +78,21 @@ pub fn run() {
                 app.handle().clone(),
                 shutdown_rx_for_updater,
             );
+
+            // Auto-start Ollama in background if configured provider is local Ollama
+            let goose_for_ollama = goose_service_for_setup.clone();
+            tauri::async_runtime::spawn(async move {
+                let cfg = goose_for_ollama.get_ai_config();
+                let is_ollama = cfg.active_provider == "ollama"
+                    || cfg.request_format == "ollama"
+                    || cfg.base_url.contains("11434");
+                if is_ollama && cfg.auto_start_ollama {
+                    tracing::info!("Auto-start Ollama daemon triggered on application launch");
+                    if let Err(e) = goose_for_ollama.ensure_ollama_running().await {
+                        tracing::warn!("Auto-start Ollama daemon warning: {}", e);
+                    }
+                }
+            });
 
             Ok(())
         })
@@ -103,6 +121,8 @@ pub fn run() {
             modules::clipboard::commands::clear_clipboard_history,
             modules::clipboard::commands::copy_to_system_clipboard,
             modules::clipboard::commands::copy_image_to_system_clipboard,
+            modules::clipboard::commands::get_clipboard_monitor_enabled,
+            modules::clipboard::commands::set_clipboard_monitor_enabled,
             // Autostart Module
             modules::autostart::commands::is_autostart_enabled,
             modules::autostart::commands::set_autostart,
@@ -140,10 +160,14 @@ pub fn run() {
             modules::goose::commands::start_goose_daemon,
             modules::goose::commands::stop_goose_daemon,
             modules::goose::commands::send_goose_message,
+            modules::goose::commands::abort_goose_message,
             modules::goose::commands::set_goose_custom_binary_path,
             modules::goose::commands::get_ai_config,
             modules::goose::commands::save_ai_config,
             modules::goose::commands::fetch_provider_models,
+            modules::goose::commands::get_ollama_status,
+            modules::goose::commands::start_ollama_daemon,
+            modules::goose::commands::stop_ollama_daemon,
             // QuickLook Windows-Only Preview Module
             modules::quicklook::commands::get_quicklook_status,
             modules::quicklook::commands::quicklook_preview,
@@ -151,6 +175,15 @@ pub fn run() {
             // Toolbox Hub Commands
             modules::toolbox::commands::calculate_file_hash,
             modules::toolbox::commands::batch_rename_files,
+            // Folder Sync & Comparison (FreeFileSync)
+            modules::folder_sync::commands::folder_sync_compare,
+            modules::folder_sync::commands::folder_sync_execute,
+            modules::folder_sync::commands::folder_sync_cancel,
+            modules::folder_sync::commands::folder_sync_get_profiles,
+            modules::folder_sync::commands::folder_sync_save_profile,
+            modules::folder_sync::commands::folder_sync_delete_profile,
+            modules::folder_sync::commands::folder_sync_toggle_realtime,
+            modules::folder_sync::commands::folder_sync_get_history,
         ])
         .build(tauri::generate_context!())
         .expect("error while building TheBerry application")

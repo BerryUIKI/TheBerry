@@ -147,5 +147,42 @@ describe("Goose AI Service & Types", () => {
       requestFormat: "gemini",
     });
   });
+
+  it("handles Ollama daemon status, start, and stop methods", async () => {
+    const mockOllamaStatus = {
+      installed: true,
+      running: true,
+      port: 11434,
+      binary_path: "C:\\Users\\ArtSu\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
+      models: ["qwen2.5:3b"],
+      error: null,
+    };
+
+    vi.mocked(invoke).mockResolvedValueOnce(mockOllamaStatus);
+    const { getOllamaStatus, startOllamaDaemon, stopOllamaDaemon } = await import("../services/goose");
+
+    const st = await getOllamaStatus();
+    expect(st.running).toBe(true);
+    expect(st.port).toBe(11434);
+    expect(invoke).toHaveBeenCalledWith("get_ollama_status", undefined);
+
+    vi.mocked(invoke).mockResolvedValueOnce(mockOllamaStatus);
+    const startRes = await startOllamaDaemon();
+    expect(startRes.running).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("start_ollama_daemon", undefined);
+
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
+    await stopOllamaDaemon();
+    expect(invoke).toHaveBeenCalledWith("stop_ollama_daemon", undefined);
+  });
+
+  it("aborts active AI message generation via abortGooseMessage", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce(true);
+    const { abortGooseMessage } = await import("../services/goose");
+
+    const aborted = await abortGooseMessage("hud-session");
+    expect(aborted).toBe(true);
+    expect(invoke).toHaveBeenCalledWith("abort_goose_message", { sessionId: "hud-session" });
+  });
 });
 
