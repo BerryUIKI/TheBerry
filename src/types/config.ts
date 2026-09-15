@@ -7,6 +7,7 @@ export interface AppConfig {
   global_shortcuts_enabled: boolean;
   hud_shortcut: string;
   clipboard_history_limit: number;
+  clipboard_monitor_enabled: boolean;
   custom_data_dir: string;
 }
 

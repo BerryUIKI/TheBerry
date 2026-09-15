@@ -306,11 +306,14 @@ impl ClipboardService {
         Ok(())
     }
 
-    /// Background listener daemon that monitors OS clipboard changes for text and images
+    /// Background listener daemon that monitors OS clipboard changes for text and images.
+    /// On Windows, uses zero-lock GetClipboardSequenceNumber() and debounce delay to avoid
+    /// lock contention with IMEs, Office, and screenshot tools.
     pub fn start_listener(
         db_manager: Arc<DatabaseManager>,
         app_handle: AppHandle,
         shutdown_flag: Arc<std::sync::atomic::AtomicBool>,
+        monitor_enabled: Arc<std::sync::atomic::AtomicBool>,
     ) {
         std::thread::Builder::new()
             .name("clipboard-daemon".to_string())
@@ -318,86 +321,201 @@ impl ClipboardService {
                 let mut last_text = String::new();
                 let mut last_img_hash: u64 = 0;
                 let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
-                let mut consecutive_errors = 0u32;
+
+                #[cfg(target_os = "windows")]
+                let mut last_seq = unsafe { win32::GetClipboardSequenceNumber() };
 
                 while !shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                    let base_sleep = 500u64;
-                    let sleep_duration = if consecutive_errors > 0 {
-                        std::time::Duration::from_millis(base_sleep * (consecutive_errors.min(20) as u64))
-                    } else {
-                        std::time::Duration::from_millis(base_sleep)
-                    };
-                    std::thread::sleep(sleep_duration);
-
-                    if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
-                        break;
-                    }
-
-                    if !db_manager.is_ready() {
+                    // 1. Check if user enabled clipboard monitoring
+                    if !monitor_enabled.load(std::sync::atomic::Ordering::Relaxed) {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
                         continue;
                     }
 
-                    if clipboard_opt.is_none() {
-                        clipboard_opt = arboard::Clipboard::new().ok();
-                        if clipboard_opt.is_none() {
-                            consecutive_errors = consecutive_errors.saturating_add(1);
-                            continue;
-                        }
+                    if !db_manager.is_ready() {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        continue;
                     }
 
-                    let mut had_success = false;
+                    #[cfg(target_os = "windows")]
+                    {
+                        // Ultra-fast lock-free check: has the clipboard sequence number changed?
+                        let current_seq = unsafe { win32::GetClipboardSequenceNumber() };
+                        if current_seq == 0 || current_seq == last_seq {
+                            // No change in clipboard: sleep without opening or locking clipboard
+                            std::thread::sleep(std::time::Duration::from_millis(250));
+                            continue;
+                        }
 
-                    if let Some(ref mut clip) = clipboard_opt {
-                        // 1. Check for text updates
-                        if let Ok(current_text) = clip.get_text() {
-                            had_success = true;
-                            let trimmed = current_text.trim().to_string();
-                            if !trimmed.is_empty() && trimmed != last_text {
-                                last_text = trimmed.clone();
-                                let service = ClipboardService::new(db_manager.clone());
-                                if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
-                                    let _ = app_handle.emit("clipboard-updated", item);
+                        // Sequence number changed!
+                        // Debounce: wait 100ms to let the copying application complete its
+                        // OpenClipboard -> EmptyClipboard -> SetClipboardData -> CloseClipboard sequence.
+                        std::thread::sleep(std::time::Duration::from_millis(100));
+
+                        // Read the settled sequence number
+                        let settled_seq = unsafe { win32::GetClipboardSequenceNumber() };
+                        last_seq = settled_seq;
+
+                        if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+
+                        // Inspect available formats without opening the clipboard
+                        let has_text = unsafe { win32::IsClipboardFormatAvailable(win32::CF_UNICODETEXT) != 0 };
+                        let has_image = unsafe {
+                            win32::IsClipboardFormatAvailable(win32::CF_DIB) != 0
+                                || win32::IsClipboardFormatAvailable(win32::CF_DIBV5) != 0
+                                || win32::IsClipboardFormatAvailable(win32::CF_BITMAP) != 0
+                        };
+
+                        if !has_text && !has_image {
+                            // Clipboard contains formats we do not track (e.g. private formats, files only)
+                            continue;
+                        }
+
+                        // Read clipboard content with up to 3 gentle retries if writer is still finishing
+                        for attempt in 0..3 {
+                            if attempt > 0 {
+                                std::thread::sleep(std::time::Duration::from_millis(30));
+                            }
+
+                            if clipboard_opt.is_none() {
+                                clipboard_opt = arboard::Clipboard::new().ok();
+                                if clipboard_opt.is_none() {
+                                    continue;
+                                }
+                            }
+
+                            if let Some(ref mut clip) = clipboard_opt {
+                                let mut done = false;
+                                if has_text {
+                                    if let Ok(current_text) = clip.get_text() {
+                                        done = true;
+                                        let trimmed = current_text.trim().to_string();
+                                        if !trimmed.is_empty() && trimmed != last_text {
+                                            last_text = trimmed.clone();
+                                            let service = ClipboardService::new(db_manager.clone());
+                                            if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
+                                                let _ = app_handle.emit("clipboard-updated", item);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if !done && has_image {
+                                    if let Ok(img_data) = clip.get_image() {
+                                        done = true;
+                                        let w = img_data.width;
+                                        let h = img_data.height;
+                                        if w > 0 && h > 0 && !img_data.bytes.is_empty() {
+                                            let sample_len = img_data.bytes.len().min(1024);
+                                            let mut hash: u64 =
+                                                (w as u64) ^ ((h as u64) << 16) ^ (img_data.bytes.len() as u64);
+                                            for b in &img_data.bytes[..sample_len] {
+                                                hash = hash.wrapping_mul(31).wrapping_add(*b as u64);
+                                            }
+
+                                            if hash != last_img_hash {
+                                                last_img_hash = hash;
+                                                let service = ClipboardService::new(db_manager.clone());
+                                                let root_dir = crate::core::config::ConfigManager::new().get_data_dir();
+                                                if let Ok(item) = service.add_image_item(
+                                                    w,
+                                                    h,
+                                                    &img_data.bytes,
+                                                    root_dir.as_deref(),
+                                                ) {
+                                                    let _ = app_handle.emit("clipboard-updated", item);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if done {
+                                    break;
                                 }
                             }
                         }
+                    }
 
-                        // 2. Check for image updates
-                        if let Ok(img_data) = clip.get_image() {
-                            had_success = true;
-                            let w = img_data.width;
-                            let h = img_data.height;
-                            if w > 0 && h > 0 && !img_data.bytes.is_empty() {
-                                // Fast lightweight hash of image header and middle bytes
-                                let sample_len = img_data.bytes.len().min(1024);
-                                let mut hash: u64 = (w as u64) ^ ((h as u64) << 16) ^ (img_data.bytes.len() as u64);
-                                for b in &img_data.bytes[..sample_len] {
-                                    hash = hash.wrapping_mul(31).wrapping_add(*b as u64);
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+
+                        if shutdown_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+
+                        if clipboard_opt.is_none() {
+                            clipboard_opt = arboard::Clipboard::new().ok();
+                            if clipboard_opt.is_none() {
+                                continue;
+                            }
+                        }
+
+                        if let Some(ref mut clip) = clipboard_opt {
+                            let mut text_found = false;
+                            if let Ok(current_text) = clip.get_text() {
+                                let trimmed = current_text.trim().to_string();
+                                if !trimmed.is_empty() {
+                                    text_found = true;
+                                    if trimmed != last_text {
+                                        last_text = trimmed.clone();
+                                        let service = ClipboardService::new(db_manager.clone());
+                                        if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
+                                            let _ = app_handle.emit("clipboard-updated", item);
+                                        }
+                                    }
                                 }
+                            }
 
-                                if hash != last_img_hash {
-                                    last_img_hash = hash;
-                                    let service = ClipboardService::new(db_manager.clone());
-                                    let root_dir = crate::core::config::ConfigManager::new().get_data_dir();
-                                    if let Ok(item) = service.add_image_item(
-                                        w,
-                                        h,
-                                        &img_data.bytes,
-                                        root_dir.as_deref(),
-                                    ) {
-                                        let _ = app_handle.emit("clipboard-updated", item);
+                            if !text_found {
+                                if let Ok(img_data) = clip.get_image() {
+                                    let w = img_data.width;
+                                    let h = img_data.height;
+                                    if w > 0 && h > 0 && !img_data.bytes.is_empty() {
+                                        let sample_len = img_data.bytes.len().min(1024);
+                                        let mut hash: u64 =
+                                            (w as u64) ^ ((h as u64) << 16) ^ (img_data.bytes.len() as u64);
+                                        for b in &img_data.bytes[..sample_len] {
+                                            hash = hash.wrapping_mul(31).wrapping_add(*b as u64);
+                                        }
+
+                                        if hash != last_img_hash {
+                                            last_img_hash = hash;
+                                            let service = ClipboardService::new(db_manager.clone());
+                                            let root_dir = crate::core::config::ConfigManager::new().get_data_dir();
+                                            if let Ok(item) = service.add_image_item(
+                                                w,
+                                                h,
+                                                &img_data.bytes,
+                                                root_dir.as_deref(),
+                                            ) {
+                                                let _ = app_handle.emit("clipboard-updated", item);
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-
-                    if had_success {
-                        consecutive_errors = 0;
-                    } else if clipboard_opt.is_none() {
-                        consecutive_errors = consecutive_errors.saturating_add(1);
-                    }
                 }
             })
             .expect("Failed to spawn clipboard listener thread");
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod win32 {
+    pub const CF_UNICODETEXT: u32 = 13;
+    pub const CF_BITMAP: u32 = 2;
+    pub const CF_DIB: u32 = 8;
+    pub const CF_DIBV5: u32 = 17;
+
+    #[link(name = "user32")]
+    extern "system" {
+        pub fn GetClipboardSequenceNumber() -> u32;
+        pub fn IsClipboardFormatAvailable(format: u32) -> i32;
     }
 }

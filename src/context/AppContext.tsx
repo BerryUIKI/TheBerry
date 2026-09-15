@@ -1,7 +1,7 @@
 import { createContext, createSignal, JSX, useContext, onMount } from "solid-js";
 import { getAppStatus, initializeDataDir } from "../services/system";
 
-export type ViewType = "clipboard" | "snippets" | "launcher" | "image_converter" | "file_search" | "toolbox" | "settings";
+export type ViewType = "clipboard" | "snippets" | "launcher" | "image_converter" | "file_search" | "folder_sync" | "toolbox" | "settings";
 
 interface AppContextType {
   activeView: () => ViewType;

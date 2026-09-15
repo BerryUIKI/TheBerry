@@ -31,16 +31,19 @@ fn test_config_manager_load_save() {
     assert_eq!(initial_config.version, "0.1.7");
     assert_eq!(initial_config.theme, "dark");
     assert!(initial_config.close_to_tray);
+    assert!(initial_config.clipboard_monitor_enabled);
 
     let mut modified = initial_config.clone();
     modified.theme = "light".to_string();
     modified.clipboard_history_limit = 500;
+    modified.clipboard_monitor_enabled = false;
 
     manager.save_app_config(&data_dir, &modified).expect("failed to save config");
 
     let loaded = manager.load_app_config(&data_dir).expect("failed to reload config");
     assert_eq!(loaded.theme, "light");
     assert_eq!(loaded.clipboard_history_limit, 500);
+    assert!(!loaded.clipboard_monitor_enabled);
 }
 
 #[test]

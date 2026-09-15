@@ -90,6 +90,10 @@ pub fn update_config(config: AppConfig, state: State<AppState>) -> Result<AppCon
     if config.clipboard_history_limit > 0 {
         current.clipboard_history_limit = config.clipboard_history_limit;
     }
+    current.clipboard_monitor_enabled = config.clipboard_monitor_enabled;
+    state
+        .clipboard_monitor_enabled
+        .store(config.clipboard_monitor_enabled, std::sync::atomic::Ordering::Relaxed);
     if !config.custom_data_dir.is_empty() {
         current.custom_data_dir = config.custom_data_dir;
     }

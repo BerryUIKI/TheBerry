@@ -10,7 +10,7 @@ import {
 } from "../services/updater";
 import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
-import { copyToSystemClipboard } from "../services/clipboard";
+import { copyToSystemClipboard, setClipboardMonitorEnabled } from "../services/clipboard";
 import { getQuickLookStatus } from "../services/quicklook";
 import { setGlobalShortcutsEnabled, setHudShortcut } from "../services/shortcuts";
 import { HotkeyRecorder } from "../components/settings/HotkeyRecorder";
@@ -45,6 +45,7 @@ import {
   Check,
   Languages,
   Keyboard,
+  ClipboardList,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -59,6 +60,7 @@ export function SettingsView() {
     close_to_tray: true,
     autostart: false,
     clipboard_history_limit: 200,
+    clipboard_monitor_enabled: true,
     custom_data_dir: "",
   });
   const [autostartActive, setAutostartActive] = createSignal(false);
@@ -665,6 +667,46 @@ export function SettingsView() {
             </div>
             <p class="text-[11px] text-muted-foreground leading-relaxed">
               {t("settings.shortcuts_hud_desc")}
+            </p>
+          </div>
+
+          {/* Clipboard Monitoring */}
+          <div class="pt-3 border-t border-border space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-foreground flex items-center space-x-1.5">
+                <ClipboardList size={14} class="text-primary" />
+                <span>{t("settings.clipboard_monitor")}</span>
+              </label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const nextVal = !config().clipboard_monitor_enabled;
+                  try {
+                    await setClipboardMonitorEnabled(nextVal);
+                    await handleSave({ clipboard_monitor_enabled: nextVal });
+                    info(
+                      nextVal ? "Clipboard Monitor Enabled" : "Clipboard Monitor Disabled",
+                      nextVal
+                        ? (language() === "zh" ? "已恢复剪贴板自动监听" : "Clipboard monitoring resumed")
+                        : (language() === "zh" ? "已暂停剪贴板自动监听" : "Clipboard monitoring paused")
+                    );
+                  } catch (err: any) {
+                    error("Failed to update monitor setting", err?.message || String(err));
+                  }
+                }}
+                class={`w-8 h-4 rounded-full transition-colors relative ${
+                  config().clipboard_monitor_enabled ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <div
+                  class={`w-3 h-3 rounded-full bg-white transition-transform ${
+                    config().clipboard_monitor_enabled ? "translate-x-4" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+            <p class="text-[11px] text-muted-foreground leading-relaxed">
+              {t("settings.clipboard_monitor_desc")}
             </p>
           </div>
 
