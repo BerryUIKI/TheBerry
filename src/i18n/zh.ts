@@ -270,13 +270,14 @@ export const zh = {
 
   // Image Converter View
   "image_converter.title": "批量图片转换",
-  "image_converter.subtitle": "基于 SIMD 高性能加速转换，全面支持 JPEG、PNG、WebP、GIF、BMP 以及 Apple HEIC/HEIF 原生格式",
+  "image_converter.subtitle": "基于 SIMD 高性能加速转换，全面支持 JPEG、PNG、JFIF、WebP、BMP、TIFF、GIF、ICO 以及 Apple HEIC/HEIF 等多种格式",
   "image_converter.dropzone_title": "拖拽图片或文件夹到此处",
   "image_converter.dropzone_desc": "或点击下方按钮选择单个/多个图片文件或整个文件夹",
   "image_converter.browse_files": "添加图片",
   "image_converter.browse_folder": "添加文件夹",
   "image_converter.clear_all": "清空列表",
   "image_converter.target_format": "目标输出格式",
+  "image_converter.other_formats": "更多格式...",
   "image_converter.quality": "压缩质量 ({val}%)",
   "image_converter.output_dir": "输出目录",
   "image_converter.output_dir_placeholder": "默认 (保存在源文件同级目录)",

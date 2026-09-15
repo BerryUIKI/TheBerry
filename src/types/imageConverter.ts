@@ -1,6 +1,17 @@
+export type SupportedOutputFormat =
+  | "jpeg"
+  | "png"
+  | "webp"
+  | "jfif"
+  | "bmp"
+  | "tiff"
+  | "gif"
+  | "ico"
+  | (string & {});
+
 export interface ConvertTask {
   source_path: string;
-  target_format: "webp" | "jpeg" | "png";
+  target_format: SupportedOutputFormat;
   quality: number; // 1-100
   output_dir?: string;
   resize_width?: number;

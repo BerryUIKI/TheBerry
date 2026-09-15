@@ -26,7 +26,7 @@ tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 walkdir = "2.5"
-image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "bmp", "tiff", "gif", "ico", "tga", "qoi"] }
 heic = "0.1.6"
 thiserror = "2.0"
 chrono = { version = "0.4", features = ["serde"] }

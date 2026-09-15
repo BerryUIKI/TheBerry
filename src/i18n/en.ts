@@ -270,13 +270,14 @@ export const en = {
 
   // Image Converter View
   "image_converter.title": "Batch Image Converter",
-  "image_converter.subtitle": "High-speed SIMD conversion supporting JPEG, PNG, WebP, GIF, BMP, and Apple HEIC/HEIF",
+  "image_converter.subtitle": "High-speed SIMD conversion supporting JPEG, PNG, JFIF, WebP, BMP, TIFF, GIF, ICO, and Apple HEIC/HEIF",
   "image_converter.dropzone_title": "Drag & Drop Images or Folders Here",
   "image_converter.dropzone_desc": "Or click the buttons below to select image files or entire directories",
   "image_converter.browse_files": "Add Images",
   "image_converter.browse_folder": "Add Folder",
   "image_converter.clear_all": "Clear List",
   "image_converter.target_format": "Target Format",
+  "image_converter.other_formats": "Other formats...",
   "image_converter.quality": "Quality ({val}%)",
   "image_converter.output_dir": "Output Directory",
   "image_converter.output_dir_placeholder": "Default (Same directory as source)",
