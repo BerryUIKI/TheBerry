@@ -18,6 +18,10 @@ export async function sendGooseMessage(payload: SendGooseMessagePayload): Promis
   return safeInvoke<void>("send_goose_message", { payload });
 }
 
+export async function abortGooseMessage(sessionId: string): Promise<boolean> {
+  return safeInvoke<boolean>("abort_goose_message", { sessionId });
+}
+
 export async function setGooseCustomBinaryPath(path: string | null): Promise<GooseStatus> {
   return safeInvoke<GooseStatus>("set_goose_custom_binary_path", { path: path || null });
 }
@@ -49,4 +53,17 @@ export async function fetchProviderModels(
     requestFormat: requestFormat || null,
   });
 }
+
+export async function getOllamaStatus(): Promise<import("../types/goose").OllamaStatus> {
+  return safeInvoke<import("../types/goose").OllamaStatus>("get_ollama_status");
+}
+
+export async function startOllamaDaemon(): Promise<import("../types/goose").OllamaStatus> {
+  return safeInvoke<import("../types/goose").OllamaStatus>("start_ollama_daemon");
+}
+
+export async function stopOllamaDaemon(): Promise<void> {
+  return safeInvoke<void>("stop_ollama_daemon");
+}
+
 

@@ -10,6 +10,7 @@ import {
   Boxes,
   Settings,
   FolderDot,
+  FolderSync,
 } from "lucide-solid";
 
 interface NavItemDef {
@@ -24,6 +25,7 @@ const navDefs: NavItemDef[] = [
   { id: "launcher", key: "nav.launcher", icon: Rocket },
   { id: "image_converter", key: "nav.image_converter", icon: ImageIcon },
   { id: "file_search", key: "nav.file_search", icon: Search },
+  { id: "folder_sync", key: "nav.folder_sync", icon: FolderSync },
   { id: "toolbox", key: "nav.toolbox", icon: Boxes },
 ];
 

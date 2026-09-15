@@ -161,4 +161,80 @@ fn test_scan_image_paths_and_subfolder_creation() {
     assert!(std::path::Path::new(&res.target_path).exists());
 }
 
+#[test]
+fn test_jfif_and_extended_formats() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let input_jfif = temp.path().join("source.jfif");
+    let out_dir = temp.path().join("output");
+    std::fs::create_dir_all(&out_dir).expect("create out dir");
+
+    // Create a synthetic image and save it with .jfif extension
+    let img: ImageBuffer<Rgb<u8>, Vec<u8>> =
+        ImageBuffer::from_fn(48, 48, |x, y| Rgb([(x * 5) as u8, (y * 5) as u8, 200]));
+    img.save_with_format(&input_jfif, image::ImageFormat::Jpeg).expect("save test jfif");
+    assert!(input_jfif.exists());
+
+    // Verify is_supported_image_file recognizes .jfif
+    assert!(ImageConverterService::is_supported_image_file(&input_jfif));
+
+    // Test converting .jfif input to PNG
+    let jfif_to_png_task = ConvertTask {
+        source_path: input_jfif.to_string_lossy().to_string(),
+        target_format: "png".to_string(),
+        quality: 90,
+        output_dir: Some(out_dir.to_string_lossy().to_string()),
+        resize_width: None,
+        resize_height: None,
+        preserve_aspect_ratio: None,
+    };
+    let png_res = ImageConverterService::convert_single(jfif_to_png_task);
+    assert!(png_res.success);
+    assert!(png_res.target_path.ends_with("_converted.png"));
+    assert_eq!(png_res.width, 48);
+    assert_eq!(png_res.height, 48);
+
+    // Test converting to .jfif output format
+    let to_jfif_task = ConvertTask {
+        source_path: png_res.target_path,
+        target_format: "jfif".to_string(),
+        quality: 85,
+        output_dir: Some(out_dir.to_string_lossy().to_string()),
+        resize_width: None,
+        resize_height: None,
+        preserve_aspect_ratio: None,
+    };
+    let jfif_res = ImageConverterService::convert_single(to_jfif_task);
+    assert!(jfif_res.success);
+    assert!(jfif_res.target_path.ends_with("_converted.jfif"));
+    assert!(std::path::Path::new(&jfif_res.target_path).exists());
+
+    // Test converting to BMP
+    let to_bmp_task = ConvertTask {
+        source_path: input_jfif.to_string_lossy().to_string(),
+        target_format: "bmp".to_string(),
+        quality: 90,
+        output_dir: Some(out_dir.to_string_lossy().to_string()),
+        resize_width: None,
+        resize_height: None,
+        preserve_aspect_ratio: None,
+    };
+    let bmp_res = ImageConverterService::convert_single(to_bmp_task);
+    assert!(bmp_res.success);
+    assert!(bmp_res.target_path.ends_with("_converted.bmp"));
+
+    // Test converting to ICO (including 256x256 max clamp protection)
+    let to_ico_task = ConvertTask {
+        source_path: input_jfif.to_string_lossy().to_string(),
+        target_format: "ico".to_string(),
+        quality: 90,
+        output_dir: Some(out_dir.to_string_lossy().to_string()),
+        resize_width: None,
+        resize_height: None,
+        preserve_aspect_ratio: None,
+    };
+    let ico_res = ImageConverterService::convert_single(to_ico_task);
+    assert!(ico_res.success);
+    assert!(ico_res.target_path.ends_with("_converted.ico"));
+}
+
 

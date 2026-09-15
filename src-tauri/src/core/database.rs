@@ -7,6 +7,8 @@ pub const CLIPBOARD_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("
 pub const SNIPPETS_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("snippets");
 pub const LAUNCHER_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("launcher_items");
 pub const KV_STORE_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("kv_store");
+pub const SYNC_PROFILES_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("sync_profiles");
+pub const SYNC_HISTORY_TABLE: TableDefinition<&str, &[u8]> = TableDefinition::new("sync_history");
 
 pub struct DatabaseManager {
     db: RwLock<Option<Arc<Database>>>,
@@ -53,6 +55,12 @@ impl DatabaseManager {
             let _ = write_txn
                 .open_table(KV_STORE_TABLE)
                 .map_err(|e| format!("Failed to open kv table: {}", e))?;
+            let _ = write_txn
+                .open_table(SYNC_PROFILES_TABLE)
+                .map_err(|e| format!("Failed to open sync_profiles table: {}", e))?;
+            let _ = write_txn
+                .open_table(SYNC_HISTORY_TABLE)
+                .map_err(|e| format!("Failed to open sync_history table: {}", e))?;
         }
         write_txn
             .commit()

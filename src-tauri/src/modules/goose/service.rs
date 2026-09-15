@@ -1,4 +1,6 @@
-use std::sync::{Arc, RwLock};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use tauri::{AppHandle, Emitter};
 use futures_util::StreamExt;
 use uuid::Uuid;
@@ -8,8 +10,10 @@ use super::types::{AIConfig, GooseStatus, GooseStreamChunk, SendGooseMessagePayl
 
 pub struct GooseService {
     process_manager: Arc<GooseProcessManager>,
+    ollama_manager: Arc<super::ollama::OllamaProcessManager>,
     http_client: reqwest::Client,
     ai_config: RwLock<AIConfig>,
+    active_cancellations: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 }
 
 impl Default for GooseService {
@@ -25,12 +29,41 @@ impl GooseService {
 
         Self {
             process_manager: Arc::new(GooseProcessManager::new()),
+            ollama_manager: Arc::new(super::ollama::OllamaProcessManager::new()),
             http_client: reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(30))
                 .timeout(std::time::Duration::from_secs(120))
                 .build()
                 .unwrap_or_default(),
             ai_config: RwLock::new(loaded_cfg),
+            active_cancellations: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    /// Aborts any running AI generation for the specified session_id.
+    pub fn abort_message(&self, session_id: &str) -> bool {
+        let mut map = self.active_cancellations.lock().unwrap();
+        if let Some(flag) = map.remove(session_id) {
+            flag.store(true, Ordering::SeqCst);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn register_cancellation(&self, session_id: &str) -> Arc<AtomicBool> {
+        let mut map = self.active_cancellations.lock().unwrap();
+        if let Some(existing) = map.get(session_id) {
+            existing.store(true, Ordering::SeqCst);
+        }
+        let flag = Arc::new(AtomicBool::new(false));
+        map.insert(session_id.to_string(), flag.clone());
+        flag
+    }
+
+    fn clear_cancellation(&self, session_id: &str) {
+        let mut map = self.active_cancellations.lock().unwrap();
+        map.remove(session_id);
     }
 
     fn get_config_path() -> Option<std::path::PathBuf> {
@@ -111,6 +144,26 @@ impl GooseService {
         self.process_manager.stop_server().await
     }
 
+    pub async fn ensure_ollama_running(&self) -> Result<super::ollama::OllamaStatus, String> {
+        let custom_path = {
+            let cfg = self.ai_config.read().unwrap();
+            if !cfg.ollama_binary_path.trim().is_empty() {
+                Some(cfg.ollama_binary_path.clone())
+            } else {
+                None
+            }
+        };
+        self.ollama_manager.ensure_running(custom_path.as_deref(), 11434).await
+    }
+
+    pub async fn get_ollama_status(&self) -> super::ollama::OllamaStatus {
+        self.ollama_manager.get_status().await
+    }
+
+    pub async fn stop_ollama_daemon(&self) -> Result<(), String> {
+        self.ollama_manager.stop_server().await
+    }
+
     pub async fn fetch_provider_models(
         &self,
         provider: String,
@@ -138,40 +191,42 @@ impl GooseService {
                     req = req.header("X-goog-api-key", &raw_key);
                 }
 
-                let resp = req.send().await.map_err(|e| format!("Gemini API request failed: {}", e))?;
+                let resp = req.send().await.map_err(|e| format!("Gemini request failed: {}", e))?;
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let err = resp.text().await.unwrap_or_default();
-                    return Err(format!("Gemini API error (HTTP {}): {}", status, err));
+                    return Err(format!("Gemini error (HTTP {}): {}", status, err));
                 }
 
-                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Gemini response JSON: {}", e))?;
+                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Gemini JSON: {}", e))?;
                 let mut models = Vec::new();
                 if let Some(list) = json.get("models").and_then(|v| v.as_array()) {
                     for m in list {
                         if let Some(name) = m.get("name").and_then(|v| v.as_str()) {
-                            let clean = name.trim_start_matches("models/").to_string();
-                            let supported = m.get("supportedGenerationMethods")
-                                .and_then(|v| v.as_array())
-                                .map(|arr| arr.iter().any(|method| method.as_str() == Some("generateContent")))
-                                .unwrap_or(true);
-                            if supported {
-                                models.push(clean);
-                            }
+                            let clean_name = name.strip_prefix("models/").unwrap_or(name);
+                            models.push(clean_name.to_string());
                         }
                     }
                 }
                 if models.is_empty() {
                     models = vec![
-                        "gemini-2.0-flash".to_string(),
+                        "gemini-2.5-flash".to_string(),
+                        "gemini-2.5-pro".to_string(),
                         "gemini-1.5-flash".to_string(),
                         "gemini-1.5-pro".to_string(),
-                        "gemini-flash-latest".to_string(),
                     ];
                 }
                 Ok(models)
             }
             "ollama" => {
+                let auto_start = {
+                    let cfg = self.ai_config.read().unwrap();
+                    cfg.auto_start_ollama
+                };
+                if auto_start {
+                    let _ = self.ensure_ollama_running().await;
+                }
+
                 let url = if base.is_empty() {
                     "http://localhost:11434/api/tags".to_string()
                 } else if base.ends_with("/api/tags") || base.ends_with("/v1/models") {
@@ -279,6 +334,7 @@ impl GooseService {
     ) -> Result<(), String> {
         let session_id = payload.session_id.clone();
         let message_id = Uuid::new_v4().to_string();
+        let cancel_flag = self.register_cancellation(&session_id);
 
         let cfg = self.get_ai_config();
         let active_port = self.process_manager.get_active_port().await;
@@ -300,7 +356,9 @@ impl GooseService {
                 .await
             {
                 Ok(response) if response.status().is_success() => {
-                    return self.consume_sse_stream(app_handle, response, session_id, message_id).await;
+                    let res = self.consume_sse_stream(app_handle, response, session_id.clone(), message_id, cancel_flag).await;
+                    self.clear_cancellation(&session_id);
+                    return res;
                 }
                 _ => {
                     // Fall back to direct LLM execution if Goose server is unreachable
@@ -309,7 +367,9 @@ impl GooseService {
         }
 
         // Mode 2: Direct Streaming LLM Execution (OpenAI-compatible / Ollama / OpenRouter / DeepSeek / Gemini)
-        self.send_direct_llm_stream(app_handle, payload, cfg, session_id, message_id).await
+        let res = self.send_direct_llm_stream(app_handle, payload, cfg, session_id.clone(), message_id, cancel_flag).await;
+        self.clear_cancellation(&session_id);
+        res
     }
 
     async fn send_direct_llm_stream(
@@ -319,10 +379,18 @@ impl GooseService {
         cfg: AIConfig,
         session_id: String,
         message_id: String,
+        cancel_flag: Arc<AtomicBool>,
     ) -> Result<(), String> {
         let format = cfg.request_format.to_lowercase();
         let model = payload.model.unwrap_or_else(|| cfg.model.clone());
         let raw_base = cfg.base_url.trim();
+
+        // If using local Ollama model, ensure Ollama daemon is running in background
+        if (format == "ollama" || cfg.active_provider == "ollama" || raw_base.contains("11434"))
+            && cfg.auto_start_ollama
+        {
+            let _ = self.ensure_ollama_running().await;
+        }
 
         // 1. Smart Endpoint & Protocol Resolution
         let (endpoint, req_body, is_anthropic, is_gemini) = match format.as_str() {
@@ -516,8 +584,21 @@ impl GooseService {
             || is_stream_request;
 
         if is_stream_response {
-            self.consume_sse_stream(app_handle, response, session_id, message_id).await
+            self.consume_sse_stream(app_handle, response, session_id, message_id, cancel_flag).await
         } else {
+            // Check cancellation before emitting single response
+            if cancel_flag.load(Ordering::Relaxed) {
+                let cancel_chunk = GooseStreamChunk {
+                    session_id,
+                    message_id,
+                    delta: String::new(),
+                    is_finished: true,
+                    error: Some("AI generation stopped by user.".to_string()),
+                };
+                let _ = app_handle.emit("goose://stream-chunk", cancel_chunk);
+                return Ok(());
+            }
+
             // Whole JSON or text REST response (e.g. Gemini :generateContent or non-streaming endpoints)
             let text = response.text().await.unwrap_or_default();
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&text) {
@@ -559,12 +640,43 @@ impl GooseService {
         response: reqwest::Response,
         session_id: String,
         message_id: String,
+        cancel_flag: Arc<AtomicBool>,
     ) -> Result<(), String> {
         let mut stream = response.bytes_stream();
         let mut buffer = String::new();
 
-        while let Some(chunk_result) = stream.next().await {
-            match chunk_result {
+        loop {
+            // 1. Check if user cancelled
+            if cancel_flag.load(Ordering::Relaxed) {
+                let stop_chunk = GooseStreamChunk {
+                    session_id: session_id.clone(),
+                    message_id: message_id.clone(),
+                    delta: String::new(),
+                    is_finished: true,
+                    error: Some("AI response stopped by user.".to_string()),
+                };
+                let _ = app_handle.emit("goose://stream-chunk", stop_chunk);
+                return Ok(());
+            }
+
+            // 2. Read next chunk with a 60-second idle timeout
+            let chunk_opt = match tokio::time::timeout(std::time::Duration::from_secs(60), stream.next()).await {
+                Ok(Some(chunk)) => chunk,
+                Ok(None) => break, // End of stream
+                Err(_) => {
+                    let timeout_chunk = GooseStreamChunk {
+                        session_id: session_id.clone(),
+                        message_id: message_id.clone(),
+                        delta: String::new(),
+                        is_finished: true,
+                        error: Some("AI generation timed out (no data received for 60 seconds).".to_string()),
+                    };
+                    let _ = app_handle.emit("goose://stream-chunk", timeout_chunk);
+                    return Err("Stream read timed out".to_string());
+                }
+            };
+
+            match chunk_opt {
                 Ok(bytes) => {
                     if let Ok(text) = std::str::from_utf8(&bytes) {
                         buffer.push_str(text);

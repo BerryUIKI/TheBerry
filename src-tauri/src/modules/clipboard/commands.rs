@@ -57,3 +57,20 @@ pub fn copy_to_system_clipboard(content: String) -> Result<(), String> {
 pub fn copy_image_to_system_clipboard(image_path: String) -> Result<(), String> {
     ClipboardService::copy_image_to_clipboard(&image_path)
 }
+
+#[tauri::command]
+pub fn get_clipboard_monitor_enabled(state: State<AppState>) -> Result<bool, String> {
+    Ok(state.clipboard_monitor_enabled.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+#[tauri::command]
+pub fn set_clipboard_monitor_enabled(enabled: bool, state: State<AppState>) -> Result<bool, String> {
+    state.clipboard_monitor_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    if let Some(data_dir) = state.config_manager.get_data_dir() {
+        let mut current = state.config_manager.get_app_config();
+        current.clipboard_monitor_enabled = enabled;
+        let _ = state.config_manager.save_app_config(&data_dir, &current);
+    }
+    Ok(enabled)
+}
+

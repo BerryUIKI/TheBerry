@@ -280,7 +280,7 @@ describe("View Integration Tests", () => {
         original_size_bytes: 2048000,
         converted_size_bytes: 450000,
         success: true,
-        error_message: null,
+        error_message: undefined,
         width: 1920,
         height: 1080,
       };
@@ -291,6 +291,47 @@ describe("View Integration Tests", () => {
       expect(results[0].success).toBe(true);
       expect(results[0].converted_size_bytes).toBeLessThan(results[0].original_size_bytes);
       expect(invoke).toHaveBeenCalledWith("convert_images", { tasks: [task] });
+    });
+
+    it("supports extended target formats including jfif and bmp", async () => {
+      const jfifTask: ConvertTask = {
+        source_path: "C:\\images\\sample.jfif",
+        target_format: "jfif",
+        quality: 90,
+      };
+      const bmpTask: ConvertTask = {
+        source_path: "C:\\images\\sample.png",
+        target_format: "bmp",
+        quality: 90,
+      };
+
+      const mockResults: ConvertResult[] = [
+        {
+          source_path: "C:\\images\\sample.jfif",
+          target_path: "C:\\images\\sample_converted.jfif",
+          original_size_bytes: 102400,
+          converted_size_bytes: 90000,
+          success: true,
+          width: 800,
+          height: 600,
+        },
+        {
+          source_path: "C:\\images\\sample.png",
+          target_path: "C:\\images\\sample_converted.bmp",
+          original_size_bytes: 51200,
+          converted_size_bytes: 200000,
+          success: true,
+          width: 800,
+          height: 600,
+        },
+      ];
+
+      vi.mocked(invoke).mockResolvedValueOnce(mockResults);
+      const results = await convertImages([jfifTask, bmpTask]);
+      expect(results).toHaveLength(2);
+      expect(results[0].target_path).toContain(".jfif");
+      expect(results[1].target_path).toContain(".bmp");
+      expect(invoke).toHaveBeenCalledWith("convert_images", { tasks: [jfifTask, bmpTask] });
     });
   });
 

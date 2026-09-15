@@ -31,6 +31,14 @@ pub async fn send_goose_message(
 }
 
 #[tauri::command]
+pub async fn abort_goose_message(
+    session_id: String,
+    app_state: State<'_, AppState>,
+) -> Result<bool, String> {
+    Ok(app_state.goose_service.abort_message(&session_id))
+}
+
+#[tauri::command]
 pub async fn set_goose_custom_binary_path(
     path: Option<String>,
     app_state: State<'_, AppState>,
@@ -65,4 +73,26 @@ pub async fn fetch_provider_models(
         .fetch_provider_models(provider, base_url, api_key, request_format)
         .await
 }
+
+#[tauri::command]
+pub async fn get_ollama_status(
+    app_state: State<'_, AppState>,
+) -> Result<super::ollama::OllamaStatus, String> {
+    Ok(app_state.goose_service.get_ollama_status().await)
+}
+
+#[tauri::command]
+pub async fn start_ollama_daemon(
+    app_state: State<'_, AppState>,
+) -> Result<super::ollama::OllamaStatus, String> {
+    app_state.goose_service.ensure_ollama_running().await
+}
+
+#[tauri::command]
+pub async fn stop_ollama_daemon(
+    app_state: State<'_, AppState>,
+) -> Result<(), String> {
+    app_state.goose_service.stop_ollama_daemon().await
+}
+
 

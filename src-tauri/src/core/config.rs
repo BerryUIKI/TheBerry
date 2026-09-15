@@ -23,6 +23,10 @@ fn default_hud_shortcut() -> String {
     "Alt+Space".to_string()
 }
 
+fn default_clipboard_monitor_enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -37,13 +41,15 @@ pub struct AppConfig {
     #[serde(default = "default_hud_shortcut")]
     pub hud_shortcut: String,
     pub clipboard_history_limit: usize,
+    #[serde(default = "default_clipboard_monitor_enabled")]
+    pub clipboard_monitor_enabled: bool,
     pub custom_data_dir: String,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            version: "0.1.7".to_string(),
+            version: "0.1.8".to_string(),
             theme: "dark".to_string(),
             language: "en".to_string(),
             close_to_tray: true,
@@ -51,6 +57,7 @@ impl Default for AppConfig {
             global_shortcuts_enabled: true,
             hud_shortcut: "Alt+Space".to_string(),
             clipboard_history_limit: 200,
+            clipboard_monitor_enabled: true,
             custom_data_dir: String::new(),
         }
     }

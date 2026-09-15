@@ -13,12 +13,14 @@ import {
   AlertCircle,
   ExternalLink,
   Settings,
+  Square,
 } from "lucide-solid";
 import { 
   getGooseStatus, 
   startGooseDaemon, 
   stopGooseDaemon, 
   sendGooseMessage, 
+  abortGooseMessage,
   onGooseStreamChunk,
   getAIConfig,
 } from "../../services/goose";
@@ -98,6 +100,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
     onGooseStreamChunk((chunk: GooseStreamChunk) => {
       if (chunk.session_id !== sessionId()) return;
+      resetTimeoutWatchdog();
 
       setMessages((prev) => {
         const lastMsg = prev[prev.length - 1];
@@ -127,6 +130,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       });
 
       if (chunk.is_finished) {
+        clearTimeoutWatchdog();
         setIsGenerating(false);
       }
     }).then((unlisten) => {
@@ -134,6 +138,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
     });
 
     onCleanup(() => {
+      clearTimeoutWatchdog();
       window.removeEventListener("open-goose-with-prompt", handleOpenWithPrompt);
       if (unlistenFn) unlistenFn();
     });
@@ -161,10 +166,62 @@ export function GooseSidebar(props: GooseSidebarProps) {
     messagesEndRef?.scrollIntoView({ behavior: "smooth" });
   };
 
+  let timeoutTimer: any = null;
+  const resetTimeoutWatchdog = () => {
+    clearTimeout(timeoutTimer);
+    if (isGenerating()) {
+      timeoutTimer = setTimeout(async () => {
+        if (isGenerating()) {
+          await abortGooseMessage(sessionId()).catch(() => {});
+          setIsGenerating(false);
+          setMessages((prev) => {
+            const updated = [...prev];
+            const lastIdx = updated.length - 1;
+            if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                isStreaming: false,
+                error: t("ai.timeout_error"),
+              };
+            }
+            return updated;
+          });
+        }
+      }, 60000);
+    }
+  };
+
+  const clearTimeoutWatchdog = () => {
+    if (timeoutTimer) {
+      clearTimeout(timeoutTimer);
+      timeoutTimer = null;
+    }
+  };
+
+  const handleAbort = async () => {
+    clearTimeoutWatchdog();
+    setIsGenerating(false);
+    try {
+      await abortGooseMessage(sessionId());
+    } catch (err) {
+      console.warn("Abort failed:", err);
+    }
+  };
+
+  const [isComposing, setIsComposing] = createSignal(false);
+
   const handleSendMessage = async (e?: Event) => {
-    if (e) e.preventDefault();
-    const prompt = inputValue().trim();
-    if (!prompt || isGenerating()) return;
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    // Retrieve prompt value from either signal or DOM input element to avoid sync lag
+    const rawVal = inputRef?.value ?? inputValue();
+    const prompt = (rawVal || "").trim();
+    if (!prompt || isGenerating()) {
+      inputRef?.focus();
+      return;
+    }
 
     const userMessageId = Date.now().toString();
     const userMessage: GooseChatMessage = {
@@ -176,7 +233,12 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
+    if (inputRef) {
+      inputRef.value = "";
+      inputRef.focus();
+    }
     setIsGenerating(true);
+    resetTimeoutWatchdog();
 
     // Placeholder for streaming assistant response
     const assistantMessageId = (Date.now() + 1).toString();
@@ -189,6 +251,29 @@ export function GooseSidebar(props: GooseSidebarProps) {
     };
     setMessages((prev) => [...prev, assistantMessage]);
 
+    // Check if provider requires an API key and user hasn't set one
+    const activeProv = (aiConfig()?.active_provider || status()?.active_provider || "gemini").toLowerCase();
+    const isLocal = activeProv === "ollama" || (aiConfig()?.base_url || "").includes("11434");
+    const hasKey = Boolean(aiConfig()?.api_key && aiConfig()!.api_key.trim().length > 0);
+
+    if (!isLocal && !hasKey && !status()?.is_running) {
+      clearTimeoutWatchdog();
+      setIsGenerating(false);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
+          updated[lastIdx] = {
+            ...updated[lastIdx],
+            isStreaming: false,
+            error: t("ai.missing_api_key", { provider: activeProv.toUpperCase() }),
+          };
+        }
+        return updated;
+      });
+      return;
+    }
+
     try {
       await sendGooseMessage({
         session_id: sessionId(),
@@ -197,6 +282,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
         provider: aiConfig()?.active_provider || status()?.active_provider || undefined,
       });
     } catch (err: any) {
+      clearTimeoutWatchdog();
       console.error("Failed to send prompt to AI engine:", err);
       setIsGenerating(false);
       setMessages((prev) => {
@@ -215,6 +301,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    if (isComposing() || e.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -439,12 +526,17 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
         {/* Input Bar */}
         <div class="p-3 border-t border-border bg-muted/20 flex-shrink-0">
-          <form onSubmit={handleSendMessage} class="flex items-center space-x-2">
+          <div class="flex items-center space-x-2">
             <input
               ref={inputRef}
               type="text"
               value={inputValue()}
               onInput={(e) => setInputValue(e.currentTarget.value)}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={(e) => {
+                setIsComposing(false);
+                setInputValue(e.currentTarget.value);
+              }}
               onKeyDown={handleKeyDown}
               placeholder={
                 aiConfig()?.model
@@ -455,19 +547,33 @@ export function GooseSidebar(props: GooseSidebarProps) {
               class="flex-1 bg-background border border-input rounded-xl px-3.5 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 transition-all shadow-inner"
             />
 
-            <button
-              type="submit"
-              disabled={!inputValue().trim() || isGenerating()}
-              title="Send Message (Enter)"
-              class="p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center shadow-sm active:scale-95"
+            <Show
+              when={isGenerating()}
+              fallback={
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    handleSendMessage(e);
+                  }}
+                  title="Send Message (Enter)"
+                  class={`p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center justify-center shadow-sm active:scale-95 cursor-pointer ${
+                    !(inputValue().trim() || inputRef?.value?.trim()) ? "opacity-50" : ""
+                  }`}
+                >
+                  <Send size={14} class="pointer-events-none" />
+                </button>
+              }
             >
-              {isGenerating() ? (
-                <RefreshCw size={14} class="animate-spin" />
-              ) : (
-                <Send size={14} />
-              )}
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={handleAbort}
+                title={t("ai.stop_generating")}
+                class="p-2 rounded-xl bg-destructive text-destructive-foreground hover:opacity-90 transition-all flex items-center justify-center shadow-sm active:scale-95 cursor-pointer"
+              >
+                <Square size={14} class="fill-current pointer-events-none" />
+              </button>
+            </Show>
+          </div>
 
           <div class="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground/70 px-1">
             <span>
