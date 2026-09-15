@@ -55,10 +55,21 @@ impl ImageConverterService {
                 .ok_or_else(|| "Failed to construct RGBA image buffer from decoded HEIC data".to_string())?;
             Ok(image::DynamicImage::ImageRgba8(buffer))
         } else {
-            match image::open(source_path) {
+            // First attempt: use ImageReader with guessed format from magic header bytes
+            // This natively supports .jfif and files with mismatched or unusual extensions
+            let reader_res = image::ImageReader::open(source_path)
+                .map_err(|e| e.to_string())
+                .and_then(|r| r.with_guessed_format().map_err(|e| e.to_string()))
+                .and_then(|r| r.decode().map_err(|e| e.to_string()));
+
+            match reader_res {
                 Ok(img) => Ok(img),
-                Err(orig_err) => {
-                    // Fallback: try HEIC decoder in case image is HEIC with unexpected extension
+                Err(reader_err) => {
+                    // Fallback 1: image::open (extension based)
+                    if let Ok(img) = image::open(source_path) {
+                        return Ok(img);
+                    }
+                    // Fallback 2: try HEIC decoder in case image is HEIC with unexpected extension
                     if let Ok(bytes) = fs::read(source_path) {
                         if let Ok(decoded) = heic::DecoderConfig::new().decode(&bytes, heic::PixelLayout::Rgba8) {
                             if let Some(buffer) = image::RgbaImage::from_raw(decoded.width, decoded.height, decoded.data) {
@@ -66,7 +77,7 @@ impl ImageConverterService {
                             }
                         }
                     }
-                    Err(format!("Failed to decode image: {}", orig_err))
+                    Err(format!("Failed to decode image: {}", reader_err))
                 }
             }
         }
@@ -200,20 +211,39 @@ impl ImageConverterService {
             }
         }
 
-        let (final_w, final_h) = (dynamic_img.width(), dynamic_img.height());
-
-        // Determine destination file path
+        // Determine destination file path & format
         let stem = source_path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("output");
 
-        let ext = match task.target_format.to_lowercase().as_str() {
-            "webp" => "webp",
-            "jpeg" | "jpg" => "jpg",
-            "png" => "png",
-            _ => "jpg",
+        let target_fmt = task.target_format.to_lowercase();
+        let (ext, format) = match target_fmt.as_str() {
+            "webp" => ("webp", ImageFormat::WebP),
+            "jpeg" | "jpg" => ("jpg", ImageFormat::Jpeg),
+            "jfif" => ("jfif", ImageFormat::Jpeg),
+            "png" => ("png", ImageFormat::Png),
+            "bmp" => ("bmp", ImageFormat::Bmp),
+            "tiff" | "tif" => ("tiff", ImageFormat::Tiff),
+            "gif" => ("gif", ImageFormat::Gif),
+            "ico" => ("ico", ImageFormat::Ico),
+            "tga" => ("tga", ImageFormat::Tga),
+            "qoi" => ("qoi", ImageFormat::Qoi),
+            _ => ("jpg", ImageFormat::Jpeg),
         };
+
+        // For ICO output, clamp dimensions to 256x256 max to satisfy ICO specification
+        if format == ImageFormat::Ico && (dynamic_img.width() > 256 || dynamic_img.height() > 256) {
+            let (orig_w, orig_h) = (dynamic_img.width(), dynamic_img.height());
+            let scale = (256.0 / orig_w as f32).min(256.0 / orig_h as f32);
+            let ico_w = ((orig_w as f32 * scale).round() as u32).clamp(1, 256);
+            let ico_h = ((orig_h as f32 * scale).round() as u32).clamp(1, 256);
+            if let Ok(resized) = Self::fast_resize(&dynamic_img, ico_w, ico_h) {
+                dynamic_img = resized;
+            }
+        }
+
+        let (final_w, final_h) = (dynamic_img.width(), dynamic_img.height());
 
         let target_dir = match &task.output_dir {
             Some(d) => PathBuf::from(d),
@@ -237,13 +267,6 @@ impl ImageConverterService {
         }
 
         let target_path = target_dir.join(format!("{}_converted.{}", stem, ext));
-
-        let format = match ext {
-            "webp" => ImageFormat::WebP,
-            "jpg" => ImageFormat::Jpeg,
-            "png" => ImageFormat::Png,
-            _ => ImageFormat::Jpeg,
-        };
 
         let save_result = match format {
             ImageFormat::Jpeg => {
@@ -365,7 +388,25 @@ impl ImageConverterService {
             .to_lowercase();
         matches!(
             ext.as_str(),
-            "png" | "jpg" | "jpeg" | "webp" | "bmp" | "tiff" | "tif" | "heic" | "heif" | "hif"
+            "png"
+                | "jpg"
+                | "jpeg"
+                | "jfif"
+                | "jpe"
+                | "jif"
+                | "jfi"
+                | "webp"
+                | "bmp"
+                | "dib"
+                | "tiff"
+                | "tif"
+                | "gif"
+                | "ico"
+                | "tga"
+                | "qoi"
+                | "heic"
+                | "heif"
+                | "hif"
         )
     }
 

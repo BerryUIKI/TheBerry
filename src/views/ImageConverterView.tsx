@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
-import { ConvertResult, ConvertTask } from "../types/imageConverter";
+import { ConvertResult, ConvertTask, SupportedOutputFormat } from "../types/imageConverter";
 import { convertSingleImage, scanImagePaths } from "../services/imageConverter";
 import { previewWithQuickLook } from "../services/quicklook";
 import { useToast } from "../context/ToastContext";
@@ -20,14 +20,25 @@ import {
   Layers,
   Eye,
   FolderCheck,
+  ChevronDown,
 } from "lucide-solid";
 
 export function ImageConverterView() {
   const { success, error, info, warning } = useToast();
   const { t } = useI18n();
   const [fileList, setFileList] = createSignal<string[]>([]);
-  // Requirement 5: Target format defaults to JPEG
-  const [targetFormat, setTargetFormat] = createSignal<"webp" | "jpeg" | "png">("jpeg");
+  const OTHER_FORMATS: { value: SupportedOutputFormat; label: string }[] = [
+    { value: "webp", label: "WebP" },
+    { value: "jfif", label: "JFIF" },
+    { value: "bmp", label: "BMP" },
+    { value: "tiff", label: "TIFF" },
+    { value: "gif", label: "GIF" },
+    { value: "ico", label: "ICO" },
+  ];
+
+  // Target format defaults to JPEG (primary options: JPEG and PNG, all others in dropdown)
+  const [targetFormat, setTargetFormat] = createSignal<SupportedOutputFormat>("jpeg");
+  const isOtherFormat = (fmt: string) => fmt !== "jpeg" && fmt !== "png";
   const [quality, setQuality] = createSignal<number>(85);
   const [outputDir, setOutputDir] = createSignal<string>("");
 
@@ -112,7 +123,26 @@ export function ImageConverterView() {
         filters: [
           {
             name: "Supported Images",
-            extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "heif", "avif"],
+            extensions: [
+              "png",
+              "jpg",
+              "jpeg",
+              "jfif",
+              "jpe",
+              "jif",
+              "webp",
+              "gif",
+              "bmp",
+              "dib",
+              "tiff",
+              "tif",
+              "ico",
+              "tga",
+              "qoi",
+              "heic",
+              "heif",
+              "avif",
+            ],
           },
         ],
       });
@@ -437,22 +467,76 @@ export function ImageConverterView() {
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
-          {/* Format Selection - Default JPEG */}
+          {/* Format Selection - Primary JPEG & PNG, all other formats in dropdown */}
           <div>
-            <label class="block font-medium text-muted-foreground mb-1">{t("image_converter.target_format")}</label>
-            <div class="flex items-center space-x-1">
-              {(["jpeg", "webp", "png"] as const).map((fmt) => (
-                <button
-                  onClick={() => setTargetFormat(fmt)}
-                  class={`flex-1 py-1.5 rounded-lg uppercase font-semibold text-xs transition-all active:scale-95 ${
-                    targetFormat() === fmt
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-medium text-muted-foreground">{t("image_converter.target_format")}</label>
+              <Show when={isOtherFormat(targetFormat())}>
+                <span class="text-[10px] uppercase font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                  {targetFormat()}
+                </span>
+              </Show>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              <button
+                type="button"
+                onClick={() => setTargetFormat("jpeg")}
+                class={`flex-1 py-1.5 rounded-lg uppercase font-semibold text-xs transition-all active:scale-95 ${
+                  targetFormat() === "jpeg"
+                    ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                }`}
+              >
+                JPEG
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetFormat("png")}
+                class={`flex-1 py-1.5 rounded-lg uppercase font-semibold text-xs transition-all active:scale-95 ${
+                  targetFormat() === "png"
+                    ? "bg-primary text-primary-foreground shadow-xs ring-1 ring-primary"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                }`}
+              >
+                PNG
+              </button>
+              <div class="relative flex-1">
+                <select
+                  value={isOtherFormat(targetFormat()) ? targetFormat() : ""}
+                  onChange={(e) => {
+                    const val = e.currentTarget.value;
+                    if (val) {
+                      setTargetFormat(val as SupportedOutputFormat);
+                    }
+                  }}
+                  class={`w-full py-1.5 pl-2 pr-6 rounded-lg text-xs font-semibold uppercase appearance-none cursor-pointer transition-all border outline-none truncate ${
+                    isOtherFormat(targetFormat())
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs ring-1 ring-primary"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border-border"
                   }`}
                 >
-                  {fmt}
-                </button>
-              ))}
+                  <option value="" disabled selected={!isOtherFormat(targetFormat())} class="bg-card text-card-foreground">
+                    {isOtherFormat(targetFormat()) ? targetFormat().toUpperCase() : t("image_converter.other_formats")}
+                  </option>
+                  <For each={OTHER_FORMATS}>
+                    {(fmt) => (
+                      <option
+                        value={fmt.value}
+                        selected={targetFormat() === fmt.value}
+                        class="bg-card text-card-foreground font-medium"
+                      >
+                        {fmt.label}
+                      </option>
+                    )}
+                  </For>
+                </select>
+                <ChevronDown
+                  size={12}
+                  class={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                    isOtherFormat(targetFormat()) ? "text-primary-foreground" : "text-muted-foreground"
+                  }`}
+                />
+              </div>
             </div>
           </div>
 
