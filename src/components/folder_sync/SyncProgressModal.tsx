@@ -46,7 +46,7 @@ export function SyncProgressModal(props: SyncProgressModalProps) {
                 when={props.result?.success}
                 fallback={<AlertTriangle class="text-amber-500" size={24} />}
               >
-                <CheckCircle2 class="text-emerald-500" size={24} />}
+                <CheckCircle2 class="text-emerald-500" size={24} />
               </Show>
             </Show>
             <div>
