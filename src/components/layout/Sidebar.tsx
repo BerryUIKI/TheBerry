@@ -15,6 +15,12 @@ import {
   Fingerprint,
   QrCode,
   Braces,
+  FileOutput,
+  Archive,
+  FileText,
+  FileSpreadsheet,
+  FileScan,
+  Type,
   GripVertical,
   Sliders,
   ChevronDown,
@@ -50,6 +56,12 @@ const ICON_MAP: Record<string, any> = {
   Fingerprint,
   QrCode,
   Braces,
+  FileOutput,
+  Archive,
+  FileText,
+  FileSpreadsheet,
+  FileScan,
+  Type,
 };
 
 export function Sidebar() {

@@ -23,7 +23,9 @@ import {
   RotateCcw,
   Sliders,
   ArrowUpDown,
+  Rocket,
 } from "lucide-solid";
+import { ContextMenu, ContextMenuItem } from "../components/common/ContextMenu";
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../context/I18nContext";
 import { useToast } from "../context/ToastContext";
@@ -126,6 +128,15 @@ const tools: ToolDefinition[] = [
     available: true,
   },
   {
+    id: "file-search",
+    name: { zh: "文件极速搜索", en: "File Search" },
+    description: { zh: "全盘极速检索，毫秒级定位文件与目录", en: "Instant full-disk search for files and folders" },
+    category: "system",
+    tags: ["搜索", "文件", "Search", "极速"],
+    icon: Search,
+    available: true,
+  },
+  {
     id: "image-compressor",
     name: { zh: "图片压缩", en: "Image Compressor" },
     description: { zh: "在保持观感的同时减小图片体积", en: "Reduce image size while preserving quality" },
@@ -192,8 +203,29 @@ export function ToolboxView() {
 
   const [customToolOrder, setCustomToolOrder] = createSignal<string[]>([]);
   const [sidebarPinnedIds, setSidebarPinnedIds] = createSignal<Set<string>>(new Set());
+
+  // Pointer-based Drag & Drop state
+  let gridContainerRef: HTMLDivElement | undefined;
+  let pressTimer: number | null = null;
+  let startX = 0;
+  let startY = 0;
+  let dragStartIndex: number | null = null;
+  const [isPointerDragging, setIsPointerDragging] = createSignal(false);
   const [draggedToolIndex, setDraggedToolIndex] = createSignal<number | null>(null);
   const [dragOverToolIndex, setDragOverToolIndex] = createSignal<number | null>(null);
+
+  // Floating Context Menu
+  const [contextMenu, setContextMenu] = createSignal<{
+    x: number;
+    y: number;
+    isOpen: boolean;
+    tool: ToolDefinition | null;
+  }>({
+    x: 0,
+    y: 0,
+    isOpen: false,
+    tool: null,
+  });
 
   const localize = (text: LocalizedText) => text[language()];
 
@@ -202,6 +234,8 @@ export function ToolboxView() {
     if (cfg.sidebarItems.some((it) => it.id === id)) return id;
     const under = id.replace(/-/g, "_");
     if (cfg.sidebarItems.some((it) => it.id === under)) return under;
+    const hyphen = id.replace(/_/g, "-");
+    if (cfg.sidebarItems.some((it) => it.id === hyphen)) return hyphen;
     return id;
   };
 
@@ -216,6 +250,9 @@ export function ToolboxView() {
     reloadNavState();
     const handleNavChange = () => reloadNavState();
     window.addEventListener("navigation-state-changed", handleNavChange);
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
 
     const handleOpenToolEvent = (e: Event) => {
       const ce = e as CustomEvent<string>;
@@ -229,6 +266,10 @@ export function ToolboxView() {
     onCleanup(() => {
       window.removeEventListener("navigation-state-changed", handleNavChange);
       window.removeEventListener("open-toolbox-tool", handleOpenToolEvent);
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+      if (pressTimer) clearTimeout(pressTimer);
     });
   });
 
@@ -282,6 +323,10 @@ export function ToolboxView() {
       setActiveView("folder_sync");
       return;
     }
+    if (tool.id === "file-search") {
+      setActiveView("file_search");
+      return;
+    }
     if (tool.id === "file-hash") {
       setActiveModal("file-hash");
       return;
@@ -314,43 +359,159 @@ export function ToolboxView() {
     });
   };
 
-  const handleToolDragStart = (e: DragEvent, index: number) => {
-    setDraggedToolIndex(index);
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", `${index}`);
+  // Pointer-based Drag & Drop
+  const handleToolPointerDown = (e: PointerEvent, index: number) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement | null;
+    if (target && target.closest("button")) return;
+
+    startX = e.clientX;
+    startY = e.clientY;
+    dragStartIndex = index;
+
+    if (pressTimer) clearTimeout(pressTimer);
+    pressTimer = window.setTimeout(() => {
+      setIsPointerDragging(true);
+      setDraggedToolIndex(index);
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(30);
+      }
+    }, 150);
+  };
+
+  const handleWindowPointerMove = (e: PointerEvent) => {
+    if (dragStartIndex === null) return;
+
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+
+    if (!isPointerDragging() && (dx > 4 || dy > 4)) {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      setIsPointerDragging(true);
+      setDraggedToolIndex(dragStartIndex);
+    }
+
+    if (isPointerDragging() && gridContainerRef) {
+      const cardEls = gridContainerRef.querySelectorAll<HTMLElement>("[data-tool-index]");
+      let foundIndex: number | null = null;
+
+      cardEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom
+        ) {
+          const raw = el.getAttribute("data-tool-index");
+          if (raw !== null) foundIndex = parseInt(raw, 10);
+        }
+      });
+
+      setDragOverToolIndex(foundIndex);
     }
   };
 
-  const handleToolDragOver = (e: DragEvent, index: number) => {
-    e.preventDefault();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = "move";
+  const handleWindowPointerUp = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
     }
-    setDragOverToolIndex(index);
-  };
 
-  const handleToolDragEnd = () => {
+    if (dragStartIndex !== null && isPointerDragging()) {
+      const from = draggedToolIndex();
+      const to = dragOverToolIndex();
+      if (from !== null && to !== null && from !== to) {
+        const currentOrder = orderedBaseTools().map((t) => t.id);
+        const updatedOrder = reorderToolboxTools(from, to, currentOrder);
+        setCustomToolOrder(updatedOrder);
+        success(
+          language() === "zh" ? "排序已更新" : "Order Updated",
+          language() === "zh" ? "工具箱排列顺序已保存" : "Toolbox tools reordered"
+        );
+      }
+    }
+
+    setIsPointerDragging(false);
     setDraggedToolIndex(null);
     setDragOverToolIndex(null);
+    dragStartIndex = null;
   };
 
-  const handleToolDrop = (e: DragEvent, dropIndex: number) => {
+  // Card Context Menu
+  const handleCardContextMenu = (e: MouseEvent, tool: ToolDefinition) => {
     e.preventDefault();
-    const startIndex = draggedToolIndex();
-    if (startIndex === null || startIndex === dropIndex) {
-      handleToolDragEnd();
-      return;
-    }
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      isOpen: true,
+      tool,
+    });
+  };
 
-    const currentOrder = orderedBaseTools().map((t) => t.id);
-    const updatedOrder = reorderToolboxTools(startIndex, dropIndex, currentOrder);
-    setCustomToolOrder(updatedOrder);
-    handleToolDragEnd();
-    info(
-      language() === "zh" ? "排序已更新" : "Order Updated",
-      language() === "zh" ? "工具箱排列顺序已保存" : "Toolbox order saved"
-    );
+  const getContextMenuItems = (): ContextMenuItem[] => {
+    const tool = contextMenu().tool;
+    if (!tool) return [];
+
+    const navId = resolveNavId(tool.id);
+    const isPinned = sidebarPinnedIds().has(tool.id) || sidebarPinnedIds().has(navId);
+    const isFav = favorites().has(tool.id);
+
+    return [
+      {
+        id: "pin",
+        label: isPinned
+          ? language() === "zh"
+            ? "从左侧菜单栏取消固定"
+            : "Unpin from Sidebar"
+          : language() === "zh"
+          ? "固定到左侧菜单栏"
+          : "Pin to Sidebar",
+        icon: isPinned ? PinOff : Pin,
+        onClick: () => {
+          handleTogglePin(tool);
+        },
+      },
+      {
+        id: "open",
+        label: language() === "zh" ? "打开此工具" : "Open Tool",
+        icon: Rocket,
+        onClick: () => {
+          openTool(tool);
+        },
+      },
+      {
+        id: "favorite",
+        label: isFav
+          ? language() === "zh"
+            ? "取消收藏"
+            : "加入收藏"
+          : language() === "zh"
+          ? "加入收藏"
+          : "Add to Favorites",
+        icon: Star,
+        onClick: () => {
+          toggleFavorite(tool);
+        },
+      },
+      {
+        id: "divider",
+        label: "",
+        divider: true,
+      },
+      {
+        id: "manage_nav",
+        label: language() === "zh" ? "管理侧边栏导航..." : "Manage Sidebar Navigation...",
+        icon: Sliders,
+        onClick: () => {
+          window.dispatchEvent(new CustomEvent("open-navigation-manager"));
+        },
+      },
+    ];
   };
 
   const handleResetToolboxOrder = () => {
@@ -528,7 +689,7 @@ export function ToolboxView() {
             </div>
           }
         >
-          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-1">
+          <div ref={gridContainerRef} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-1">
             <For each={filteredTools()}>
               {(tool, index) => {
                 const Icon = tool.icon;
@@ -542,16 +703,14 @@ export function ToolboxView() {
 
                 return (
                   <article
-                    draggable={true}
-                    onDragStart={(e) => handleToolDragStart(e, index())}
-                    onDragOver={(e) => handleToolDragOver(e, index())}
-                    onDragEnd={handleToolDragEnd}
-                    onDrop={(e) => handleToolDrop(e, index())}
-                    class={`group relative p-3 bg-card border rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 ${
+                    data-tool-index={index()}
+                    onPointerDown={(e) => handleToolPointerDown(e, index())}
+                    onContextMenu={(e) => handleCardContextMenu(e, tool)}
+                    class={`group relative p-3 bg-card border rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 touch-none ${
                       isDragged()
-                        ? "tool-card-dragging"
+                        ? "tool-card-dragging scale-95 opacity-70 border-primary shadow-xl ring-2 ring-primary/40 z-30"
                         : isOver()
-                        ? "tool-card-over"
+                        ? "tool-card-over border-primary ring-2 ring-primary/50 bg-primary/5"
                         : "border-border hover:border-primary/40 hover:-translate-y-1 hover:shadow-md"
                     }`}
                   >
@@ -634,10 +793,10 @@ export function ToolboxView() {
 
                         {/* Tactile Grip Drag Handle */}
                         <span
-                          class="drag-grip-handle text-muted-foreground/40 hover:text-foreground p-0.5 rounded hover:bg-muted/40"
+                          class="drag-grip-handle text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 rounded hover:bg-secondary/60 transition-colors"
                           title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
                         >
-                          <GripVertical size={13} />
+                          <GripVertical size={14} />
                         </span>
                       </div>
                     </div>
@@ -667,6 +826,15 @@ export function ToolboxView() {
           </div>
         </Show>
       </div>
+
+      {/* Floating Context Menu for Tool Cards */}
+      <ContextMenu
+        x={contextMenu().x}
+        y={contextMenu().y}
+        isOpen={contextMenu().isOpen}
+        items={contextMenu().tool ? getContextMenuItems() : []}
+        onClose={() => setContextMenu((prev) => ({ ...prev, isOpen: false }))}
+      />
       <FileHashModal
         isOpen={activeModal() === "file-hash"}
         onClose={() => setActiveModal(null)}
