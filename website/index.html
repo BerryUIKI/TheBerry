@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TheBerry — Personal Desktop Productivity Suite</title>
-  <link rel="icon" href="../public/berry.png" />
+  <meta name="description" content="Ultra-fast, offline-first personal desktop productivity suite built with Tauri v2, Rust and SolidJS." />
+  <link rel="icon" href="https://raw.githubusercontent.com/BerryUIKI/TheBerry/main/public/berry.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -18,171 +19,437 @@
               500: '#f43f5e',
               600: '#e11d48',
               700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
             },
           },
         },
       },
     };
   </script>
+  <style>
+    @keyframes pulse-subtle {
+      0%, 100% { opacity: 0.15; transform: scale(1); }
+      50% { opacity: 0.25; transform: scale(1.05); }
+    }
+    .glow-bg {
+      animation: pulse-subtle 8s ease-in-out infinite;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-rose-500 selection:text-white">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-rose-500 selection:text-white relative overflow-x-hidden">
 
-  <!-- Navigation Bar -->
+  <!-- Ambient Gradient Background Lights -->
+  <div class="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-b from-rose-600/20 via-pink-600/10 to-transparent blur-3xl pointer-events-none -z-10 glow-bg"></div>
+
+  <!-- Header Navigation -->
   <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
-          <span class="text-white font-bold text-sm">🍓</span>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-500/20">
+          <span class="text-white font-bold text-base">🍓</span>
         </div>
-        <span class="font-bold tracking-tight text-lg text-white">TheBerry</span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono font-medium">v0.1.11</span>
+        <div class="flex items-center space-x-2">
+          <span class="font-extrabold tracking-tight text-lg text-white">TheBerry</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono font-medium">v0.1.11</span>
+        </div>
       </div>
 
-      <nav class="hidden md:flex items-center space-x-8 text-sm text-slate-300 font-medium">
-        <a href="#features" class="hover:text-white transition-colors">Features</a>
-        <a href="#spotlight" class="hover:text-white transition-colors">Spotlight HUD</a>
-        <a href="#downloads" class="hover:text-white transition-colors">Downloads</a>
-        <a href="https://github.com/BerryUIKI/TheBerry" target="_blank" class="hover:text-white transition-colors">GitHub</a>
+      <!-- Center Links -->
+      <nav class="hidden md:flex items-center space-x-7 text-xs text-slate-300 font-medium">
+        <a href="#features" class="hover:text-rose-400 transition-colors" data-i18n="nav.features">Features</a>
+        <a href="#toolbox" class="hover:text-rose-400 transition-colors" data-i18n="nav.toolbox">Toolbox Suite</a>
+        <a href="#spotlight" class="hover:text-rose-400 transition-colors" data-i18n="nav.spotlight">Spotlight & AI</a>
+        <a href="#downloads" class="hover:text-rose-400 transition-colors" data-i18n="nav.downloads">Downloads</a>
+        <a href="https://github.com/BerryUIKI/TheBerry" target="_blank" class="hover:text-white transition-colors flex items-center gap-1">
+          GitHub
+          <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        </a>
       </nav>
 
-      <a
-        href="#downloads"
-        class="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30 transition-all active:scale-95"
-      >
-        Download Free
-      </a>
+      <!-- Right Controls: Language Selector & Action -->
+      <div class="flex items-center space-x-3">
+        <!-- Language Switcher Button -->
+        <button
+          id="lang-toggle-btn"
+          onclick="toggleLanguage()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-medium transition-all"
+          title="Switch Language / 切换语言"
+        >
+          <span id="lang-icon">🌐</span>
+          <span id="lang-text">English</span>
+        </button>
+
+        <a
+          href="#downloads"
+          class="px-4 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white shadow-md shadow-rose-600/30 transition-all hover:scale-105 active:scale-95"
+          data-i18n="nav.download_free"
+        >
+          Download Free
+        </a>
+      </div>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <section class="py-20 px-6 text-center max-w-5xl mx-auto flex flex-col items-center">
-    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium mb-6 animate-pulse">
-      <span>✨ Milestone 2 Released</span>
+  <section class="py-20 px-6 text-center max-w-5xl mx-auto flex flex-col items-center relative">
+    <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-6 shadow-xs">
+      <span>✨ v0.1.11 Released</span>
       <span>•</span>
-      <span>Windows 11, macOS & Linux</span>
+      <span data-i18n="hero.badge">17-Tool Suite & Full Dual-Language Support</span>
     </div>
 
-    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white max-w-3xl leading-tight">
-      Your Offline-First <span class="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-300 bg-clip-text text-transparent">Desktop Superpowers</span> Suite
+    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white max-w-4xl leading-tight">
+      <span data-i18n="hero.title_part1">Your Offline-First</span>
+      <span class="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-300 bg-clip-text text-transparent" data-i18n="hero.title_highlight">Desktop Superpowers</span>
+      <span data-i18n="hero.title_part2">Suite</span>
     </h1>
 
-    <p class="mt-6 text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed">
-      Crafted with Tauri v2, Rust & SolidJS. Instant Spotlight search, rich media clipboard history, dynamic code templates, Lanczos3 batch image compression, and disk-speed file search.
+    <p class="mt-6 text-base sm:text-lg text-slate-400 max-w-2xl leading-relaxed" data-i18n="hero.subtitle">
+      Powered by Tauri v2, Rust and SolidJS. Global Spotlight HUD, local & cloud AI assistant, FreeFileSync folder sync, and a complete 17-tool developer suite running with native speed.
     </p>
 
-    <!-- Download CTA Buttons (Stable Release Links) -->
+    <!-- Download CTAs -->
     <div id="downloads" class="mt-10 flex flex-wrap gap-4 justify-center">
       <a
-        href="https://github.com/BerryUIKI/TheBerry/releases/latest/download/the-berry_windows_x64.msi"
-        class="flex items-center space-x-3 px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-semibold text-sm shadow-xl shadow-rose-600/25 transition-all hover:scale-105 active:scale-95"
+        href="https://github.com/BerryUIKI/TheBerry/releases/latest"
+        target="_blank"
+        class="flex items-center space-x-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-semibold text-sm shadow-xl shadow-rose-600/25 transition-all hover:scale-105 active:scale-95"
       >
-        <span>🪟</span>
+        <span class="text-xl">🪟</span>
         <div class="text-left">
-          <div class="text-[11px] opacity-80 uppercase tracking-wider font-mono">Download for</div>
-          <div class="font-bold">Windows x64 (.msi)</div>
+          <div class="text-[10px] opacity-80 uppercase tracking-wider font-mono" data-i18n="btn.download_for">Download for</div>
+          <div class="font-bold">Windows x64 (.msi / .exe)</div>
         </div>
       </a>
 
       <a
-        href="https://github.com/BerryUIKI/TheBerry/releases/latest/download/the-berry_macos_aarch64.dmg"
-        class="flex items-center space-x-3 px-6 py-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-semibold text-sm border border-slate-700 transition-all hover:scale-105 active:scale-95"
+        href="https://github.com/BerryUIKI/TheBerry/releases/latest"
+        target="_blank"
+        class="flex items-center space-x-3 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 text-white font-semibold text-sm border border-slate-800 hover:border-slate-700 transition-all hover:scale-105 active:scale-95"
       >
-        <span>🍎</span>
+        <span class="text-xl">🍎</span>
         <div class="text-left">
-          <div class="text-[11px] opacity-80 uppercase tracking-wider font-mono">Download for</div>
-          <div class="font-bold">macOS Apple Silicon (.dmg)</div>
+          <div class="text-[10px] opacity-80 uppercase tracking-wider font-mono" data-i18n="btn.download_for">Download for</div>
+          <div class="font-bold">macOS (.dmg)</div>
         </div>
       </a>
 
       <a
-        href="https://github.com/BerryUIKI/TheBerry/releases/latest/download/the-berry_linux_x64.AppImage"
-        class="flex items-center space-x-3 px-6 py-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-white font-semibold text-sm border border-slate-700 transition-all hover:scale-105 active:scale-95"
+        href="https://github.com/BerryUIKI/TheBerry/releases/latest"
+        target="_blank"
+        class="flex items-center space-x-3 px-6 py-3.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800/90 text-white font-semibold text-sm border border-slate-800 hover:border-slate-700 transition-all hover:scale-105 active:scale-95"
       >
-        <span>🐧</span>
+        <span class="text-xl">🐧</span>
         <div class="text-left">
-          <div class="text-[11px] opacity-80 uppercase tracking-wider font-mono">Download for</div>
-          <div class="font-bold">Linux x64 (.AppImage)</div>
+          <div class="text-[10px] opacity-80 uppercase tracking-wider font-mono" data-i18n="btn.download_for">Download for</div>
+          <div class="font-bold">Linux (.AppImage)</div>
         </div>
       </a>
     </div>
 
-    <div class="mt-4 text-xs text-slate-500 font-mono">
-      Permanent Stable Download URIs • Auto-updating via GitHub Releases
+    <div class="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500 font-mono">
+      <span>🔒 100% Offline & Private</span>
+      <span>•</span>
+      <span>⚡ Zero Telemetry</span>
+      <span>•</span>
+      <span>MIT Open Source</span>
     </div>
   </section>
 
-  <!-- Feature Grid -->
+  <!-- Feature Highlights -->
   <section id="features" class="py-16 px-6 max-w-6xl mx-auto w-full">
     <div class="text-center mb-12">
-      <h2 class="text-2xl sm:text-3xl font-bold text-white">Engineered for Daily Speed</h2>
-      <p class="text-slate-400 text-sm mt-2">Zero cloud dependencies. 100% private local redb database storage.</p>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white" data-i18n="features.title">Engineered for Instant Productivity</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-xl mx-auto" data-i18n="features.subtitle">Zero cloud lock-in. Everything stores locally inside an embedded ACID redb transactional database.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <!-- Feature 1 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
+      <!-- Feature 1: Spotlight -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
         <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-lg">
           🔍
         </div>
-        <h3 class="text-base font-semibold text-white">Global Spotlight HUD</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Hit <kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px]">Ctrl+K</kbd> anywhere to search across apps, clipboard history, code snippets, and files in a single unified overlay.
+        <h3 class="text-base font-semibold text-white" data-i18n="f1.title">Global Spotlight HUD</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f1.desc">
+          Hit <kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px]">Alt+Space</kbd> or <kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px]">Ctrl+K</kbd> anywhere to query apps, clipboard history, dynamic snippets, and disk files in a unified overlay.
         </p>
       </div>
 
-      <!-- Feature 2 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
+      <!-- Feature 2: AI Assistant -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
         <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center font-bold text-lg">
+          🤖
+        </div>
+        <h3 class="text-base font-semibold text-white" data-i18n="f2.title">TheBerry AI / 豆花 AI</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f2.desc">
+          Deep integration with local Ollama daemons and OpenAI/Claude APIs. Supports manual abort (<kbd class="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-[10px]">X</kbd>), timeout protection, and vision OCR bridges.
+        </p>
+      </div>
+
+      <!-- Feature 3: FreeFileSync -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-lg">
+          🔄
+        </div>
+        <h3 class="text-base font-semibold text-white" data-i18n="f3.title">Folder Sync & Comparison</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f3.desc">
+          FreeFileSync-grade core with Two-way, Mirror, and Update sync modes, SHA-256 multi-threaded hash comparison, timestamped versioning, and RealTimeSync file monitoring.
+        </p>
+      </div>
+
+      <!-- Feature 4: Clipboard -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-lg">
           📋
         </div>
-        <h3 class="text-base font-semibold text-white">Rich Media Clipboard</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Automatic background capture for text, code, links, and screenshots with real-time base64 thumbnails and full-screen zoom.
+        <h3 class="text-base font-semibold text-white" data-i18n="f4.title">Rich Media Clipboard</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f4.desc">
+          Smart background daemon capturing text, URLs, and image screenshots with instant base64 thumbnails, pin toggles, and optional listening switch.
         </p>
       </div>
 
-      <!-- Feature 3 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-lg">
+      <!-- Feature 5: File Search -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-lg">
           ⚡
         </div>
-        <h3 class="text-base font-semibold text-white">Dynamic Snippet Templates</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Embed <code class="text-rose-400 font-mono text-[11px]">${DATE}</code>, <code class="text-rose-400 font-mono text-[11px]">${UUID}</code>, and <code class="text-rose-400 font-mono text-[11px]">${CLIPBOARD_TEXT}</code> in templates with live dynamic evaluation and JSON backups.
+        <h3 class="text-base font-semibold text-white" data-i18n="f5.title">File Search & QuickLook</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f5.desc">
+          Millisecond multi-drive file search with substring matching, sorting, Explorer reveal, and native Windows QuickLook spacebar previews.
         </p>
       </div>
 
-      <!-- Feature 4 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center font-bold text-lg">
-          🖼️
-        </div>
-        <h3 class="text-base font-semibold text-white">Lanczos3 Image Converter</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Batch compress and convert PNG, JPG, and WebP images with high-fidelity Lanczos3 scaling and byte reduction telemetry.
-        </p>
-      </div>
-
-      <!-- Feature 5 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center font-bold text-lg">
-          📂
-        </div>
-        <h3 class="text-base font-semibold text-white">Multi-Drive File Search</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Instant disk traversal with real-time keyword highlighting, column sorting, and 1-click reveal in Windows Explorer.
-        </p>
-      </div>
-
-      <!-- Feature 6 -->
-      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-3">
+      <!-- Feature 6: Auto Updater -->
+      <div class="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 hover:border-rose-500/40 transition-all space-y-3">
         <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-bold text-lg">
           🚀
         </div>
-        <h3 class="text-base font-semibold text-white">Native Boot Autostart</h3>
-        <p class="text-xs text-slate-400 leading-relaxed">
-          Native Windows Registry Run integration, system tray background daemon, and silent 24-hour auto-update stream checks.
+        <h3 class="text-base font-semibold text-white" data-i18n="f6.title">In-Place Streaming Auto-Updater</h3>
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="f6.desc">
+          Native Rust streaming downloader writing directly to local disk with real-time throughput metrics and silent 1-click installer invocation.
         </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Complete 17-Tool Suite Grid -->
+  <section id="toolbox" class="py-16 px-6 max-w-6xl mx-auto w-full">
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-3">
+        <span>🧰 17 / 17 Tools Complete</span>
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-extrabold text-white" data-i18n="toolbox.title">Complete Developer & Utility Toolbox</h2>
+      <p class="text-slate-400 text-sm mt-2 max-w-xl mx-auto" data-i18n="toolbox.subtitle">
+        Every tool is offline-first, completely native, and seamlessly integrated into the custom drag-and-drop workspace.
+      </p>
+    </div>
+
+    <!-- Category Filter Tabs -->
+    <div class="flex flex-wrap justify-center gap-2 mb-8" id="tool-tabs">
+      <button onclick="filterTools('all')" class="tool-tab-btn active px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-sm transition-all" data-category="all" data-i18n="tab.all">All (17)</button>
+      <button onclick="filterTools('productivity')" class="tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all" data-category="productivity" data-i18n="tab.productivity">Productivity</button>
+      <button onclick="filterTools('files')" class="tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all" data-category="files" data-i18n="tab.files">Files & System</button>
+      <button onclick="filterTools('document')" class="tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all" data-category="document" data-i18n="tab.document">Documents</button>
+      <button onclick="filterTools('image')" class="tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all" data-category="image" data-i18n="tab.image">Images & Media</button>
+      <button onclick="filterTools('text')" class="tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all" data-category="text" data-i18n="tab.text">Text & Data</button>
+    </div>
+
+    <!-- 17 Tools Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="tools-grid">
+      <!-- Tool 1: Clipboard -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="productivity">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📋</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.clip.title">Clipboard History</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.clip.desc">Smart clipboard daemon with instant search and paste</p>
+      </div>
+
+      <!-- Tool 2: Snippets -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="productivity">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">💻</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.snip.title">Snippets & Prompts</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.snip.desc">Reusable code snippets and AI prompts with syntax highlighting</p>
+      </div>
+
+      <!-- Tool 3: Launcher -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="productivity">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🚀</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.launch.title">App Launcher</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.launch.desc">Quick launch apps, scripts, and commands</p>
+      </div>
+
+      <!-- Tool 4: File Search -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="files">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🔍</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.search.title">File Search</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.search.desc">Instant full-disk search for files and folders</p>
+      </div>
+
+      <!-- Tool 5: Image Converter -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="image">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🖼️</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.img_conv.title">Image Converter</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.img_conv.desc">Batch convert PNG, JPG, WebP with Lanczos3</p>
+      </div>
+
+      <!-- Tool 6: Folder Sync -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="files">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🔄</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.sync.title">Folder Sync</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.sync.desc">Two-way and mirror sync with RealTimeSync</p>
+      </div>
+
+      <!-- Tool 7: Batch Rename -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="files">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🏷️</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.rename.title">Batch Rename</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.rename.desc">Rename files with regex, prefixes, and numbers</p>
+      </div>
+
+      <!-- Tool 8: File Hash -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="files">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🔒</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.hash.title">File Hash Checksum</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.hash.desc">Calculate and compare MD5 and SHA hashes</p>
+      </div>
+
+      <!-- Tool 9: QR Code Tools -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="image">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📱</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.qr.title">QR Code Tools</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.qr.desc">Generate text/Wi-Fi QR codes and scan images</p>
+      </div>
+
+      <!-- Tool 10: JSON & YAML -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="text">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">⚡</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.json.title">JSON / YAML Converter</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.json.desc">Convert, format and validate structured data</p>
+      </div>
+
+      <!-- Tool 11: Image Compressor -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="image">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🗜️</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.compress.title">Image Compressor</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.compress.desc">Deep multi-threaded image optimization with SIMD</p>
+      </div>
+
+      <!-- Tool 12: Markdown Converter -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="text">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📝</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.md.title">Markdown Converter</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.md.desc">Convert MD, HTML & copy rich text for Office</p>
+      </div>
+
+      <!-- Tool 13: Sheet Converter -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="document">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📊</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.sheet.title">Excel / CSV Converter</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.sheet.desc">Convert between XLSX, CSV and TSV with table preview</p>
+      </div>
+
+      <!-- Tool 14: PDF Organizer -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="document">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📑</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.pdf_org.title">Merge & Split PDF</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.pdf_org.desc">Combine multiple PDFs or extract custom page ranges</p>
+      </div>
+
+      <!-- Tool 15: PDF to Images -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="document">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">🖼️</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.pdf_img.title">PDF to Images</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.pdf_img.desc">Render PDF pages to HD PNG, JPG, or WebP</p>
+      </div>
+
+      <!-- Tool 16: OCR Text Recognition -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="document">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">👁️</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.ocr.title">OCR Text Extraction</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.ocr.desc">Windows Native OCR with direct screenshot paste</p>
+      </div>
+
+      <!-- Tool 17: Word to PDF -->
+      <div class="tool-card p-4 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-rose-500/40 transition-all space-y-2" data-category="document">
+        <div class="flex items-center justify-between">
+          <span class="text-xl">📄</span>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono font-medium">Ready</span>
+        </div>
+        <h4 class="text-sm font-semibold text-white" data-i18n="tool.word.title">Word to PDF</h4>
+        <p class="text-[11px] text-slate-400 line-clamp-2" data-i18n="tool.word.desc">Batch convert DOCX documents to portable PDFs</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Spotlight HUD Showcase -->
+  <section id="spotlight" class="py-16 px-6 max-w-5xl mx-auto w-full">
+    <div class="p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800/80 shadow-2xl relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="max-w-2xl">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold mb-4">
+          <span data-i18n="spotlight.tag">Instant Keybinding: Alt+Space / Ctrl+K</span>
+        </div>
+        <h2 class="text-3xl font-extrabold text-white" data-i18n="spotlight.title">Command Your Entire Workspace in One Keystroke</h2>
+        <p class="text-slate-400 text-sm mt-3 leading-relaxed" data-i18n="spotlight.desc">
+          No more clicking through menus. Query apps, clipboard history, dynamic snippets, and disk files simultaneously. Direct AI conversation with local models or OpenAI, with instant timeout & cancellation controls.
+        </p>
+
+        <div class="mt-6 flex flex-wrap gap-2 text-xs font-mono">
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-rose-400 border border-slate-700">@app Apps</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-amber-400 border border-slate-700">@clip Clipboard</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-emerald-400 border border-slate-700">@snip Snippets</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-sky-400 border border-slate-700">@file Files</span>
+          <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-purple-400 border border-slate-700">/fin Full Search</span>
+        </div>
       </div>
     </div>
   </section>
@@ -194,12 +461,230 @@
         <span>🍓 TheBerry Open-Source Project</span>
         <span>•</span>
         <span>MIT License</span>
+        <span>•</span>
+        <span data-i18n="footer.i18n">English & 简体中文</span>
       </div>
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-5">
         <a href="https://github.com/BerryUIKI/TheBerry" target="_blank" class="hover:text-slate-300 transition-colors">GitHub Repository</a>
-        <a href="https://github.com/BerryUIKI/TheBerry/releases" target="_blank" class="hover:text-slate-300 transition-colors">Release Notes</a>
+        <a href="https://github.com/BerryUIKI/TheBerry/releases" target="_blank" class="hover:text-slate-300 transition-colors">Releases</a>
       </div>
     </div>
   </footer>
+
+  <!-- Internationalization & Category Logic -->
+  <script>
+    const translations = {
+      en: {
+        "nav.features": "Features",
+        "nav.toolbox": "Toolbox Suite",
+        "nav.spotlight": "Spotlight & AI",
+        "nav.downloads": "Downloads",
+        "nav.download_free": "Download Free",
+        "hero.badge": "17-Tool Suite & Full Dual-Language Support",
+        "hero.title_part1": "Your Offline-First ",
+        "hero.title_highlight": "Desktop Superpowers",
+        "hero.title_part2": " Suite",
+        "hero.subtitle": "Powered by Tauri v2, Rust and SolidJS. Global Spotlight HUD, local & cloud AI assistant, FreeFileSync folder sync, and a complete 17-tool developer suite running with native speed.",
+        "btn.download_for": "Download for",
+        "features.title": "Engineered for Instant Productivity",
+        "features.subtitle": "Zero cloud lock-in. Everything stores locally inside an embedded ACID redb transactional database.",
+        "f1.title": "Global Spotlight HUD",
+        "f1.desc": "Hit Alt+Space or Ctrl+K anywhere to query apps, clipboard history, dynamic snippets, and disk files in a unified overlay.",
+        "f2.title": "TheBerry AI / 豆花 AI",
+        "f2.desc": "Deep integration with local Ollama daemons and OpenAI/Claude APIs. Supports manual abort (X), timeout protection, and vision OCR bridges.",
+        "f3.title": "Folder Sync & Comparison",
+        "f3.desc": "FreeFileSync-grade core with Two-way, Mirror, and Update sync modes, SHA-256 multi-threaded hash comparison, timestamped versioning, and RealTimeSync file monitoring.",
+        "f4.title": "Rich Media Clipboard",
+        "f4.desc": "Smart background daemon capturing text, URLs, and image screenshots with instant base64 thumbnails, pin toggles, and optional listening switch.",
+        "f5.title": "File Search & QuickLook",
+        "f5.desc": "Millisecond multi-drive file search with substring matching, sorting, Explorer reveal, and native Windows QuickLook spacebar previews.",
+        "f6.title": "In-Place Streaming Auto-Updater",
+        "f6.desc": "Native Rust streaming downloader writing directly to local disk with real-time throughput metrics and silent 1-click installer invocation.",
+        "toolbox.title": "Complete Developer & Utility Toolbox",
+        "toolbox.subtitle": "Every tool is offline-first, completely native, and seamlessly integrated into the custom drag-and-drop workspace.",
+        "tab.all": "All (17)",
+        "tab.productivity": "Productivity",
+        "tab.files": "Files & System",
+        "tab.document": "Documents",
+        "tab.image": "Images & Media",
+        "tab.text": "Text & Data",
+        "tool.clip.title": "Clipboard History",
+        "tool.clip.desc": "Smart clipboard daemon with instant search and paste",
+        "tool.snip.title": "Snippets & Prompts",
+        "tool.snip.desc": "Reusable code snippets and AI prompts with syntax highlighting",
+        "tool.launch.title": "App Launcher",
+        "tool.launch.desc": "Quick launch apps, scripts, and commands",
+        "tool.search.title": "File Search",
+        "tool.search.desc": "Instant full-disk search for files and folders",
+        "tool.img_conv.title": "Image Converter",
+        "tool.img_conv.desc": "Batch convert PNG, JPG, WebP with Lanczos3",
+        "tool.sync.title": "Folder Sync & Diff",
+        "tool.sync.desc": "Two-way and mirror sync with RealTimeSync",
+        "tool.rename.title": "Batch Rename",
+        "tool.rename.desc": "Rename files with regex, prefixes, and numbers",
+        "tool.hash.title": "File Hash Checksum",
+        "tool.hash.desc": "Calculate and compare MD5 and SHA hashes",
+        "tool.qr.title": "QR Code Tools",
+        "tool.qr.desc": "Generate text/Wi-Fi QR codes and scan images",
+        "tool.json.title": "JSON / YAML Converter",
+        "tool.json.desc": "Convert, format and validate structured data",
+        "tool.compress.title": "Image Compressor",
+        "tool.compress.desc": "Deep multi-threaded image optimization with SIMD",
+        "tool.md.title": "Markdown Converter",
+        "tool.md.desc": "Convert MD, HTML & copy rich text for Office",
+        "tool.sheet.title": "Excel / CSV Converter",
+        "tool.sheet.desc": "Convert between XLSX, CSV and TSV with table preview",
+        "tool.pdf_org.title": "Merge & Split PDF",
+        "tool.pdf_org.desc": "Combine multiple PDFs or extract custom page ranges",
+        "tool.pdf_img.title": "PDF to Images",
+        "tool.pdf_img.desc": "Render PDF pages to HD PNG, JPG, or WebP",
+        "tool.ocr.title": "OCR Text Extraction",
+        "tool.ocr.desc": "Windows Native OCR with direct screenshot paste",
+        "tool.word.title": "Word to PDF",
+        "tool.word.desc": "Batch convert DOCX documents to portable PDFs",
+        "spotlight.tag": "Instant Keybinding: Alt+Space / Ctrl+K",
+        "spotlight.title": "Command Your Entire Workspace in One Keystroke",
+        "spotlight.desc": "No more clicking through menus. Query apps, clipboard history, dynamic snippets, and disk files simultaneously. Direct AI conversation with local models or OpenAI, with instant timeout & cancellation controls.",
+        "footer.i18n": "English & 简体中文"
+      },
+      zh: {
+        "nav.features": "核心特性",
+        "nav.toolbox": "全能工具箱",
+        "nav.spotlight": "聚合搜索与AI",
+        "nav.downloads": "版本下载",
+        "nav.download_free": "免费下载",
+        "hero.badge": "v0.1.11 正式发布 • 17款工具全量实装 • 完整双语",
+        "hero.title_part1": "极速离线的 ",
+        "hero.title_highlight": "桌面生产力超能力",
+        "hero.title_part2": " 套件",
+        "hero.subtitle": "基于 Tauri v2、Rust 与 SolidJS 匠心打造。全局 Spotlight 聚焦搜索、本地与云端 AI 助手、FreeFileSync 文件夹同步，以及 17 项极速原生开发者工具。",
+        "btn.download_for": "下载对应版本",
+        "features.title": "为极致速度与生产力而生",
+        "features.subtitle": "绝无任何云端数据绑定。所有数据均安全保存在本地嵌入式 ACID redb 事务数据库中。",
+        "f1.title": "全局 Spotlight HUD",
+        "f1.desc": "在任何界面随时按下 Alt+Space 或 Ctrl+K，毫秒级统一检索应用、剪贴板历史、动态代码片段与本地文件。",
+        "f2.title": "TheBerry AI / 豆花 AI",
+        "f2.desc": "深度集成 Ollama 本地模型守护进程与云端模型。支持单击 X 按钮手动中止、超时保护及一键 OCR 联动。",
+        "f3.title": "文件夹同步与比对",
+        "f3.desc": "搭载 FreeFileSync 核心能力，支持双向、镜像与增量模式、SHA-256 多线程哈希比对、安全版本控制及 RealTimeSync 实时监控。",
+        "f4.title": "多媒体剪贴板历史",
+        "f4.desc": "后台静默监听文本、链接与截图，生成即时 base64 缩略图，支持置顶收藏、关键词检索与监听开关切换。",
+        "f5.title": "极速文件检索与 QuickLook",
+        "f5.desc": "全盘驱动器毫秒级关键词检索，支持表格排序、一键在资源管理器中定位，以及 Windows 原生空格键预览。",
+        "f6.title": "原生流式原地自动更新",
+        "f6.desc": "Rust 原生 HTTP 流式下载写入本地磁盘，提供实时吞吐速率与进度显示，一键静默升级重启，无需手动卸载。",
+        "toolbox.title": "17 款全能开发者与生产力工具",
+        "toolbox.subtitle": "100% 离线运行，纯原生性能，无缝集成到可拖拽排序的侧边栏与定制布局中。",
+        "tab.all": "全部 (17)",
+        "tab.productivity": "效率办公",
+        "tab.files": "文件与系统",
+        "tab.document": "文档处理",
+        "tab.image": "图片多媒体",
+        "tab.text": "文本与数据",
+        "tool.clip.title": "剪贴板历史",
+        "tool.clip.desc": "智能记录剪贴板图文历史，支持秒级检索与一键粘贴",
+        "tool.snip.title": "代码片段与 Prompts",
+        "tool.snip.desc": "常用代码片段与 AI Prompts 快捷库，支持语法高亮与变量注入",
+        "tool.launch.title": "快捷启动中心",
+        "tool.launch.desc": "快速启动应用程序、控制台脚本与系统快捷指令",
+        "tool.search.title": "文件极速搜索",
+        "tool.search.desc": "全盘极速检索，毫秒级定位文件与目录",
+        "tool.img_conv.title": "图片格式转换",
+        "tool.img_conv.desc": "基于 Lanczos3 批量转换 PNG、JPG、WebP 格式",
+        "tool.sync.title": "文件夹同步与比对",
+        "tool.sync.desc": "双向/镜像同步，多线程哈希比对与 RealTimeSync 实时监控",
+        "tool.rename.title": "批量重命名",
+        "tool.rename.desc": "使用正则替换、前后缀与数字序号统一整理大量文件",
+        "tool.hash.title": "文件哈希校验",
+        "tool.hash.desc": "多线程计算并比对文件的 MD5 与 SHA 系列校验和",
+        "tool.qr.title": "二维码工具",
+        "tool.qr.desc": "离线生成文本、网址、Wi-Fi 二维码并识别图片条码",
+        "tool.json.title": "JSON / YAML 转换",
+        "tool.json.desc": "实时语法校验、高保真美化与结构化数据相互无损转换",
+        "tool.compress.title": "图片深度压缩",
+        "tool.compress.desc": "基于 SIMD 与高质量量化引擎，大幅缩减图片体积并展示节省率",
+        "tool.md.title": "Markdown 转换与富文本",
+        "tool.md.desc": "Markdown 与 HTML 互转，一键复制带格式富文本至 Word/邮件",
+        "tool.sheet.title": "Excel / CSV 表格转换",
+        "tool.sheet.desc": "在 XLSX、CSV、TSV 与 JSON 间快速转换，支持表格多页预览",
+        "tool.pdf_org.title": "PDF 页面合并与拆分",
+        "tool.pdf_org.desc": "多文档顺序合并，或按指定页码范围提取拆分为新文档",
+        "tool.pdf_img.title": "PDF 转高清图片",
+        "tool.pdf_img.desc": "将 PDF 页面按 1x/2x/3x DPI 批量渲染导出为 PNG/JPG/WebP",
+        "tool.ocr.title": "OCR 智能文字识别",
+        "tool.ocr.desc": "Windows 原生离线 OCR，支持直接按 Ctrl+V 粘贴截图提取文字",
+        "tool.word.title": "Word 转 PDF",
+        "tool.word.desc": "批量将 DOCX 与 DOC 文档无损转换为便携 PDF 格式",
+        "spotlight.tag": "全局呼出快捷键: Alt+Space 或 Ctrl+K",
+        "spotlight.title": "一键掌控你的整个工作流",
+        "spotlight.desc": "告别繁琐的菜单与窗口寻找。一个输入框同时搜索应用、剪贴板、代码片段与全盘文件。还可无缝向本地大模型或云端 AI 发起对话，支持即时中断与超时保护。",
+        "footer.i18n": "支持 English 与 简体中文"
+      }
+    };
+
+    let currentLang = 'en';
+
+    function initLanguage() {
+      const saved = localStorage.getItem('the_berry_site_lang');
+      if (saved && (saved === 'zh' || saved === 'en')) {
+        currentLang = saved;
+      } else {
+        const browser = (navigator.language || '').toLowerCase();
+        currentLang = browser.startsWith('zh') ? 'zh' : 'en';
+      }
+      applyLanguage(currentLang);
+    }
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'zh' : 'en';
+      localStorage.setItem('the_berry_site_lang', currentLang);
+      applyLanguage(currentLang);
+    }
+
+    function applyLanguage(lang) {
+      const dict = translations[lang] || translations.en;
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (dict[key]) {
+          el.innerText = dict[key];
+        }
+      });
+
+      const icon = document.getElementById('lang-icon');
+      const text = document.getElementById('lang-text');
+      if (icon && text) {
+        if (lang === 'zh') {
+          icon.innerText = '🇨🇳';
+          text.innerText = '简体中文';
+        } else {
+          icon.innerText = '🌐';
+          text.innerText = 'English';
+        }
+      }
+      document.documentElement.lang = lang;
+    }
+
+    function filterTools(category) {
+      document.querySelectorAll('.tool-tab-btn').forEach((btn) => {
+        if (btn.getAttribute('data-category') === category) {
+          btn.className = 'tool-tab-btn active px-3.5 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-semibold shadow-sm transition-all';
+        } else {
+          btn.className = 'tool-tab-btn px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 text-xs font-semibold transition-all';
+        }
+      });
+
+      document.querySelectorAll('.tool-card').forEach((card) => {
+        const cat = card.getAttribute('data-category');
+        if (category === 'all' || cat === category) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    // Auto initialize on DOM ready
+    document.addEventListener('DOMContentLoaded', initLanguage);
+  </script>
 </body>
 </html>

@@ -1,8 +1,17 @@
 # TheBerry 🍓
 
-[![Continuous Integration](https://github.com/BerryUIKI/TheBerry/actions/workflows/ci.yml/badge.svg)](https://github.com/BerryUIKI/TheBerry/actions/workflows/ci.yml)
-[![Release Build](https://github.com/BerryUIKI/TheBerry/actions/workflows/release.yml/badge.svg)](https://github.com/BerryUIKI/TheBerry/actions/workflows/release.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-rose.svg)](LICENSE)
+<p align="center">
+  <a href="https://BerryUIKI.github.io/TheBerry/"><strong>🌐 Visit Official Website (GitHub Pages)</strong></a>
+  <br />
+  <a href="README.md">English</a> | <a href="README_zh.md">简体中文</a>
+</p>
+
+<p align="center">
+  <a href="https://BerryUIKI.github.io/TheBerry/"><img src="https://img.shields.io/badge/Website-BerryUIKI.github.io%2FTheBerry-rose?logo=githubpages&logoColor=white" alt="Website" /></a>
+  <a href="https://github.com/BerryUIKI/TheBerry/actions/workflows/ci.yml"><img src="https://github.com/BerryUIKI/TheBerry/actions/workflows/ci.yml/badge.svg" alt="Continuous Integration" /></a>
+  <a href="https://github.com/BerryUIKI/TheBerry/actions/workflows/release.yml"><img src="https://github.com/BerryUIKI/TheBerry/actions/workflows/release.yml/badge.svg" alt="Release Build" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-rose.svg" alt="License: MIT" /></a>
+</p>
 
 **TheBerry** is an ultra-fast, offline-first personal desktop productivity suite built with **Tauri v2 + Rust** on the backend and **SolidJS + TypeScript + Tailwind CSS** on the frontend.
 
