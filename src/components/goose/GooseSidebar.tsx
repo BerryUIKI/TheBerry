@@ -36,19 +36,23 @@ interface GooseSidebarProps {
 
 export function GooseSidebar(props: GooseSidebarProps) {
   const { t, language, assistantName } = useI18n();
-  const [messages, setMessages] = createSignal<GooseChatMessage[]>(() => {
+  const [messages, setMessages] = createSignal<GooseChatMessage[]>((() => {
     try {
       const saved = localStorage.getItem("berry_goose_messages");
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
-      return [];
+      // ignore
     }
-  });
+    return [];
+  })());
 
   createEffect(() => {
     try {
       const msgs = messages();
-      if (msgs.length > 0) {
+      if (Array.isArray(msgs) && msgs.length > 0) {
         const cleaned = msgs.slice(-50).map((m) => ({ ...m, isStreaming: false }));
         localStorage.setItem("berry_goose_messages", JSON.stringify(cleaned));
       }
@@ -103,19 +107,19 @@ export function GooseSidebar(props: GooseSidebarProps) {
       resetTimeoutWatchdog();
 
       setMessages((prev) => {
-        const lastMsg = prev[prev.length - 1];
+        const list = Array.isArray(prev) ? [...prev] : [];
+        const lastMsg = list[list.length - 1];
         if (lastMsg && lastMsg.sender === "assistant" && lastMsg.isStreaming) {
-          const updated = [...prev];
-          updated[updated.length - 1] = {
+          list[list.length - 1] = {
             ...lastMsg,
             content: lastMsg.content + chunk.delta,
             isStreaming: !chunk.is_finished,
             error: chunk.error || null,
           };
-          return updated;
+          return list;
         } else if (chunk.delta || chunk.error) {
           return [
-            ...prev,
+            ...list,
             {
               id: chunk.message_id || Date.now().toString(),
               sender: "assistant",
@@ -126,7 +130,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
             },
           ];
         }
-        return prev;
+        return list;
       });
 
       if (chunk.is_finished) {
@@ -215,10 +219,12 @@ export function GooseSidebar(props: GooseSidebarProps) {
       e.preventDefault();
       e.stopPropagation();
     }
+    if (isGenerating()) return;
+
     // Retrieve prompt value from either signal or DOM input element to avoid sync lag
-    const rawVal = inputRef?.value ?? inputValue();
+    const rawVal = inputRef?.value?.trim() ? inputRef.value : inputValue();
     const prompt = (rawVal || "").trim();
-    if (!prompt || isGenerating()) {
+    if (!prompt) {
       inputRef?.focus();
       return;
     }
@@ -231,7 +237,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((prev) => (Array.isArray(prev) ? [...prev, userMessage] : [userMessage]));
     setInputValue("");
     if (inputRef) {
       inputRef.value = "";
@@ -249,7 +255,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isStreaming: true,
     };
-    setMessages((prev) => [...prev, assistantMessage]);
+    setMessages((prev) => (Array.isArray(prev) ? [...prev, assistantMessage] : [assistantMessage]));
 
     // Check if provider requires an API key and user hasn't set one
     const activeProv = (aiConfig()?.active_provider || status()?.active_provider || "gemini").toLowerCase();
@@ -260,7 +266,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       clearTimeoutWatchdog();
       setIsGenerating(false);
       setMessages((prev) => {
-        const updated = [...prev];
+        const updated = Array.isArray(prev) ? [...prev] : [];
         const lastIdx = updated.length - 1;
         if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
           updated[lastIdx] = {
@@ -286,7 +292,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       console.error("Failed to send prompt to AI engine:", err);
       setIsGenerating(false);
       setMessages((prev) => {
-        const updated = [...prev];
+        const updated = Array.isArray(prev) ? [...prev] : [];
         const lastIdx = updated.length - 1;
         if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
           updated[lastIdx] = {
@@ -301,7 +307,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (isComposing() || e.isComposing) return;
+    if (isComposing() || e.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -532,6 +538,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
               type="text"
               value={inputValue()}
               onInput={(e) => setInputValue(e.currentTarget.value)}
+              onChange={(e) => setInputValue(e.currentTarget.value)}
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={(e) => {
                 setIsComposing(false);
@@ -552,6 +559,10 @@ export function GooseSidebar(props: GooseSidebarProps) {
               fallback={
                 <button
                   type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }}
                   onClick={(e) => {
                     handleSendMessage(e);
                   }}
