@@ -177,6 +177,9 @@ pub fn run() {
             // Toolbox Hub Commands
             modules::toolbox::commands::calculate_file_hash,
             modules::toolbox::commands::batch_rename_files,
+            modules::toolbox::commands::compress_images,
+            modules::toolbox::commands::recognize_image_ocr,
+            modules::toolbox::commands::convert_word_to_pdf,
             // Folder Sync & Comparison (FreeFileSync)
             modules::folder_sync::commands::folder_sync_compare,
             modules::folder_sync::commands::folder_sync_execute,

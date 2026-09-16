@@ -1,6 +1,7 @@
 import { createSignal, For } from "solid-js";
 import { Plus, Trash2, X, SlidersHorizontal, RotateCcw } from "lucide-solid";
 import { PathFilter } from "../../types/folder_sync";
+import { useI18n } from "../../context/I18nContext";
 
 interface FilterSettingsModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface FilterSettingsModalProps {
 }
 
 export function FilterSettingsModal(props: FilterSettingsModalProps) {
+  const { language } = useI18n();
   const [includeText, setIncludeText] = createSignal(props.filter.include_patterns.join("\n"));
   const [excludeText, setExcludeText] = createSignal(props.filter.exclude_patterns.join("\n"));
   const [minSizeMB, setMinSizeMB] = createSignal<string>(
@@ -19,13 +21,13 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
     props.filter.max_size_bytes ? (props.filter.max_size_bytes / (1024 * 1024)).toString() : ""
   );
 
-  const presets = [
-    { label: ".git/*", desc: "Git版本库" },
-    { label: "node_modules/*", desc: "Node依赖" },
-    { label: "*.tmp", desc: "临时文件" },
-    { label: "~$*", desc: "Office临时文件" },
-    { label: "Thumbs.db", desc: "缩略图缓存" },
-    { label: ".DS_Store", desc: "macOS索引" },
+  const presets = () => [
+    { label: ".git/*", desc: language() === "zh" ? "Git版本库" : "Git Repository" },
+    { label: "node_modules/*", desc: language() === "zh" ? "Node依赖" : "Node Dependencies" },
+    { label: "*.tmp", desc: language() === "zh" ? "临时文件" : "Temporary Files" },
+    { label: "~$*", desc: language() === "zh" ? "Office临时文件" : "Office Temp Files" },
+    { label: "Thumbs.db", desc: language() === "zh" ? "缩略图缓存" : "Thumbnail Cache" },
+    { label: ".DS_Store", desc: language() === "zh" ? "macOS索引" : "macOS Metadata" },
   ];
 
   const handleAddPreset = (pattern: string) => {
@@ -78,7 +80,9 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
         <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
             <SlidersHorizontal size={18} class="text-primary" />
-            <h3 class="text-sm font-semibold text-foreground">过滤器规则配置</h3>
+            <h3 class="text-sm font-semibold text-foreground">
+              {language() === "zh" ? "过滤器规则配置" : "Filter Rules Configuration"}
+            </h3>
           </div>
           <button
             onClick={props.onClose}
@@ -92,22 +96,32 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
         <div>
           <div class="flex items-center justify-between mb-1.5">
             <label class="text-xs font-semibold text-foreground">
-              排除规则 (Exclude Patterns, 每行一条通配符)
+              {language() === "zh"
+                ? "排除规则 (每行一条通配符)"
+                : "Exclude Patterns (one wildcard per line)"}
             </label>
-            <span class="text-[10px] text-muted-foreground">支持 * 与 ?</span>
+            <span class="text-[10px] text-muted-foreground">
+              {language() === "zh" ? "支持 * 与 ?" : "Supports * and ?"}
+            </span>
           </div>
           <textarea
             rows={4}
             value={excludeText()}
             onInput={(e) => setExcludeText(e.currentTarget.value)}
             class="w-full bg-background border border-input rounded-lg p-2.5 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
-            placeholder="例如: *.tmp&#10;node_modules/*&#10;.git/*"
+            placeholder={
+              language() === "zh"
+                ? "例如: *.tmp&#10;node_modules/*&#10;.git/*"
+                : "e.g. *.tmp&#10;node_modules/*&#10;.git/*"
+            }
           />
 
           {/* Quick Presets */}
           <div class="flex items-center gap-1.5 flex-wrap mt-2">
-            <span class="text-[10px] text-muted-foreground mr-1">快捷添加:</span>
-            <For each={presets}>
+            <span class="text-[10px] text-muted-foreground mr-1">
+              {language() === "zh" ? "快捷添加:" : "Quick Add:"}
+            </span>
+            <For each={presets()}>
               {(p) => (
                 <button
                   type="button"
@@ -125,7 +139,9 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
         {/* Include Rules */}
         <div>
           <label class="text-xs font-semibold text-foreground block mb-1.5">
-            包含规则 (Include Patterns, 默认 * 包含全部)
+            {language() === "zh"
+              ? "包含规则 (默认 * 包含全部)"
+              : "Include Patterns (default * includes all)"}
           </label>
           <textarea
             rows={2}
@@ -140,13 +156,13 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
         <div class="grid grid-cols-2 gap-3 pt-1">
           <div>
             <label class="text-xs font-medium text-muted-foreground block mb-1">
-              最小体积限制 (MB)
+              {language() === "zh" ? "最小体积限制 (MB)" : "Min File Size Limit (MB)"}
             </label>
             <input
               type="number"
               min="0"
               step="0.1"
-              placeholder="无限制"
+              placeholder={language() === "zh" ? "无限制" : "No limit"}
               value={minSizeMB()}
               onInput={(e) => setMinSizeMB(e.currentTarget.value)}
               class="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
@@ -154,13 +170,13 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
           </div>
           <div>
             <label class="text-xs font-medium text-muted-foreground block mb-1">
-              最大体积限制 (MB)
+              {language() === "zh" ? "最大体积限制 (MB)" : "Max File Size Limit (MB)"}
             </label>
             <input
               type="number"
               min="0"
               step="0.1"
-              placeholder="无限制"
+              placeholder={language() === "zh" ? "无限制" : "No limit"}
               value={maxSizeMB()}
               onInput={(e) => setMaxSizeMB(e.currentTarget.value)}
               class="w-full bg-background border border-input rounded-lg px-3 py-1.5 text-xs text-foreground font-mono focus:outline-none focus:ring-1 focus:ring-primary"
@@ -176,20 +192,20 @@ export function FilterSettingsModal(props: FilterSettingsModalProps) {
             class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded transition-colors"
           >
             <RotateCcw size={12} />
-            <span>恢复默认</span>
+            <span>{language() === "zh" ? "恢复默认" : "Reset Default"}</span>
           </button>
           <div class="flex items-center gap-2">
             <button
               onClick={props.onClose}
               class="px-4 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors"
             >
-              取消
+              {language() === "zh" ? "取消" : "Cancel"}
             </button>
             <button
               onClick={handleSave}
               class="px-5 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium transition-colors"
             >
-              应用过滤器
+              {language() === "zh" ? "应用过滤器" : "Apply Filters"}
             </button>
           </div>
         </div>

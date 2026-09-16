@@ -1,8 +1,9 @@
 import { createSignal, For, Show } from "solid-js";
-import { Bookmark, FolderSync, Play, Plus, Trash2, X, Activity, Check } from "lucide-solid";
+import { Bookmark, Plus, Trash2, X, Play, Activity } from "lucide-solid";
 import { SyncProfile } from "../../types/folder_sync";
 import { folderSyncDeleteProfile, folderSyncToggleRealtime } from "../../services/folderSync";
 import { useToast } from "../../context/ToastContext";
+import { useI18n } from "../../context/I18nContext";
 
 interface SavedProfilesModalProps {
   isOpen: boolean;
@@ -14,9 +15,10 @@ interface SavedProfilesModalProps {
 }
 
 export function SavedProfilesModal(props: SavedProfilesModalProps) {
+  const { language } = useI18n();
+  const { success, error } = useToast();
   const [newProfileName, setNewProfileName] = createSignal("");
   const [isAdding, setIsAdding] = createSignal(false);
-  const { success, error } = useToast();
 
   const handleSave = () => {
     const name = newProfileName().trim();
@@ -29,10 +31,13 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
   const handleDelete = async (profileId: string) => {
     try {
       await folderSyncDeleteProfile(profileId);
-      success("删除成功", "任务方案已删除");
+      success(
+        language() === "zh" ? "删除成功" : "Deleted successfully",
+        language() === "zh" ? "任务方案已删除" : "Sync profile deleted"
+      );
       props.onRefreshProfiles();
     } catch (e) {
-      error("删除失败", String(e));
+      error(language() === "zh" ? "删除失败" : "Failed to delete", String(e));
     }
   };
 
@@ -41,12 +46,16 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
       const nextState = !profile.realtime_enabled;
       await folderSyncToggleRealtime(profile.id, nextState);
       success(
-        nextState ? "RealTimeSync 开启" : "RealTimeSync 已停用",
-        nextState ? `正在实时监控: ${profile.left_path}` : "已停止实时变动监听"
+        nextState
+          ? language() === "zh" ? "RealTimeSync 开启" : "RealTimeSync Enabled"
+          : language() === "zh" ? "RealTimeSync 已停用" : "RealTimeSync Disabled",
+        nextState
+          ? language() === "zh" ? `正在实时监控: ${profile.left_path}` : `Monitoring: ${profile.left_path}`
+          : language() === "zh" ? "已停止实时变动监听" : "Real-time monitoring stopped"
       );
       props.onRefreshProfiles();
     } catch (e) {
-      error("操作失败", String(e));
+      error(language() === "zh" ? "操作失败" : "Operation failed", String(e));
     }
   };
 
@@ -59,7 +68,9 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
         <div class="flex items-center justify-between border-b border-border pb-3">
           <div class="flex items-center gap-2">
             <Bookmark size={18} class="text-primary" />
-            <h3 class="text-sm font-semibold text-foreground">同步任务配置方案</h3>
+            <h3 class="text-sm font-semibold text-foreground">
+              {language() === "zh" ? "同步任务配置方案" : "Sync Task Profiles"}
+            </h3>
           </div>
           <button
             onClick={props.onClose}
@@ -78,14 +89,22 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
               class="flex items-center justify-center gap-1.5 py-2 px-3 border border-dashed border-border rounded-xl text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary hover:bg-primary/5 transition-all"
             >
               <Plus size={14} />
-              <span>将当前文件夹对与同步参数保存为新方案</span>
+              <span>
+                {language() === "zh"
+                  ? "将当前文件夹对与同步参数保存为新方案"
+                  : "Save current folder pair and sync settings as new profile"}
+              </span>
             </button>
           }
         >
           <div class="flex items-center gap-2 bg-muted/40 p-3 rounded-xl border border-border">
             <input
               type="text"
-              placeholder="请输入方案名称 (例如: 工作文件备份到NAS)"
+              placeholder={
+                language() === "zh"
+                  ? "请输入方案名称 (例如: 工作文件备份到NAS)"
+                  : "Enter profile name (e.g. Work files to NAS)"
+              }
               value={newProfileName()}
               onInput={(e) => setNewProfileName(e.currentTarget.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSave()}
@@ -95,13 +114,13 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
               onClick={handleSave}
               class="px-4 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium transition-colors"
             >
-              保存
+              {language() === "zh" ? "保存" : "Save"}
             </button>
             <button
               onClick={() => setIsAdding(false)}
               class="px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors"
             >
-              取消
+              {language() === "zh" ? "取消" : "Cancel"}
             </button>
           </div>
         </Show>
@@ -112,7 +131,9 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
             when={props.profiles.length > 0}
             fallback={
               <div class="text-center py-8 text-xs text-muted-foreground">
-                暂无保存的任务方案。可将当前配置点击上方按钮添加为快速方案。
+                {language() === "zh"
+                  ? "暂无保存的任务方案。可将当前配置点击上方按钮添加为快速方案。"
+                  : "No saved sync profiles yet. Click the button above to add current settings."}
               </div>
             }
           >
@@ -130,7 +151,7 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
                       {profile.realtime_enabled && (
                         <span class="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-500 font-medium animate-pulse">
                           <Activity size={10} />
-                          <span>监控中</span>
+                          <span>{language() === "zh" ? "监控中" : "Monitoring"}</span>
                         </span>
                       )}
                     </div>
@@ -150,7 +171,11 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
                           ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/20"
                           : "bg-background text-muted-foreground border-border hover:text-foreground"
                       }`}
-                      title={profile.realtime_enabled ? "停止实时变动监控" : "开启 RealTimeSync 自动监控"}
+                      title={
+                        profile.realtime_enabled
+                          ? language() === "zh" ? "停止实时变动监控" : "Stop RealTimeSync"
+                          : language() === "zh" ? "开启 RealTimeSync 自动监控" : "Enable RealTimeSync"
+                      }
                     >
                       <Activity size={13} />
                     </button>
@@ -162,16 +187,16 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
                         props.onClose();
                       }}
                       class="px-3 py-1.5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg text-xs font-medium transition-colors"
-                      title="载入此方案配置"
+                      title={language() === "zh" ? "载入此方案配置" : "Load profile settings"}
                     >
-                      载入
+                      {language() === "zh" ? "载入" : "Load"}
                     </button>
 
                     {/* Delete */}
                     <button
                       onClick={() => handleDelete(profile.id)}
                       class="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                      title="删除方案"
+                      title={language() === "zh" ? "删除方案" : "Delete profile"}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -188,7 +213,7 @@ export function SavedProfilesModal(props: SavedProfilesModalProps) {
             onClick={props.onClose}
             class="px-4 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-xs font-medium transition-colors"
           >
-            关闭
+            {language() === "zh" ? "关闭" : "Close"}
           </button>
         </div>
       </div>
