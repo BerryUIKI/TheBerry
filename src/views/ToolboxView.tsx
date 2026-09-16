@@ -21,9 +21,14 @@ import {
   PinOff,
   GripVertical,
   RotateCcw,
-  Sliders,
   ArrowUpDown,
   Rocket,
+  Sliders,
+  ClipboardList,
+  Code2,
+  LayoutGrid,
+  Layers,
+  Filter,
 } from "lucide-solid";
 import { ContextMenu, ContextMenuItem } from "../components/common/ContextMenu";
 import { useApp } from "../context/AppContext";
@@ -41,7 +46,7 @@ import {
   unpinFromSidebar,
 } from "../services/navigation";
 
-type ToolCategory = "convert" | "document" | "image" | "text" | "system";
+type ToolCategory = "productivity" | "files" | "document" | "image" | "text";
 
 interface LocalizedText {
   zh: string;
@@ -60,28 +65,117 @@ interface ToolDefinition {
 
 const categories: Array<{ id: "all" | ToolCategory; label: LocalizedText }> = [
   { id: "all", label: { zh: "全部", en: "All" } },
-  { id: "convert", label: { zh: "格式转换", en: "Conversion" } },
+  { id: "productivity", label: { zh: "效率办公", en: "Productivity" } },
+  { id: "files", label: { zh: "文件与系统", en: "Files & System" } },
   { id: "document", label: { zh: "文档处理", en: "Documents" } },
-  { id: "image", label: { zh: "图片工具", en: "Images" } },
-  { id: "text", label: { zh: "文本数据", en: "Text & Data" } },
-  { id: "system", label: { zh: "系统工具", en: "System" } },
+  { id: "image", label: { zh: "图片多媒体", en: "Images & Media" } },
+  { id: "text", label: { zh: "文本与数据", en: "Text & Data" } },
 ];
 
 const tools: ToolDefinition[] = [
   {
+    id: "clipboard",
+    name: { zh: "剪贴板历史", en: "Clipboard History" },
+    description: { zh: "智能记录剪贴板图文历史，支持秒级检索与一键粘贴", en: "Smart clipboard history with instant search and paste" },
+    category: "productivity",
+    tags: ["剪贴板", "历史", "Clipboard", "记录"],
+    icon: ClipboardList,
+    available: true,
+  },
+  {
+    id: "snippets",
+    name: { zh: "代码片段与 Prompts", en: "Snippets & Prompts" },
+    description: { zh: "常用代码片段与 AI Prompts 快捷库，支持语法高亮与变量注入", en: "Reusable code snippets and AI prompts with syntax highlighting" },
+    category: "productivity",
+    tags: ["代码", "Snippets", "Prompts", "模板"],
+    icon: Code2,
+    available: true,
+  },
+  {
+    id: "launcher",
+    name: { zh: "快捷启动中心", en: "App Launcher" },
+    description: { zh: "快速启动应用、网址、控制台脚本与系统指令", en: "Quick launch applications, URLs, console scripts and commands" },
+    category: "productivity",
+    tags: ["启动", "应用", "Launcher", "快捷方式"],
+    icon: Rocket,
+    available: true,
+  },
+  {
+    id: "file-search",
+    name: { zh: "文件极速搜索", en: "File Search" },
+    description: { zh: "全盘极速检索，毫秒级定位文件与目录", en: "Instant full-disk search for files and folders" },
+    category: "files",
+    tags: ["搜索", "文件", "Search", "极速"],
+    icon: Search,
+    available: true,
+  },
+  {
     id: "image-converter",
     name: { zh: "图片格式转换", en: "Image Converter" },
     description: { zh: "批量转换 PNG、JPG、WebP 等图片格式", en: "Batch convert PNG, JPG, WebP and more" },
-    category: "convert",
-    tags: ["PNG", "JPG", "WebP"],
+    category: "image",
+    tags: ["PNG", "JPG", "WebP", "转换"],
     icon: FileImage,
     available: true,
+  },
+  {
+    id: "folder-sync",
+    name: { zh: "文件夹同步与比对", en: "Folder Sync & Comparison" },
+    description: { zh: "双向/镜像同步，多线程哈希比对与实时监控", en: "Two-way/mirror sync with hash comparison and RealTimeSync" },
+    category: "files",
+    tags: ["同步", "备份", "FreeFileSync", "比对"],
+    icon: FolderSync,
+    available: true,
+  },
+  {
+    id: "batch-rename",
+    name: { zh: "批量重命名", en: "Batch Rename" },
+    description: { zh: "使用规则统一整理大量文件名称", en: "Rename large file sets with reusable rules" },
+    category: "files",
+    tags: ["文件", "规则", "批处理", "重命名"],
+    icon: Tags,
+    available: true,
+  },
+  {
+    id: "file-hash",
+    name: { zh: "文件哈希", en: "File Hash" },
+    description: { zh: "计算并比对文件的 MD5、SHA 哈希", en: "Calculate and compare MD5 and SHA hashes" },
+    category: "files",
+    tags: ["MD5", "SHA256", "校验", "哈希"],
+    icon: Fingerprint,
+    available: true,
+  },
+  {
+    id: "qr-code",
+    name: { zh: "二维码工具", en: "QR Code Tools" },
+    description: { zh: "生成二维码并识别图片中的内容", en: "Create QR codes and read them from images" },
+    category: "image",
+    tags: ["QR", "生成", "识别", "条码"],
+    icon: QrCode,
+    available: true,
+  },
+  {
+    id: "structured-data",
+    name: { zh: "JSON / YAML 转换", en: "JSON / YAML Converter" },
+    description: { zh: "转换、格式化并校验结构化数据", en: "Convert, format and validate structured data" },
+    category: "text",
+    tags: ["JSON", "YAML", "格式化", "校验"],
+    icon: Braces,
+    available: true,
+  },
+  {
+    id: "image-compressor",
+    name: { zh: "图片压缩", en: "Image Compressor" },
+    description: { zh: "在保持观感的同时减小图片体积", en: "Reduce image size while preserving quality" },
+    category: "image",
+    tags: ["压缩", "PNG", "JPG", "优化"],
+    icon: ImageIcon,
   },
   {
     id: "pdf-to-images",
     name: { zh: "PDF 转图片", en: "PDF to Images" },
     description: { zh: "按页导出为 PNG 或 JPG 图片", en: "Export PDF pages as PNG or JPG images" },
-    category: "convert",
+    category: "document",
     tags: ["PDF", "PNG", "JPG"],
     icon: FileOutput,
   },
@@ -97,7 +191,7 @@ const tools: ToolDefinition[] = [
     id: "word-to-pdf",
     name: { zh: "Word 转 PDF", en: "Word to PDF" },
     description: { zh: "将 DOCX 文档转换为便携 PDF", en: "Convert DOCX documents to portable PDFs" },
-    category: "convert",
+    category: "document",
     tags: ["DOCX", "PDF"],
     icon: FileText,
   },
@@ -105,44 +199,9 @@ const tools: ToolDefinition[] = [
     id: "sheet-converter",
     name: { zh: "Excel / CSV 转换", en: "Excel / CSV Converter" },
     description: { zh: "在 XLSX、CSV 与 TSV 之间快速转换", en: "Convert between XLSX, CSV and TSV" },
-    category: "convert",
+    category: "document",
     tags: ["XLSX", "CSV", "TSV"],
     icon: FileSpreadsheet,
-  },
-  {
-    id: "batch-rename",
-    name: { zh: "批量重命名", en: "Batch Rename" },
-    description: { zh: "使用规则统一整理大量文件名称", en: "Rename large file sets with reusable rules" },
-    category: "system",
-    tags: ["文件", "规则", "批处理"],
-    icon: Tags,
-    available: true,
-  },
-  {
-    id: "folder-sync",
-    name: { zh: "文件夹同步与比对", en: "Folder Sync & Comparison" },
-    description: { zh: "双向/镜像同步，多线程哈希比对与实时监控", en: "Two-way/mirror sync with hash comparison and RealTimeSync" },
-    category: "system",
-    tags: ["同步", "备份", "FreeFileSync", "比对"],
-    icon: FolderSync,
-    available: true,
-  },
-  {
-    id: "file-search",
-    name: { zh: "文件极速搜索", en: "File Search" },
-    description: { zh: "全盘极速检索，毫秒级定位文件与目录", en: "Instant full-disk search for files and folders" },
-    category: "system",
-    tags: ["搜索", "文件", "Search", "极速"],
-    icon: Search,
-    available: true,
-  },
-  {
-    id: "image-compressor",
-    name: { zh: "图片压缩", en: "Image Compressor" },
-    description: { zh: "在保持观感的同时减小图片体积", en: "Reduce image size while preserving quality" },
-    category: "image",
-    tags: ["压缩", "PNG", "JPG"],
-    icon: ImageIcon,
   },
   {
     id: "ocr",
@@ -160,36 +219,9 @@ const tools: ToolDefinition[] = [
     tags: ["MD", "HTML", "TXT"],
     icon: Type,
   },
-  {
-    id: "structured-data",
-    name: { zh: "JSON / YAML 转换", en: "JSON / YAML Converter" },
-    description: { zh: "转换、格式化并校验结构化数据", en: "Convert, format and validate structured data" },
-    category: "text",
-    tags: ["JSON", "YAML", "格式化"],
-    icon: Braces,
-    available: true,
-  },
-  {
-    id: "qr-code",
-    name: { zh: "二维码工具", en: "QR Code Tools" },
-    description: { zh: "生成二维码并识别图片中的内容", en: "Create QR codes and read them from images" },
-    category: "image",
-    tags: ["QR", "生成", "识别"],
-    icon: QrCode,
-    available: true,
-  },
-  {
-    id: "file-hash",
-    name: { zh: "文件哈希", en: "File Hash" },
-    description: { zh: "计算并比对文件的 MD5、SHA 哈希", en: "Calculate and compare MD5 and SHA hashes" },
-    category: "system",
-    tags: ["MD5", "SHA256", "校验"],
-    icon: Fingerprint,
-    available: true,
-  },
 ];
 
-const recentToolIds = ["image-converter", "ocr", "markdown-converter"];
+const recentToolIds = ["clipboard", "file-search", "image-converter"];
 
 export function ToolboxView() {
   const { setActiveView } = useApp();
@@ -197,7 +229,9 @@ export function ToolboxView() {
   const { info, success } = useToast();
   const [query, setQuery] = createSignal("");
   const [category, setCategory] = createSignal<"all" | ToolCategory>("all");
-  const [favorites, setFavorites] = createSignal(new Set(["image-converter", "markdown-converter"]));
+  const [filterMode, setFilterMode] = createSignal<"all" | "available" | "pinned" | "favorites">("all");
+  const [viewMode, setViewMode] = createSignal<"grid" | "sections">("grid");
+  const [favorites, setFavorites] = createSignal(new Set(["image-converter", "markdown-converter", "clipboard"]));
 
   const [activeModal, setActiveModal] = createSignal<"file-hash" | "batch-rename" | "qr-code" | "structured-data" | null>(null);
 
@@ -294,18 +328,54 @@ export function ToolboxView() {
 
   const filteredTools = createMemo(() => {
     const normalizedQuery = query().trim().toLocaleLowerCase();
+    const currentCat = category();
+    const currentFilter = filterMode();
+    const pinnedSet = sidebarPinnedIds();
+    const favSet = favorites();
 
     return orderedBaseTools().filter((tool) => {
-      const categoryMatches = category() === "all" || tool.category === category();
-      if (!categoryMatches) return false;
+      // Category filter
+      if (currentCat !== "all" && tool.category !== currentCat) return false;
+
+      // Status / dimension filter
+      if (currentFilter === "available" && !tool.available) return false;
+      if (currentFilter === "pinned") {
+        const navId = resolveNavId(tool.id);
+        const isPinned = pinnedSet.has(tool.id) || pinnedSet.has(navId);
+        if (!isPinned) return false;
+      }
+      if (currentFilter === "favorites" && !favSet.has(tool.id)) return false;
 
       if (!normalizedQuery) return true;
 
-      return [tool.name.zh, tool.name.en, tool.description.zh, tool.description.en, ...tool.tags]
+      return [
+        tool.name.zh,
+        tool.name.en,
+        tool.description.zh,
+        tool.description.en,
+        tool.id,
+        ...tool.tags,
+      ]
         .join(" ")
         .toLocaleLowerCase()
         .includes(normalizedQuery);
     });
+  });
+
+  const getCategoryCount = (catId: "all" | ToolCategory) => {
+    if (catId === "all") return tools.length;
+    return tools.filter((t) => t.category === catId).length;
+  };
+
+  const groupedTools = createMemo(() => {
+    const list = filteredTools();
+    const cats = categories.filter((c) => c.id !== "all") as Array<{ id: ToolCategory; label: LocalizedText }>;
+    return cats
+      .map((cat) => ({
+        category: cat,
+        tools: list.filter((t) => t.category === cat.id),
+      }))
+      .filter((group) => group.tools.length > 0);
   });
 
   const recentTools = createMemo(() =>
@@ -315,15 +385,27 @@ export function ToolboxView() {
   );
 
   const openTool = (tool: ToolDefinition) => {
-    if (tool.id === "image-converter") {
+    if (tool.id === "clipboard") {
+      setActiveView("clipboard");
+      return;
+    }
+    if (tool.id === "snippets") {
+      setActiveView("snippets");
+      return;
+    }
+    if (tool.id === "launcher") {
+      setActiveView("launcher");
+      return;
+    }
+    if (tool.id === "image-converter" || tool.id === "image_converter") {
       setActiveView("image_converter");
       return;
     }
-    if (tool.id === "folder-sync") {
+    if (tool.id === "folder-sync" || tool.id === "folder_sync") {
       setActiveView("folder_sync");
       return;
     }
-    if (tool.id === "file-search") {
+    if (tool.id === "file-search" || tool.id === "file_search") {
       setActiveView("file_search");
       return;
     }
@@ -581,23 +663,124 @@ export function ToolboxView() {
         </label>
       </div>
 
-      <div class="flex items-center gap-1.5 flex-wrap" role="group" aria-label={language() === "zh" ? "工具分类" : "Tool categories"}>
-        <For each={categories}>
-          {(item) => (
+      {/* Category Pills with Count Badges */}
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-1.5 flex-wrap" role="group" aria-label={language() === "zh" ? "工具分类" : "Tool categories"}>
+          <For each={categories}>
+            {(item) => {
+              const count = () => getCategoryCount(item.id);
+              const isActive = () => category() === item.id;
+              return (
+                <button
+                  type="button"
+                  aria-pressed={isActive()}
+                  onClick={() => setCategory(item.id)}
+                  class={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+                    isActive()
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  <span>{localize(item.label)}</span>
+                  <span
+                    class={`px-1.5 py-0.2 rounded-full text-[10px] font-mono leading-tight ${
+                      isActive()
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : "bg-secondary text-muted-foreground"
+                    }`}
+                  >
+                    {count()}
+                  </span>
+                </button>
+              );
+            }}
+          </For>
+        </div>
+
+        {/* Quick Dimension Filters & View Mode Switcher */}
+        <div class="flex items-center space-x-2">
+          {/* Quick Filters */}
+          <div class="flex items-center bg-card border border-border rounded-lg p-0.5 space-x-0.5 text-xs">
             <button
               type="button"
-              aria-pressed={category() === item.id}
-              onClick={() => setCategory(item.id)}
-              class={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
-                category() === item.id
-                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                  : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
+              onClick={() => setFilterMode("all")}
+              class={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                filterMode() === "all"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {localize(item.label)}
+              {language() === "zh" ? "全部" : "All"}
             </button>
-          )}
-        </For>
+            <button
+              type="button"
+              onClick={() => setFilterMode(filterMode() === "available" ? "all" : "available")}
+              class={`px-2 py-0.5 rounded text-[11px] font-medium flex items-center space-x-1 transition-colors ${
+                filterMode() === "available"
+                  ? "bg-emerald-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title={language() === "zh" ? "仅显示可立即使用的工具" : "Show available tools only"}
+            >
+              <CheckCircle2 size={11} />
+              <span>{language() === "zh" ? "可用" : "Ready"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode(filterMode() === "pinned" ? "all" : "pinned")}
+              class={`px-2 py-0.5 rounded text-[11px] font-medium flex items-center space-x-1 transition-colors ${
+                filterMode() === "pinned"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title={language() === "zh" ? "仅显示已固定到左侧侧边栏的工具" : "Show pinned tools only"}
+            >
+              <Pin size={11} />
+              <span>{language() === "zh" ? "已固定" : "Pinned"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setFilterMode(filterMode() === "favorites" ? "all" : "favorites")}
+              class={`px-2 py-0.5 rounded text-[11px] font-medium flex items-center space-x-1 transition-colors ${
+                filterMode() === "favorites"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title={language() === "zh" ? "仅显示收藏工具" : "Show favorites only"}
+            >
+              <Star size={11} />
+              <span>{language() === "zh" ? "收藏" : "Favorites"}</span>
+            </button>
+          </div>
+
+          {/* View Mode Toggle (Grid vs Sections) */}
+          <div class="flex items-center bg-card border border-border rounded-lg p-0.5 space-x-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              class={`p-1 rounded transition-colors ${
+                viewMode() === "grid"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title={language() === "zh" ? "平铺网格视图 (支持拖拽排序)" : "Flat grid view (supports drag reorder)"}
+            >
+              <LayoutGrid size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("sections")}
+              class={`p-1 rounded transition-colors ${
+                viewMode() === "sections"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title={language() === "zh" ? "按分类分组视图" : "Categorized sections view"}
+            >
+              <Layers size={13} />
+            </button>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -645,13 +828,13 @@ export function ToolboxView() {
             </h2>
             <span class="text-[11px] text-muted-foreground">
               {language() === "zh"
-                ? `(可拖动排序，共 ${filteredTools().length} 个)`
-                : `(drag to reorder, ${filteredTools().length} tools)`}
+                ? `(${viewMode() === "grid" ? "可拖动排序，" : ""}共 ${filteredTools().length} 个)`
+                : `(${viewMode() === "grid" ? "drag to reorder, " : ""}${filteredTools().length} tools)`}
             </span>
           </div>
 
           <div class="flex items-center space-x-2">
-            <Show when={customToolOrder().length > 0}>
+            <Show when={customToolOrder().length > 0 && viewMode() === "grid"}>
               <button
                 type="button"
                 onClick={handleResetToolboxOrder}
@@ -689,141 +872,269 @@ export function ToolboxView() {
             </div>
           }
         >
-          <div ref={gridContainerRef} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-1">
-            <For each={filteredTools()}>
-              {(tool, index) => {
-                const Icon = tool.icon;
-                const isFavorite = () => favorites().has(tool.id);
-                const isPinned = () => {
-                  const navId = resolveNavId(tool.id);
-                  return sidebarPinnedIds().has(tool.id) || sidebarPinnedIds().has(navId);
-                };
-                const isDragged = () => draggedToolIndex() === index();
-                const isOver = () => dragOverToolIndex() === index();
+          {/* VIEW MODE 1: Grouped Sections */}
+          <Show
+            when={viewMode() === "sections"}
+            fallback={
+              /* VIEW MODE 2: Flat Grid with Pointer Drag Reordering */
+              <div ref={gridContainerRef} class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-2">
+                <For each={filteredTools()}>
+                  {(tool, index) => {
+                    const Icon = tool.icon;
+                    const isFavorite = () => favorites().has(tool.id);
+                    const isPinned = () => {
+                      const navId = resolveNavId(tool.id);
+                      return sidebarPinnedIds().has(tool.id) || sidebarPinnedIds().has(navId);
+                    };
+                    const isDragged = () => draggedToolIndex() === index();
+                    const isOver = () => dragOverToolIndex() === index();
 
-                return (
-                  <article
-                    data-tool-index={index()}
-                    onPointerDown={(e) => handleToolPointerDown(e, index())}
-                    onContextMenu={(e) => handleCardContextMenu(e, tool)}
-                    class={`group relative p-3 bg-card border rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 touch-none ${
-                      isDragged()
-                        ? "tool-card-dragging scale-95 opacity-70 border-primary shadow-xl ring-2 ring-primary/40 z-30"
-                        : isOver()
-                        ? "tool-card-over border-primary ring-2 ring-primary/50 bg-primary/5"
-                        : "border-border hover:border-primary/40 hover:-translate-y-1 hover:shadow-md"
-                    }`}
-                  >
-                    {/* Drag Hover Swap Indicator Overlay */}
-                    <Show when={isOver() && !isDragged()}>
-                      <div class="absolute inset-0 rounded-lg bg-primary/10 border-2 border-primary pointer-events-none flex items-center justify-center animate-in fade-in zoom-in-95 duration-150 z-20">
-                        <span class="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold shadow-lg flex items-center space-x-1.5 animate-pulse">
-                          <ArrowUpDown size={12} />
-                          <span>{language() === "zh" ? "放到此处交换排序" : "Drop to reorder"}</span>
-                        </span>
-                      </div>
-                    </Show>
-
-                    <div class="flex items-start gap-2.5">
-                      <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
-                        <Icon size={18} />
-                      </span>
-                      <div class="min-w-0 flex-1">
-                        <div class="flex items-center gap-2 min-w-0 flex-wrap">
-                          <h3 class="text-xs font-semibold text-foreground truncate">{localize(tool.name)}</h3>
-                          <span class={`flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                            tool.available
-                              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                              : "bg-muted text-muted-foreground border-border"
-                          }`}>
-                            {tool.available && <CheckCircle2 size={10} />}
-                            {tool.available
-                              ? language() === "zh" ? "已可用" : "Available"
-                              : language() === "zh" ? "开发中" : "In development"}
-                          </span>
-                        </div>
-                        <p class="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-1">
-                          {localize(tool.description)}
-                        </p>
-                      </div>
-
-                      {/* Card Actions: Pin to Sidebar + Favorite + Drag Grip */}
-                      <div class="flex items-center space-x-1 flex-shrink-0">
-                        {/* Pin / Unpin to Sidebar */}
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePin(tool)}
-                          class={`p-1 rounded hover:bg-secondary transition-colors ${
-                            isPinned() ? "text-primary" : "text-muted-foreground/50 hover:text-foreground"
-                          }`}
-                          title={
-                            isPinned()
-                              ? language() === "zh"
-                                ? "已固定在侧边栏 (点击取消固定)"
-                                : "Pinned in sidebar (click to unpin)"
-                              : language() === "zh"
-                              ? "固定至左侧侧边栏"
-                              : "Pin to sidebar"
-                          }
-                        >
-                          <Show when={isPinned()} fallback={<PinOff size={13} />}>
-                            <Pin size={13} class="fill-current" />
-                          </Show>
-                        </button>
-
-                        {/* Favorite button */}
-                        <button
-                          type="button"
-                          onClick={() => toggleFavorite(tool)}
-                          class={`p-1 rounded hover:bg-secondary transition-colors ${
-                            isFavorite() ? "text-primary" : "text-muted-foreground/60 hover:text-foreground"
-                          }`}
-                          title={
-                            language() === "zh"
-                              ? isFavorite()
-                                ? "取消收藏"
-                                : "收藏"
-                              : isFavorite()
-                              ? "Remove favorite"
-                              : "Add favorite"
-                          }
-                        >
-                          <Star size={13} fill={isFavorite() ? "currentColor" : "none"} />
-                        </button>
-
-                        {/* Tactile Grip Drag Handle */}
-                        <span
-                          class="drag-grip-handle text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 rounded hover:bg-secondary/60 transition-colors"
-                          title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
-                        >
-                          <GripVertical size={14} />
-                        </span>
-                      </div>
-                    </div>
-
-                    <div class="mt-auto pt-3 flex items-center justify-between gap-2">
-                      <div class="flex items-center gap-1 overflow-hidden">
-                        <For each={tool.tags.slice(0, 3)}>
-                          {(tag) => <span class="px-1.5 py-0.5 bg-secondary text-muted-foreground rounded text-[10px] font-mono truncate">{tag}</span>}
-                        </For>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openTool(tool)}
-                        class={`px-2.5 py-1 rounded-md text-xs font-medium flex-shrink-0 transition-colors ${
-                          tool.available
-                            ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                            : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                    return (
+                      <article
+                        data-tool-index={index()}
+                        onPointerDown={(e) => handleToolPointerDown(e, index())}
+                        onContextMenu={(e) => handleCardContextMenu(e, tool)}
+                        class={`group relative p-3 bg-card border rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 touch-none ${
+                          isDragged()
+                            ? "tool-card-dragging scale-95 opacity-70 border-primary shadow-xl ring-2 ring-primary/40 z-30"
+                            : isOver()
+                            ? "tool-card-over border-primary ring-2 ring-primary/50 bg-primary/5"
+                            : "border-border hover:border-primary/40 hover:-translate-y-1 hover:shadow-md"
                         }`}
                       >
-                        {language() === "zh" ? "打开" : "Open"}
-                      </button>
+                        {/* Drag Hover Swap Indicator Overlay */}
+                        <Show when={isOver() && !isDragged()}>
+                          <div class="absolute inset-0 rounded-lg bg-primary/10 border-2 border-primary pointer-events-none flex items-center justify-center animate-in fade-in zoom-in-95 duration-150 z-20">
+                            <span class="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold shadow-lg flex items-center space-x-1.5 animate-pulse">
+                              <ArrowUpDown size={12} />
+                              <span>{language() === "zh" ? "放到此处交换排序" : "Drop to reorder"}</span>
+                            </span>
+                          </div>
+                        </Show>
+
+                        <div class="flex items-start gap-2.5">
+                          <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                            <Icon size={18} />
+                          </span>
+                          <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 min-w-0 flex-wrap">
+                              <h3 class="text-xs font-semibold text-foreground truncate">{localize(tool.name)}</h3>
+                              <span class={`flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                tool.available
+                                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                  : "bg-muted text-muted-foreground border-border"
+                              }`}>
+                                {tool.available && <CheckCircle2 size={10} />}
+                                {tool.available
+                                  ? language() === "zh" ? "已可用" : "Available"
+                                  : language() === "zh" ? "开发中" : "In development"}
+                              </span>
+                            </div>
+                            <p class="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-1">
+                              {localize(tool.description)}
+                            </p>
+                          </div>
+
+                          {/* Card Actions: Pin to Sidebar + Favorite + Drag Grip */}
+                          <div class="flex items-center space-x-1 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleTogglePin(tool)}
+                              class={`p-1 rounded hover:bg-secondary transition-colors ${
+                                isPinned() ? "text-primary" : "text-muted-foreground/50 hover:text-foreground"
+                              }`}
+                              title={
+                                isPinned()
+                                  ? language() === "zh"
+                                    ? "已固定在侧边栏 (点击取消固定)"
+                                    : "Pinned in sidebar (click to unpin)"
+                                  : language() === "zh"
+                                  ? "固定至左侧侧边栏"
+                                  : "Pin to sidebar"
+                              }
+                            >
+                              <Show when={isPinned()} fallback={<PinOff size={13} />}>
+                                <Pin size={13} class="fill-current" />
+                              </Show>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => toggleFavorite(tool)}
+                              class={`p-1 rounded hover:bg-secondary transition-colors ${
+                                isFavorite() ? "text-primary" : "text-muted-foreground/60 hover:text-foreground"
+                              }`}
+                              title={
+                                language() === "zh"
+                                  ? isFavorite()
+                                    ? "取消收藏"
+                                    : "收藏"
+                                  : isFavorite()
+                                  ? "Remove favorite"
+                                  : "Add favorite"
+                              }
+                            >
+                              <Star size={13} fill={isFavorite() ? "currentColor" : "none"} />
+                            </button>
+
+                            <span
+                              class="drag-grip-handle text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing p-1 rounded hover:bg-secondary/60 transition-colors"
+                              title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
+                            >
+                              <GripVertical size={14} />
+                            </span>
+                          </div>
+                        </div>
+
+                        <div class="mt-auto pt-3 flex items-center justify-between gap-2">
+                          <div class="flex items-center gap-1 overflow-hidden">
+                            <For each={tool.tags.slice(0, 3)}>
+                              {(tag) => <span class="px-1.5 py-0.5 bg-secondary text-muted-foreground rounded text-[10px] font-mono truncate">{tag}</span>}
+                            </For>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openTool(tool)}
+                            class={`px-2.5 py-1 rounded-md text-xs font-medium flex-shrink-0 transition-colors ${
+                              tool.available
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                            }`}
+                          >
+                            {language() === "zh" ? "打开" : "Open"}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  }}
+                </For>
+              </div>
+            }
+          >
+            <div class="space-y-6 pb-4">
+              <For each={groupedTools()}>
+                {(group) => (
+                  <div class="space-y-2.5">
+                    <div class="flex items-center justify-between border-b border-border/60 pb-1.5">
+                      <div class="flex items-center space-x-2">
+                        <h3 class="text-xs font-semibold text-foreground uppercase tracking-wider">
+                          {localize(group.category.label)}
+                        </h3>
+                        <span class="px-1.5 py-0.2 rounded-full bg-secondary text-muted-foreground text-[10px] font-mono">
+                          {group.tools.length}
+                        </span>
+                      </div>
                     </div>
-                  </article>
-                );
-              }}
-            </For>
-          </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                      <For each={group.tools}>
+                        {(tool) => {
+                          const Icon = tool.icon;
+                          const isFavorite = () => favorites().has(tool.id);
+                          const isPinned = () => {
+                            const navId = resolveNavId(tool.id);
+                            return sidebarPinnedIds().has(tool.id) || sidebarPinnedIds().has(navId);
+                          };
+
+                          return (
+                            <article
+                              onContextMenu={(e) => handleCardContextMenu(e, tool)}
+                              class="group relative p-3 bg-card border border-border hover:border-primary/40 rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                            >
+                              <div class="flex items-start gap-2.5">
+                                <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
+                                  <Icon size={18} />
+                                </span>
+                                <div class="min-w-0 flex-1">
+                                  <div class="flex items-center gap-2 min-w-0 flex-wrap">
+                                    <h4 class="text-xs font-semibold text-foreground truncate">{localize(tool.name)}</h4>
+                                    <span class={`flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                                      tool.available
+                                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                        : "bg-muted text-muted-foreground border-border"
+                                    }`}>
+                                      {tool.available && <CheckCircle2 size={10} />}
+                                      {tool.available
+                                        ? language() === "zh" ? "已可用" : "Available"
+                                        : language() === "zh" ? "开发中" : "In development"}
+                                    </span>
+                                  </div>
+                                  <p class="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-1">
+                                    {localize(tool.description)}
+                                  </p>
+                                </div>
+
+                                <div class="flex items-center space-x-1 flex-shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTogglePin(tool)}
+                                    class={`p-1 rounded hover:bg-secondary transition-colors ${
+                                      isPinned() ? "text-primary" : "text-muted-foreground/50 hover:text-foreground"
+                                    }`}
+                                    title={
+                                      isPinned()
+                                        ? language() === "zh"
+                                          ? "已固定在侧边栏 (点击取消固定)"
+                                          : "Pinned in sidebar (click to unpin)"
+                                        : language() === "zh"
+                                        ? "固定至左侧侧边栏"
+                                        : "Pin to sidebar"
+                                    }
+                                  >
+                                    <Show when={isPinned()} fallback={<PinOff size={13} />}>
+                                      <Pin size={13} class="fill-current" />
+                                    </Show>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleFavorite(tool)}
+                                    class={`p-1 rounded hover:bg-secondary transition-colors ${
+                                      isFavorite() ? "text-primary" : "text-muted-foreground/60 hover:text-foreground"
+                                    }`}
+                                    title={
+                                      language() === "zh"
+                                        ? isFavorite()
+                                          ? "取消收藏"
+                                          : "收藏"
+                                        : isFavorite()
+                                        ? "Remove favorite"
+                                        : "Add favorite"
+                                    }
+                                  >
+                                    <Star size={13} fill={isFavorite() ? "currentColor" : "none"} />
+                                  </button>
+                                </div>
+                              </div>
+
+                              <div class="mt-auto pt-3 flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-1 overflow-hidden">
+                                  <For each={tool.tags.slice(0, 3)}>
+                                    {(tag) => <span class="px-1.5 py-0.5 bg-secondary text-muted-foreground rounded text-[10px] font-mono truncate">{tag}</span>}
+                                  </For>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => openTool(tool)}
+                                  class={`px-2.5 py-1 rounded-md text-xs font-medium flex-shrink-0 transition-colors ${
+                                    tool.available
+                                      ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border"
+                                  }`}
+                                >
+                                  {language() === "zh" ? "打开" : "Open"}
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        }}
+                      </For>
+                    </div>
+                  </div>
+                )}
+              </For>
+            </div>
+          </Show>
         </Show>
       </div>
 
