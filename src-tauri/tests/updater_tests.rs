@@ -32,3 +32,39 @@ fn test_validate_download_url_security() {
     assert!(UpdaterService::validate_download_url("https://github.com.evil.com/app.exe").is_err());
     assert!(UpdaterService::validate_download_url("not a url").is_err());
 }
+
+#[test]
+fn test_download_progress_serialization() {
+    use the_berry_lib::modules::updater::service::DownloadProgress;
+
+    let progress = DownloadProgress {
+        bytes_downloaded: 1048576,
+        total_bytes: Some(10485760),
+        percent: 10.0,
+        speed_bytes_per_sec: 2097152,
+        done: false,
+        status: "Downloading...".to_string(),
+        file_path: Some("C:\\temp\\updates\\the-berry.exe".to_string()),
+    };
+
+    let json = serde_json::to_string(&progress).expect("serialization failed");
+    assert!(json.contains("speed_bytes_per_sec"));
+    assert!(json.contains("2097152"));
+
+    let deserialized: DownloadProgress = serde_json::from_str(&json).expect("deserialization failed");
+    assert_eq!(deserialized.speed_bytes_per_sec, 2097152);
+    assert_eq!(deserialized.file_path, Some("C:\\temp\\updates\\the-berry.exe".to_string()));
+}
+
+#[test]
+fn test_get_updates_dir_resolution() {
+    use std::path::Path;
+
+    let custom_dir = Path::new("F:\\TheBerryData");
+    let updates_dir = UpdaterService::get_updates_dir(Some(custom_dir));
+    assert_eq!(updates_dir, custom_dir.join("updates"));
+
+    let default_dir = UpdaterService::get_updates_dir(None);
+    assert!(default_dir.to_str().unwrap().contains("updates") || default_dir.to_str().unwrap().contains("Updates"));
+}
+
