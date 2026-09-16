@@ -38,6 +38,13 @@ import { FileHashModal } from "../components/toolbox/FileHashModal";
 import { BatchRenameModal } from "../components/toolbox/BatchRenameModal";
 import { QrCodeModal } from "../components/toolbox/QrCodeModal";
 import { StructuredDataModal } from "../components/toolbox/StructuredDataModal";
+import { ImageCompressorModal } from "../components/toolbox/ImageCompressorModal";
+import { MarkdownConverterModal } from "../components/toolbox/MarkdownConverterModal";
+import { SheetConverterModal } from "../components/toolbox/SheetConverterModal";
+import { PdfOrganizerModal } from "../components/toolbox/PdfOrganizerModal";
+import { PdfToImagesModal } from "../components/toolbox/PdfToImagesModal";
+import { OcrModal } from "../components/toolbox/OcrModal";
+import { WordToPdfModal } from "../components/toolbox/WordToPdfModal";
 import {
   loadNavigationConfig,
   saveNavigationConfig,
@@ -58,7 +65,10 @@ interface ToolDefinition {
   name: LocalizedText;
   description: LocalizedText;
   category: ToolCategory;
-  tags: string[];
+  tags: {
+    zh: string[];
+    en: string[];
+  };
   icon: typeof ImageIcon;
   available?: boolean;
 }
@@ -78,7 +88,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "剪贴板历史", en: "Clipboard History" },
     description: { zh: "智能记录剪贴板图文历史，支持秒级检索与一键粘贴", en: "Smart clipboard history with instant search and paste" },
     category: "productivity",
-    tags: ["剪贴板", "历史", "Clipboard", "记录"],
+    tags: {
+      zh: ["剪贴板", "历史", "记录", "粘贴"],
+      en: ["Clipboard", "History", "Paste", "Text"],
+    },
     icon: ClipboardList,
     available: true,
   },
@@ -87,7 +100,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "代码片段与 Prompts", en: "Snippets & Prompts" },
     description: { zh: "常用代码片段与 AI Prompts 快捷库，支持语法高亮与变量注入", en: "Reusable code snippets and AI prompts with syntax highlighting" },
     category: "productivity",
-    tags: ["代码", "Snippets", "Prompts", "模板"],
+    tags: {
+      zh: ["代码", "片段", "Prompts", "模板"],
+      en: ["Code", "Snippets", "Prompts", "Templates"],
+    },
     icon: Code2,
     available: true,
   },
@@ -96,7 +112,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "快捷启动中心", en: "App Launcher" },
     description: { zh: "快速启动应用、网址、控制台脚本与系统指令", en: "Quick launch applications, URLs, console scripts and commands" },
     category: "productivity",
-    tags: ["启动", "应用", "Launcher", "快捷方式"],
+    tags: {
+      zh: ["快捷启动", "应用", "脚本", "指令"],
+      en: ["Launcher", "Apps", "Scripts", "Shortcuts"],
+    },
     icon: Rocket,
     available: true,
   },
@@ -105,7 +124,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "文件极速搜索", en: "File Search" },
     description: { zh: "全盘极速检索，毫秒级定位文件与目录", en: "Instant full-disk search for files and folders" },
     category: "files",
-    tags: ["搜索", "文件", "Search", "极速"],
+    tags: {
+      zh: ["全盘搜索", "文件", "极速", "定位"],
+      en: ["Search", "Files", "Instant", "Locate"],
+    },
     icon: Search,
     available: true,
   },
@@ -114,7 +136,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "图片格式转换", en: "Image Converter" },
     description: { zh: "批量转换 PNG、JPG、WebP 等图片格式", en: "Batch convert PNG, JPG, WebP and more" },
     category: "image",
-    tags: ["PNG", "JPG", "WebP", "转换"],
+    tags: {
+      zh: ["格式转换", "PNG", "JPG", "WebP"],
+      en: ["Convert", "PNG", "JPG", "WebP"],
+    },
     icon: FileImage,
     available: true,
   },
@@ -123,7 +148,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "文件夹同步与比对", en: "Folder Sync & Comparison" },
     description: { zh: "双向/镜像同步，多线程哈希比对与实时监控", en: "Two-way/mirror sync with hash comparison and RealTimeSync" },
     category: "files",
-    tags: ["同步", "备份", "FreeFileSync", "比对"],
+    tags: {
+      zh: ["文件同步", "备份", "比对", "镜像"],
+      en: ["Sync", "Backup", "Mirror", "Diff"],
+    },
     icon: FolderSync,
     available: true,
   },
@@ -132,7 +160,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "批量重命名", en: "Batch Rename" },
     description: { zh: "使用规则统一整理大量文件名称", en: "Rename large file sets with reusable rules" },
     category: "files",
-    tags: ["文件", "规则", "批处理", "重命名"],
+    tags: {
+      zh: ["批量重命名", "规则", "替换", "序号"],
+      en: ["Batch", "Rename", "Regex", "Sequence"],
+    },
     icon: Tags,
     available: true,
   },
@@ -141,7 +172,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "文件哈希", en: "File Hash" },
     description: { zh: "计算并比对文件的 MD5、SHA 哈希", en: "Calculate and compare MD5 and SHA hashes" },
     category: "files",
-    tags: ["MD5", "SHA256", "校验", "哈希"],
+    tags: {
+      zh: ["哈希校验", "MD5", "SHA256", "校验和"],
+      en: ["Hash", "MD5", "SHA256", "Checksum"],
+    },
     icon: Fingerprint,
     available: true,
   },
@@ -150,7 +184,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "二维码工具", en: "QR Code Tools" },
     description: { zh: "生成二维码并识别图片中的内容", en: "Create QR codes and read them from images" },
     category: "image",
-    tags: ["QR", "生成", "识别", "条码"],
+    tags: {
+      zh: ["二维码", "生成", "识别", "Wi-Fi"],
+      en: ["QR Code", "Generate", "Scan", "Wi-Fi"],
+    },
     icon: QrCode,
     available: true,
   },
@@ -159,7 +196,10 @@ const tools: ToolDefinition[] = [
     name: { zh: "JSON / YAML 转换", en: "JSON / YAML Converter" },
     description: { zh: "转换、格式化并校验结构化数据", en: "Convert, format and validate structured data" },
     category: "text",
-    tags: ["JSON", "YAML", "格式化", "校验"],
+    tags: {
+      zh: ["JSON", "YAML", "格式化", "校验"],
+      en: ["JSON", "YAML", "Format", "Validate"],
+    },
     icon: Braces,
     available: true,
   },
@@ -168,56 +208,84 @@ const tools: ToolDefinition[] = [
     name: { zh: "图片压缩", en: "Image Compressor" },
     description: { zh: "在保持观感的同时减小图片体积", en: "Reduce image size while preserving quality" },
     category: "image",
-    tags: ["压缩", "PNG", "JPG", "优化"],
+    tags: {
+      zh: ["图片压缩", "体积优化", "PNG", "JPG"],
+      en: ["Compress", "Optimize", "PNG", "JPG"],
+    },
     icon: ImageIcon,
+    available: true,
   },
   {
     id: "pdf-to-images",
     name: { zh: "PDF 转图片", en: "PDF to Images" },
     description: { zh: "按页导出为 PNG 或 JPG 图片", en: "Export PDF pages as PNG or JPG images" },
     category: "document",
-    tags: ["PDF", "PNG", "JPG"],
+    tags: {
+      zh: ["PDF转图片", "PNG", "JPG", "导出"],
+      en: ["PDF to Images", "PNG", "JPG", "Export"],
+    },
     icon: FileOutput,
+    available: true,
   },
   {
     id: "pdf-organizer",
     name: { zh: "PDF 合并拆分", en: "Merge & Split PDF" },
     description: { zh: "合并多个 PDF 或按页面范围拆分", en: "Merge PDFs or split them by page range" },
     category: "document",
-    tags: ["PDF", "合并", "拆分"],
+    tags: {
+      zh: ["PDF合并", "PDF拆分", "页面整理"],
+      en: ["PDF Merge", "PDF Split", "Organize"],
+    },
     icon: Archive,
+    available: true,
   },
   {
     id: "word-to-pdf",
     name: { zh: "Word 转 PDF", en: "Word to PDF" },
     description: { zh: "将 DOCX 文档转换为便携 PDF", en: "Convert DOCX documents to portable PDFs" },
     category: "document",
-    tags: ["DOCX", "PDF"],
+    tags: {
+      zh: ["Word转PDF", "DOCX", "转换"],
+      en: ["Word to PDF", "DOCX", "Convert"],
+    },
     icon: FileText,
+    available: true,
   },
   {
     id: "sheet-converter",
     name: { zh: "Excel / CSV 转换", en: "Excel / CSV Converter" },
     description: { zh: "在 XLSX、CSV 与 TSV 之间快速转换", en: "Convert between XLSX, CSV and TSV" },
     category: "document",
-    tags: ["XLSX", "CSV", "TSV"],
+    tags: {
+      zh: ["表格转换", "XLSX", "CSV", "TSV"],
+      en: ["Sheets", "XLSX", "CSV", "TSV"],
+    },
     icon: FileSpreadsheet,
+    available: true,
   },
   {
     id: "ocr",
     name: { zh: "OCR 文字识别", en: "OCR Text Recognition" },
     description: { zh: "从截图和扫描件中提取可编辑文字", en: "Extract editable text from scans and images" },
     category: "document",
-    tags: ["OCR", "扫描", "文字"],
+    tags: {
+      zh: ["OCR识别", "截图文字", "文本提取"],
+      en: ["OCR", "Scan", "Text Extract"],
+    },
     icon: FileScan,
+    available: true,
   },
   {
     id: "markdown-converter",
     name: { zh: "Markdown 转换", en: "Markdown Converter" },
     description: { zh: "在 Markdown、HTML 与纯文本间转换", en: "Convert Markdown, HTML and plain text" },
     category: "text",
-    tags: ["MD", "HTML", "TXT"],
+    tags: {
+      zh: ["Markdown", "HTML", "纯文本"],
+      en: ["Markdown", "HTML", "Plain Text"],
+    },
     icon: Type,
+    available: true,
   },
 ];
 
@@ -233,7 +301,20 @@ export function ToolboxView() {
   const [viewMode, setViewMode] = createSignal<"grid" | "sections">("grid");
   const [favorites, setFavorites] = createSignal(new Set(["image-converter", "markdown-converter", "clipboard"]));
 
-  const [activeModal, setActiveModal] = createSignal<"file-hash" | "batch-rename" | "qr-code" | "structured-data" | null>(null);
+  const [activeModal, setActiveModal] = createSignal<
+    | "file-hash"
+    | "batch-rename"
+    | "qr-code"
+    | "structured-data"
+    | "image-compressor"
+    | "markdown-converter"
+    | "sheet-converter"
+    | "pdf-organizer"
+    | "pdf-to-images"
+    | "ocr"
+    | "word-to-pdf"
+    | null
+  >(null);
 
   const [customToolOrder, setCustomToolOrder] = createSignal<string[]>([]);
   const [sidebarPinnedIds, setSidebarPinnedIds] = createSignal<Set<string>>(new Set());
@@ -354,7 +435,8 @@ export function ToolboxView() {
         tool.description.zh,
         tool.description.en,
         tool.id,
-        ...tool.tags,
+        ...tool.tags.zh,
+        ...tool.tags.en,
       ]
         .join(" ")
         .toLocaleLowerCase()
@@ -423,6 +505,34 @@ export function ToolboxView() {
     }
     if (tool.id === "structured-data") {
       setActiveModal("structured-data");
+      return;
+    }
+    if (tool.id === "image-compressor") {
+      setActiveModal("image-compressor");
+      return;
+    }
+    if (tool.id === "markdown-converter") {
+      setActiveModal("markdown-converter");
+      return;
+    }
+    if (tool.id === "sheet-converter") {
+      setActiveModal("sheet-converter");
+      return;
+    }
+    if (tool.id === "pdf-organizer") {
+      setActiveModal("pdf-organizer");
+      return;
+    }
+    if (tool.id === "pdf-to-images") {
+      setActiveModal("pdf-to-images");
+      return;
+    }
+    if (tool.id === "ocr") {
+      setActiveModal("ocr");
+      return;
+    }
+    if (tool.id === "word-to-pdf") {
+      setActiveModal("word-to-pdf");
       return;
     }
 
@@ -988,7 +1098,7 @@ export function ToolboxView() {
 
                         <div class="mt-auto pt-3 flex items-center justify-between gap-2">
                           <div class="flex items-center gap-1 overflow-hidden">
-                            <For each={tool.tags.slice(0, 3)}>
+                            <For each={(tool.tags[language()] || tool.tags.en).slice(0, 3)}>
                               {(tag) => <span class="px-1.5 py-0.5 bg-secondary text-muted-foreground rounded text-[10px] font-mono truncate">{tag}</span>}
                             </For>
                           </div>
@@ -1109,7 +1219,7 @@ export function ToolboxView() {
 
                               <div class="mt-auto pt-3 flex items-center justify-between gap-2">
                                 <div class="flex items-center gap-1 overflow-hidden">
-                                  <For each={tool.tags.slice(0, 3)}>
+                                  <For each={(tool.tags[language()] || tool.tags.en).slice(0, 3)}>
                                     {(tag) => <span class="px-1.5 py-0.5 bg-secondary text-muted-foreground rounded text-[10px] font-mono truncate">{tag}</span>}
                                   </For>
                                 </div>
@@ -1160,6 +1270,34 @@ export function ToolboxView() {
       />
       <StructuredDataModal
         isOpen={activeModal() === "structured-data"}
+        onClose={() => setActiveModal(null)}
+      />
+      <ImageCompressorModal
+        isOpen={activeModal() === "image-compressor"}
+        onClose={() => setActiveModal(null)}
+      />
+      <MarkdownConverterModal
+        isOpen={activeModal() === "markdown-converter"}
+        onClose={() => setActiveModal(null)}
+      />
+      <SheetConverterModal
+        isOpen={activeModal() === "sheet-converter"}
+        onClose={() => setActiveModal(null)}
+      />
+      <PdfOrganizerModal
+        isOpen={activeModal() === "pdf-organizer"}
+        onClose={() => setActiveModal(null)}
+      />
+      <PdfToImagesModal
+        isOpen={activeModal() === "pdf-to-images"}
+        onClose={() => setActiveModal(null)}
+      />
+      <OcrModal
+        isOpen={activeModal() === "ocr"}
+        onClose={() => setActiveModal(null)}
+      />
+      <WordToPdfModal
+        isOpen={activeModal() === "word-to-pdf"}
         onClose={() => setActiveModal(null)}
       />
     </div>
