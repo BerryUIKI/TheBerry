@@ -98,7 +98,7 @@ impl ImageCompressorService {
         use rayon::prelude::*;
         tasks
             .par_iter()
-            .map(|t| Self::compress_single(t))
+            .map(Self::compress_single)
             .collect()
     }
 }
