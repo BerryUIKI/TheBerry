@@ -41,10 +41,28 @@
 - Sortable table columns (Name, Size, Path) and 1-click Explorer reveal.
 - Native Windows QuickLook spacebar file previews integrated into File Search, Spotlight, and Image Converter.
 
-### 7. ⚙️ Native Boot Autostart, Data Backup & Auto-Updater
+### 7. 🔄 Bi-Directional Folder Sync Engine
+- High-performance folder synchronization with Two-way, Mirror, and Update modes.
+- Comparison engine supporting Timestamp & Size or cryptographic Content Hash (SHA-256).
+- Real-time filesystem change monitoring with configurable debouncing.
+- Safe deletion handling via Recycle Bin, timestamped Versioning archives, or permanent removal.
+
+### 8. 🧰 Toolbox Suite & Cryptographic File Tools
+- Multi-threaded file checksum calculator supporting MD5, SHA-1, SHA-256, and SHA-512.
+- High-performance batch file renamer supporting regular expressions, custom prefixes/suffixes, and real-time rename preview.
+- Master utility card hub with pin/unpin controls directly linked to sidebar visibility.
+
+### 9. 🎨 Customizable Navigation & Three-Tier Stored Utilities Depot
+- HTML5 drag-and-drop reordering for both the Sidebar navigation and Toolbox cards.
+- Right-click context menu to customize tool display names/aliases, hide items, or reset defaults.
+- Three-tier hidden items depot: (1) Collapsible bottom "Stored Utilities" drawer (`+ N`), (2) Toolbox pin toggles, and (3) Global Navigation Manager modal.
+
+### 10. ⚡ Native Streaming In-Place Auto-Updater & System Services
+- Native Rust HTTP streaming downloader writing directly to `<data_dir>/updates/` without browser redirects or CORS limits.
+- Real-time download progress with percentage, downloaded/total bytes, and throughput transfer speed.
+- 1-click silent NSIS installer invocation (`/S`) followed by graceful main process termination and restart, eliminating manual uninstallation.
 - Native Windows Registry `Run` key autostart toggle (no UAC elevation needed).
 - Full database & preferences JSON backup export & restore.
-- 24-hour silent background auto-updater with chunked streaming downloads.
 - Interactive keyboard shortcuts cheatsheet modal (`?` / `F1`).
 
 ---

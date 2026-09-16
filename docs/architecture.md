@@ -33,8 +33,11 @@ graph TD
             M7[QuickLook Windows Preview]
             M8[Shortcuts & Global Hotkeys]
             M9[Native Autostart Registry]
-            M10[Background Auto-Updater]
+            M10[Streaming In-Place Auto-Updater]
             M11[Backup & Data Portability]
+            M12[Folder Sync Engine]
+            M13[Toolbox Suite & File Utilities]
+            M14[Navigation Customization & Stored Depot]
         end
     end
 
@@ -74,14 +77,17 @@ graph TD
   ```text
   <User Selected Root>/BerryAppData/
   ├── config.toml           # Application settings (theme, tray, limits)
-  └── the_berry.redb        # Embedded redb database (zero-dependency ACID store)
+  ├── the_berry.redb        # Embedded redb database (zero-dependency ACID store)
+  └── updates/              # Dedicated in-place update cache and temporary installer binaries
   ```
 
 ### 3.2 Database Engine: `redb`
-`redb` is an embedded, ACID-compliant key-value/table database written entirely in Rust. Tables initialized for MVP:
+`redb` is an embedded, ACID-compliant key-value/table database written entirely in Rust. Tables initialized across modules:
 - `clipboard_history`: Keyed by UUID `&str`, stores serialized `ClipboardItem` JSON payloads.
 - `snippets`: Keyed by UUID `&str`, stores `SnippetItem` JSON payloads.
 - `launcher_items`: Keyed by UUID `&str`, stores `LauncherItem` JSON payloads.
+- `sync_profiles`: Stores folder synchronization profiles (`SyncProfile`).
+- `sync_history`: Stores synchronization execution logs and job manifests.
 - `kv_store`: General key-value storage for metadata and module configurations.
 
 ---
@@ -94,7 +100,7 @@ graph TD
 
 ---
 
-## 5. MVP Feature Modules
+## 5. Core & Extended Feature Modules
 1. **Clipboard History Manager (`modules::clipboard`)**:
    - Stores copied text, previews, timestamps, and character counts.
    - Supports search filtering, pin-to-top, manual entry, item deletion, and clearing unpinned history.
@@ -103,12 +109,24 @@ graph TD
    - Categorized by language, tags, and favorite status.
    - One-click copy and integrated editor.
 3. **Application Launcher & Batch Organizer (`modules::launcher`)**:
-   - Launches executables, scripts, or multi-command batch pipelines (e.g., launching multiple instances of software).
-   - Tracks execution count and favorites.
+   - Launches executables, scripts, or multi-command batch pipelines.
+   - Tracks execution count and favorites with Windows Start Menu discovery.
 4. **Batch Image Format Converter (`modules::image_converter`)**:
-   - Converts image batches between PNG, JPEG, and WebP.
-   - Adjustable quality factors and destination directory control.
-5. **Everything-like Fast Local File Search (`modules::file_search`)**:
+   - Converts image batches between PNG, JPEG, and WebP using high-fidelity Lanczos3 scaling.
+   - Adjustable quality factors, presets, and destination directory control.
+5. **Fast Local File Search (`modules::file_search`)**:
    - Fast directory traversal indexer and wildcard/substring search in Rust.
-   - Real-time filtering by category (Files, Folders, Images, Code, Documents).
-   - Click-to-copy path and open in system explorer.
+   - Real-time filtering by category (Files, Folders, Images, Code, Documents) and QuickLook spacebar previews.
+6. **Folder Sync Engine (`modules::folder_sync`)**:
+   - Multi-mode folder synchronization (Two-way, Mirror, Update, Custom) with time/size or SHA-256 hash comparison.
+   - Real-time filesystem change monitoring and safe deletion handling (Recycle Bin, Versioning archive, or Permanent).
+7. **Toolbox Suite & File Utilities (`modules::toolbox`)**:
+   - Cryptographic file hash calculation (MD5, SHA1, SHA256, SHA512) with multi-threaded streaming chunks.
+   - Batch file renamer with regular expressions, prefix/suffix rules, and live change previews.
+8. **Native Streaming Auto-Updater & In-Place NSIS Overwrite (`modules::updater`)**:
+   - Native Rust HTTP stream down to `<data_dir>/updates/` cache with live speed and progress metrics.
+   - 1-click silent NSIS installer invocation (`/S`) followed by graceful main process termination and restart, eliminating manual uninstallation.
+9. **Customizable Navigation & Three-Tier Stored Utilities Depot (`services::navigation`)**:
+   - HTML5 drag-and-drop reordering for both the Sidebar navigation and the Toolbox utility card hub.
+   - Right-click context menus for quick item renaming, custom aliases, hiding, or resetting.
+   - Three-tier hidden items depot: (a) Sidebar collapsible "Stored Utilities" drawer, (b) Toolbox master depot with pin/unpin toggles, and (c) Navigation Manager modal.
