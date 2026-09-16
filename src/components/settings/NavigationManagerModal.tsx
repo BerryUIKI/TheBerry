@@ -152,8 +152,9 @@ export function NavigationManagerModal(props: {
 
   const filteredItems = () => {
     const q = searchQuery().trim().toLowerCase();
-    if (!q) return items();
-    return items().filter((it) => {
+    const base = items().filter((it) => it.id !== "toolbox");
+    if (!q) return base;
+    return base.filter((it) => {
       const label = getItemLabel(it).toLowerCase();
       const rawId = it.id.toLowerCase();
       return label.includes(q) || rawId.includes(q);

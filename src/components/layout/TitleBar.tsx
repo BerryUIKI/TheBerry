@@ -5,11 +5,11 @@ import { onUpdateAvailable, getAppVersion } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
 import { useI18n } from "../../context/I18nContext";
-import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard } from "lucide-solid";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard, Settings } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
-  const { setActiveView } = useApp();
+  const { activeView, setActiveView } = useApp();
   const { t, assistantName } = useI18n();
   const [isMaximized, setIsMaximized] = createSignal(false);
   const [appVersion, setAppVersion] = createSignal("0.1.6");
@@ -138,6 +138,19 @@ export function TitleBar() {
           class="w-7 h-7 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-secondary transition-all active:scale-90"
         >
           {theme() === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
+
+        {/* Settings Button */}
+        <button
+          onClick={() => setActiveView("settings")}
+          title={t("nav.settings")}
+          class={`w-7 h-7 flex items-center justify-center rounded transition-all active:scale-90 ${
+            activeView() === "settings"
+              ? "text-primary bg-secondary/80 font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+        >
+          <Settings size={14} />
         </button>
 
         <div class="h-4 w-[1px] bg-border mx-1" />

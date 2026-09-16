@@ -55,7 +55,7 @@ const ICON_MAP: Record<string, any> = {
 };
 
 export function Sidebar() {
-  const { activeView, setActiveView, dataDir } = useApp();
+  const { activeView, setActiveView } = useApp();
   const { t, language } = useI18n();
   const { success } = useToast();
 
@@ -197,8 +197,8 @@ export function Sidebar() {
     });
   });
 
-  const visibleItems = () => sidebarItems().filter((item) => !item.hidden);
-  const hiddenItems = () => sidebarItems().filter((item) => item.hidden);
+  const visibleItems = () => sidebarItems().filter((item) => !item.hidden && item.id !== "toolbox");
+  const hiddenItems = () => sidebarItems().filter((item) => item.hidden && item.id !== "toolbox");
 
   const getItemMeta = (id: string) => KNOWN_NAV_ITEMS[id] || {
     id,
@@ -423,43 +423,46 @@ export function Sidebar() {
           </For>
         </div>
 
+      </div>
+
+      {/* Bottom Footer: Stored Utilities chip & Permanent Toolbox */}
+      <div class="p-2 border-t border-sidebar-border space-y-1.5 flex-shrink-0">
         {/* Hidden / Stored Items Drawer Section */}
         <Show when={hiddenItems().length > 0}>
-          <div class="pt-2 mt-1 border-t border-sidebar-border/60">
+          <div class="rounded-lg bg-background/50 border border-border/60 overflow-hidden transition-all">
             <button
               onClick={() => setShowHiddenDrawer((prev) => !prev)}
-              class="w-full flex items-center justify-between px-3 py-1.5 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+              class="w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors"
+              title={language() === "zh" ? "展开/折叠已收纳工具" : "Toggle stored utilities"}
             >
-              <div class="flex items-center space-x-1.5">
+              <div class="flex items-center space-x-1.5 min-w-0">
                 <ChevronRight
-                  size={12}
-                  class={`transition-transform duration-200 ${showHiddenDrawer() ? "rotate-90" : ""}`}
+                  size={11}
+                  class={`transition-transform duration-200 flex-shrink-0 ${showHiddenDrawer() ? "rotate-90" : ""}`}
                 />
-                <span>
-                  {language() === "zh"
-                    ? `已收纳工具 (${hiddenItems().length})`
-                    : `Stored Utilities (${hiddenItems().length})`}
+                <span class="truncate">
+                  {language() === "zh" ? "已收纳工具" : "Stored Utilities"}
                 </span>
               </div>
-              <span class="text-[10px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground font-mono">
-                {hiddenItems().length}
+              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-mono flex-shrink-0">
+                +{hiddenItems().length}
               </span>
             </button>
 
             {/* Expanded list of hidden tools */}
             <Show when={showHiddenDrawer()}>
-              <div class="mt-1 space-y-0.5 pl-2 animate-in slide-in-from-top-1 duration-200">
+              <div class="p-1 space-y-0.5 max-h-36 overflow-y-auto border-t border-border/40 animate-in slide-in-from-bottom-1 duration-150">
                 <For each={hiddenItems()}>
                   {(item) => {
                     const Icon = getItemIcon(item.id);
                     return (
-                      <div class="group flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all duration-150 hover:translate-x-0.5">
+                      <div class="group flex items-center justify-between px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all duration-150 hover:translate-x-0.5">
                         <button
                           onClick={() => handleItemClick(item)}
                           class="flex items-center space-x-2 truncate flex-1 text-left"
                           title={language() === "zh" ? "打开此工具" : "Open tool"}
                         >
-                          <Icon size={14} class="flex-shrink-0 text-muted-foreground" />
+                          <Icon size={13} class="flex-shrink-0 text-muted-foreground" />
                           <span class="truncate text-[11px]">{getItemLabel(item)}</span>
                         </button>
 
@@ -474,7 +477,7 @@ export function Sidebar() {
                                 : `"${getItemLabel(item)}" restored to sidebar`
                             );
                           }}
-                          class="opacity-0 group-hover:opacity-100 p-1 hover:bg-primary/20 text-primary rounded transition-all"
+                          class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-primary/20 text-primary rounded transition-all flex-shrink-0"
                           title={language() === "zh" ? "恢复并放回侧边栏" : "Restore to sidebar"}
                         >
                           <Eye size={12} />
@@ -487,33 +490,43 @@ export function Sidebar() {
             </Show>
           </div>
         </Show>
-      </div>
 
-      {/* Bottom info & Settings */}
-      <div class="p-2 border-t border-sidebar-border space-y-1 flex-shrink-0">
-        {dataDir() && (
-          <div
-            title={`Root Data: ${dataDir()}`}
-            class="flex items-center space-x-2 px-3 py-1.5 text-[11px] text-muted-foreground truncate rounded bg-background/50 border border-border/50"
-          >
-            <FolderDot size={13} class="flex-shrink-0 text-primary" />
-            <span class="truncate">{dataDir()?.split(/[\\/]/).pop() || "BerryAppData"}</span>
-          </div>
-        )}
-
+        {/* Permanent Toolbox Button */}
         <button
-          onClick={() => setActiveView("settings")}
-          class={`w-full flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-medium transition-all ${
-            activeView() === "settings"
+          onClick={() => setActiveView("toolbox")}
+          class={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
+            activeView() === "toolbox"
               ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
+              : "text-sidebar-foreground hover:bg-secondary hover:text-foreground bg-secondary/30"
           }`}
+          title={language() === "zh" ? "打开全部工具箱" : "Open all tools in Toolbox"}
         >
-          <Settings
-            size={16}
-            class={activeView() === "settings" ? "text-primary-foreground" : "text-muted-foreground"}
-          />
-          <span>{t("nav.settings")}</span>
+          <div class="flex items-center space-x-2.5 min-w-0">
+            <Boxes
+              size={16}
+              class={`flex-shrink-0 ${
+                activeView() === "toolbox" ? "text-primary-foreground" : "text-primary"
+              }`}
+            />
+            <span class="truncate">{t("nav.toolbox")}</span>
+          </div>
+
+          <Show when={hiddenItems().length > 0 && !showHiddenDrawer()}>
+            <span
+              class={`text-[10px] px-1.5 py-0.2 rounded-full font-mono flex-shrink-0 ${
+                activeView() === "toolbox"
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              title={
+                language() === "zh"
+                  ? `${hiddenItems().length} 个工具已收纳至工具箱`
+                  : `${hiddenItems().length} utilities stored in toolbox`
+              }
+            >
+              +{hiddenItems().length}
+            </span>
+          </Show>
         </button>
       </div>
 
