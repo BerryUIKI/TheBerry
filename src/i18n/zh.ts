@@ -402,4 +402,16 @@ export const zh = {
   "updater.close": "稍后再说",
   "updater.download_failed": "下载失败",
   "updater.retry": "重试下载",
+  // Navigation & Customization
+  "nav.manage_navigation": "管理侧边栏导航",
+  "nav.stored_utilities": "已收纳工具",
+  "nav.hide_from_sidebar": "从侧边栏隐藏",
+  "nav.pin_to_sidebar": "固定至侧边栏",
+  "nav.unpin_from_sidebar": "取消固定",
+  "nav.rename_alias": "编辑显示别名",
+  "nav.reset_default_name": "恢复默认名称",
+  "nav.reset_layout": "恢复默认布局",
+  "nav.drag_to_reorder": "按住拖动排序",
+  "nav.navigation_manager_title": "侧边栏导航与收纳定制",
+  "nav.navigation_manager_desc": "自定义侧边栏项目排序、隐藏/显示、修改别名及恢复默认",
 } as const;

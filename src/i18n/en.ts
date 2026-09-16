@@ -402,4 +402,16 @@ export const en = {
   "updater.close": "Remind Me Later",
   "updater.download_failed": "Download Failed",
   "updater.retry": "Retry Download",
+  // Navigation & Customization
+  "nav.manage_navigation": "Manage Navigation",
+  "nav.stored_utilities": "Stored Utilities",
+  "nav.hide_from_sidebar": "Hide from Sidebar",
+  "nav.pin_to_sidebar": "Pin to Sidebar",
+  "nav.unpin_from_sidebar": "Unpin from Sidebar",
+  "nav.rename_alias": "Edit Display Label",
+  "nav.reset_default_name": "Reset Default Name",
+  "nav.reset_layout": "Reset Layout",
+  "nav.drag_to_reorder": "Drag to reorder",
+  "nav.navigation_manager_title": "Sidebar Navigation & Layout",
+  "nav.navigation_manager_desc": "Customize sidebar ordering, visibility, alias names, and defaults",
 } as const;

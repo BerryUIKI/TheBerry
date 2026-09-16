@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show, onMount, onCleanup } from "solid-js";
 import {
   Archive,
   Braces,
@@ -17,6 +17,11 @@ import {
   Tags,
   Type,
   Wrench,
+  Pin,
+  PinOff,
+  GripVertical,
+  RotateCcw,
+  Sliders,
 } from "lucide-solid";
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../context/I18nContext";
@@ -25,6 +30,13 @@ import { FileHashModal } from "../components/toolbox/FileHashModal";
 import { BatchRenameModal } from "../components/toolbox/BatchRenameModal";
 import { QrCodeModal } from "../components/toolbox/QrCodeModal";
 import { StructuredDataModal } from "../components/toolbox/StructuredDataModal";
+import {
+  loadNavigationConfig,
+  saveNavigationConfig,
+  reorderToolboxTools,
+  pinToSidebar,
+  unpinFromSidebar,
+} from "../services/navigation";
 
 type ToolCategory = "convert" | "document" | "image" | "text" | "system";
 
@@ -177,11 +189,62 @@ export function ToolboxView() {
 
   const [activeModal, setActiveModal] = createSignal<"file-hash" | "batch-rename" | "qr-code" | "structured-data" | null>(null);
 
+  const [customToolOrder, setCustomToolOrder] = createSignal<string[]>([]);
+  const [sidebarPinnedIds, setSidebarPinnedIds] = createSignal<Set<string>>(new Set());
+  const [draggedToolIndex, setDraggedToolIndex] = createSignal<number | null>(null);
+  const [dragOverToolIndex, setDragOverToolIndex] = createSignal<number | null>(null);
+
   const localize = (text: LocalizedText) => text[language()];
+
+  const reloadNavState = () => {
+    const cfg = loadNavigationConfig();
+    setCustomToolOrder(cfg.toolboxOrder || []);
+    const pinned = new Set(cfg.sidebarItems.filter((it) => !it.hidden).map((it) => it.id));
+    setSidebarPinnedIds(pinned);
+  };
+
+  onMount(() => {
+    reloadNavState();
+    const handleNavChange = () => reloadNavState();
+    window.addEventListener("navigation-state-changed", handleNavChange);
+
+    const handleOpenToolEvent = (e: Event) => {
+      const ce = e as CustomEvent<string>;
+      if (ce.detail) {
+        const targetTool = tools.find((t) => t.id === ce.detail);
+        if (targetTool) openTool(targetTool);
+      }
+    };
+    window.addEventListener("open-toolbox-tool", handleOpenToolEvent);
+
+    onCleanup(() => {
+      window.removeEventListener("navigation-state-changed", handleNavChange);
+      window.removeEventListener("open-toolbox-tool", handleOpenToolEvent);
+    });
+  });
+
+  const orderedBaseTools = createMemo(() => {
+    const order = customToolOrder();
+    if (!order || order.length === 0) return tools;
+
+    const map = new Map(tools.map((t) => [t.id, t]));
+    const result: ToolDefinition[] = [];
+
+    order.forEach((id) => {
+      const t = map.get(id);
+      if (t) {
+        result.push(t);
+        map.delete(id);
+      }
+    });
+
+    map.forEach((t) => result.push(t));
+    return result;
+  });
 
   const filteredTools = createMemo(() => {
     const normalizedQuery = query().trim().toLocaleLowerCase();
-    return tools.filter((tool) => {
+    return orderedBaseTools().filter((tool) => {
       const categoryMatches = category() === "all" || tool.category === category();
       if (!categoryMatches) return false;
       if (!normalizedQuery) return true;
@@ -238,6 +301,77 @@ export function ToolboxView() {
       else next.add(tool.id);
       return next;
     });
+  };
+
+  const handleToolDragStart = (e: DragEvent, index: number) => {
+    setDraggedToolIndex(index);
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", `${index}`);
+    }
+  };
+
+  const handleToolDragOver = (e: DragEvent, index: number) => {
+    e.preventDefault();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = "move";
+    }
+    setDragOverToolIndex(index);
+  };
+
+  const handleToolDrop = (e: DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const startIndex = draggedToolIndex();
+    if (startIndex === null || startIndex === dropIndex) {
+      setDraggedToolIndex(null);
+      setDragOverToolIndex(null);
+      return;
+    }
+
+    const currentOrder = orderedBaseTools().map((t) => t.id);
+    const updatedOrder = reorderToolboxTools(startIndex, dropIndex, currentOrder);
+    setCustomToolOrder(updatedOrder);
+    setDraggedToolIndex(null);
+    setDragOverToolIndex(null);
+    info(
+      language() === "zh" ? "排序已更新" : "Order Updated",
+      language() === "zh" ? "工具箱排列顺序已保存" : "Toolbox order saved"
+    );
+  };
+
+  const handleResetToolboxOrder = () => {
+    const current = loadNavigationConfig();
+    saveNavigationConfig({
+      ...current,
+      toolboxOrder: [],
+    });
+    setCustomToolOrder([]);
+    info(
+      language() === "zh" ? "已恢复默认排序" : "Order Reset",
+      language() === "zh" ? "工具箱已恢复官方默认排列" : "Toolbox tools reset to default order"
+    );
+  };
+
+  const handleTogglePin = (tool: ToolDefinition) => {
+    const isPinned = sidebarPinnedIds().has(tool.id);
+    if (isPinned) {
+      unpinFromSidebar(tool.id);
+      success(
+        language() === "zh" ? "已从侧边栏取消固定" : "Unpinned from Sidebar",
+        language() === "zh"
+          ? `"${localize(tool.name)}" 已从左侧侧边栏移除`
+          : `"${localize(tool.name)}" removed from sidebar`
+      );
+    } else {
+      pinToSidebar(tool.id);
+      success(
+        language() === "zh" ? "已固定至左侧侧边栏" : "Pinned to Sidebar",
+        language() === "zh"
+          ? `"${localize(tool.name)}" 已添加到左侧侧边栏`
+          : `"${localize(tool.name)}" added to sidebar`
+      );
+    }
+    reloadNavState();
   };
 
   return (
@@ -329,14 +463,40 @@ export function ToolboxView() {
 
       <div class="flex-1 min-h-0 overflow-y-auto pr-1">
         <div class="flex items-center justify-between mb-2 sticky top-0 bg-background py-1 z-10">
-          <h2 class="text-xs font-semibold text-foreground">
-            {language() === "zh" ? "全部工具" : "All tools"}
-          </h2>
-          <span class="text-[11px] text-muted-foreground">
-            {language() === "zh"
-              ? `${filteredTools().length} 个工具`
-              : `${filteredTools().length} tools`}
-          </span>
+          <div class="flex items-center space-x-2">
+            <h2 class="text-xs font-semibold text-foreground">
+              {language() === "zh" ? "全部工具" : "All tools"}
+            </h2>
+            <span class="text-[11px] text-muted-foreground">
+              {language() === "zh"
+                ? `(可拖动排序，共 ${filteredTools().length} 个)`
+                : `(drag to reorder, ${filteredTools().length} tools)`}
+            </span>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            <Show when={customToolOrder().length > 0}>
+              <button
+                type="button"
+                onClick={handleResetToolboxOrder}
+                class="px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center space-x-1 transition-colors border border-border/50"
+                title={language() === "zh" ? "恢复默认排列顺序" : "Reset tools to default order"}
+              >
+                <RotateCcw size={11} />
+                <span>{language() === "zh" ? "恢复排序" : "Reset Order"}</span>
+              </button>
+            </Show>
+
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent("open-navigation-manager"))}
+              class="px-2.5 py-1 rounded text-[11px] font-medium text-primary hover:text-primary-foreground hover:bg-primary border border-primary/30 flex items-center space-x-1.5 transition-colors shadow-sm"
+              title={language() === "zh" ? "管理侧边栏导航与收纳" : "Manage sidebar navigation"}
+            >
+              <Sliders size={12} />
+              <span>{language() === "zh" ? "管理侧边栏导航" : "Sidebar Manager"}</span>
+            </button>
+          </div>
         </div>
 
         <Show
@@ -355,11 +515,23 @@ export function ToolboxView() {
         >
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-1">
             <For each={filteredTools()}>
-              {(tool) => {
+              {(tool, index) => {
                 const Icon = tool.icon;
                 const isFavorite = () => favorites().has(tool.id);
+                const isPinned = () => sidebarPinnedIds().has(tool.id);
+                const isDragged = () => draggedToolIndex() === index();
+                const isOver = () => dragOverToolIndex() === index();
+
                 return (
-                  <article class="p-3 bg-card border border-border rounded-lg shadow-sm hover:border-primary/30 transition-colors flex flex-col min-h-36">
+                  <article
+                    draggable={true}
+                    onDragStart={(e) => handleToolDragStart(e, index())}
+                    onDragOver={(e) => handleToolDragOver(e, index())}
+                    onDrop={(e) => handleToolDrop(e, index())}
+                    class={`group p-3 bg-card border rounded-lg shadow-sm transition-all flex flex-col min-h-36 select-none ${
+                      isDragged() ? "opacity-30 border-dashed border-primary" : "border-border hover:border-primary/40"
+                    } ${isOver() ? "ring-2 ring-primary/40 border-primary bg-primary/5" : ""}`}
+                  >
                     <div class="flex items-start gap-2.5">
                       <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                         <Icon size={18} />
@@ -382,16 +554,59 @@ export function ToolboxView() {
                           {localize(tool.description)}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleFavorite(tool)}
-                        class={`p-1 rounded hover:bg-secondary transition-colors ${isFavorite() ? "text-primary" : "text-muted-foreground"}`}
-                        title={language() === "zh" ? (isFavorite() ? "取消收藏" : "收藏") : (isFavorite() ? "Remove favorite" : "Add favorite")}
-                        aria-label={language() === "zh" ? (isFavorite() ? `取消收藏${localize(tool.name)}` : `收藏${localize(tool.name)}`) : (isFavorite() ? `Remove ${localize(tool.name)} from favorites` : `Add ${localize(tool.name)} to favorites`)}
-                        aria-pressed={isFavorite()}
-                      >
-                        <Star size={14} fill={isFavorite() ? "currentColor" : "none"} />
-                      </button>
+
+                      {/* Card Actions: Pin to Sidebar + Favorite + Drag Grip */}
+                      <div class="flex items-center space-x-1 flex-shrink-0">
+                        {/* Pin / Unpin to Sidebar */}
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePin(tool)}
+                          class={`p-1 rounded hover:bg-secondary transition-colors ${
+                            isPinned() ? "text-primary" : "text-muted-foreground/50 hover:text-foreground"
+                          }`}
+                          title={
+                            isPinned()
+                              ? language() === "zh"
+                                ? "已固定在侧边栏 (点击从侧边栏移除)"
+                                : "Pinned in sidebar (click to unpin)"
+                              : language() === "zh"
+                              ? "固定至左侧侧边栏"
+                              : "Pin to sidebar"
+                          }
+                        >
+                          <Show when={isPinned()} fallback={<PinOff size={13} />}>
+                            <Pin size={13} class="fill-current" />
+                          </Show>
+                        </button>
+
+                        {/* Favorite button */}
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(tool)}
+                          class={`p-1 rounded hover:bg-secondary transition-colors ${
+                            isFavorite() ? "text-primary" : "text-muted-foreground/60 hover:text-foreground"
+                          }`}
+                          title={
+                            language() === "zh"
+                              ? isFavorite()
+                                ? "取消收藏"
+                                : "收藏"
+                              : isFavorite()
+                              ? "Remove favorite"
+                              : "Add favorite"
+                          }
+                        >
+                          <Star size={13} fill={isFavorite() ? "currentColor" : "none"} />
+                        </button>
+
+                        {/* Grip Drag Handle */}
+                        <span
+                          class="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-foreground p-0.5"
+                          title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
+                        >
+                          <GripVertical size={13} />
+                        </span>
+                      </div>
                     </div>
 
                     <div class="mt-auto pt-3 flex items-center justify-between gap-2">
