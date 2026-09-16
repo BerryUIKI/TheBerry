@@ -325,6 +325,7 @@ impl UpdaterService {
         data_dir: Option<&Path>,
         app_handle: AppHandle,
     ) -> Result<(), String> {
+        let _ = silent;
         let updates_dir = Self::get_updates_dir(data_dir);
         let installer_path: PathBuf = if let Some(custom) = file_path {
             let p = PathBuf::from(custom);
@@ -340,15 +341,15 @@ impl UpdaterService {
                 for entry in entries.flatten() {
                     let path = entry.path();
                     #[cfg(target_os = "windows")]
-                    if path.is_file() && path.extension().map_or(false, |ext| ext == "exe") {
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "exe") {
                         candidates.push(path);
                     }
                     #[cfg(target_os = "macos")]
-                    if path.is_file() && path.extension().map_or(false, |ext| ext == "dmg" || ext == "pkg") {
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "dmg" || ext == "pkg") {
                         candidates.push(path);
                     }
                     #[cfg(target_os = "linux")]
-                    if path.is_file() && path.extension().map_or(false, |ext| ext == "AppImage" || ext == "deb") {
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "AppImage" || ext == "deb") {
                         candidates.push(path);
                     }
                 }
