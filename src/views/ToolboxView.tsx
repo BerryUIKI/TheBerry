@@ -489,7 +489,7 @@ export function ToolboxView() {
         label: isFav
           ? language() === "zh"
             ? "取消收藏"
-            : "加入收藏"
+            : "Remove from Favorites"
           : language() === "zh"
           ? "加入收藏"
           : "Add to Favorites",
