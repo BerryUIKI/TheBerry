@@ -41,6 +41,7 @@ export function NavigationManagerModal(props: {
   const [editInputVal, setEditInputVal] = createSignal("");
   const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
+  const [dropPosition, setDropPosition] = createSignal<"before" | "after" | null>(null);
 
   const reload = () => {
     const config = loadNavigationConfig();
@@ -100,7 +101,7 @@ export function NavigationManagerModal(props: {
     );
   };
 
-  // Drag and drop reordering inside modal
+  // Drag and drop reordering inside modal with dynamic position sensing
   const handleDragStart = (e: DragEvent, index: number) => {
     setDraggedIndex(index);
     if (e.dataTransfer) {
@@ -114,21 +115,38 @@ export function NavigationManagerModal(props: {
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = "move";
     }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? "before" : "after";
     setDragOverIndex(index);
+    setDropPosition(pos);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setDropPosition(null);
   };
 
   const handleDrop = (e: DragEvent, dropIndex: number) => {
     e.preventDefault();
     const startIndex = draggedIndex();
+    const pos = dropPosition() || "before";
     if (startIndex === null || startIndex === dropIndex) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
+      handleDragEnd();
       return;
+    }
+
+    let targetIndex = dropIndex;
+    if (startIndex < dropIndex) {
+      targetIndex = pos === "before" ? dropIndex - 1 : dropIndex;
+    } else {
+      targetIndex = pos === "before" ? dropIndex : dropIndex + 1;
     }
 
     const next = [...items()];
     const [moved] = next.splice(startIndex, 1);
-    next.splice(dropIndex, 0, moved);
+    next.splice(targetIndex, 0, moved);
 
     const reordered = next.map((it, idx) => ({ ...it, order: idx }));
     setItems(reordered);
@@ -137,8 +155,7 @@ export function NavigationManagerModal(props: {
       sidebarItems: reordered,
     });
 
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    handleDragEnd();
   };
 
   const filteredItems = () => {
@@ -223,19 +240,38 @@ export function NavigationManagerModal(props: {
                     draggable={!isEditing()}
                     onDragStart={(e) => handleDragStart(e, index())}
                     onDragOver={(e) => handleDragOver(e, index())}
+                    onDragEnd={handleDragEnd}
                     onDrop={(e) => handleDrop(e, index())}
-                    class={`flex items-center justify-between p-2.5 rounded-xl border transition-all select-none ${
+                    class={`group relative flex items-center justify-between p-2.5 rounded-xl border select-none transition-all duration-200 ${
                       item.hidden
                         ? "bg-muted/20 border-border/50 opacity-60 hover:opacity-90"
                         : "bg-card border-border hover:border-primary/40 shadow-sm"
-                    } ${isDragged() ? "opacity-30 border-dashed border-primary" : ""} ${
-                      isOver() ? "ring-2 ring-primary/40 border-primary" : ""
+                    } ${
+                      isDragged()
+                        ? "drag-item-active"
+                        : isOver()
+                        ? dropPosition() === "before"
+                          ? "translate-y-0.5 bg-primary/5"
+                          : "-translate-y-0.5 bg-primary/5"
+                        : "hover:translate-x-0.5"
                     }`}
                   >
+                    {/* Dynamic Drop Indicator Line */}
+                    <Show when={isOver() && !isDragged()}>
+                      <div
+                        class={`drop-indicator-line ${
+                          dropPosition() === "before" ? "-top-[1.5px]" : "-bottom-[1.5px]"
+                        }`}
+                      >
+                        <span class="drop-indicator-pill-left" />
+                        <span class="drop-indicator-pill-right" />
+                      </div>
+                    </Show>
+
                     {/* Left: Drag Handle + Icon + Label */}
                     <div class="flex items-center space-x-3 flex-1 min-w-0 pr-2">
                       <span
-                        class="cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground p-0.5"
+                        class="drag-grip-handle text-muted-foreground/60 hover:text-foreground p-1 rounded hover:bg-muted/40"
                         title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
                       >
                         <GripVertical size={15} />

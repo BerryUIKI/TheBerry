@@ -65,6 +65,7 @@ export function Sidebar() {
   // Drag and drop states
   const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
+  const [dropPosition, setDropPosition] = createSignal<"before" | "after" | null>(null);
 
   // Context Menu state
   const [contextMenu, setContextMenu] = createSignal<{
@@ -139,7 +140,7 @@ export function Sidebar() {
     }
   };
 
-  // Drag and drop handlers
+  // Drag and drop handlers with dynamic position sensing
   const handleDragStart = (e: DragEvent, index: number) => {
     setDraggedIndex(index);
     if (e.dataTransfer) {
@@ -153,18 +154,36 @@ export function Sidebar() {
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = "move";
     }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const pos = e.clientY < midY ? "before" : "after";
     setDragOverIndex(index);
+    setDropPosition(pos);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setDropPosition(null);
   };
 
   const handleDrop = (e: DragEvent, dropIndex: number) => {
     e.preventDefault();
     const startIndex = draggedIndex();
+    const pos = dropPosition() || "before";
     if (startIndex !== null && startIndex !== dropIndex) {
-      const updated = reorderSidebarItems(startIndex, dropIndex);
-      setSidebarItems(updated);
+      let targetIndex = dropIndex;
+      if (startIndex < dropIndex) {
+        targetIndex = pos === "before" ? dropIndex - 1 : dropIndex;
+      } else {
+        targetIndex = pos === "before" ? dropIndex : dropIndex + 1;
+      }
+      if (startIndex !== targetIndex && targetIndex >= 0 && targetIndex < visibleItems().length) {
+        const updated = reorderSidebarItems(startIndex, targetIndex);
+        setSidebarItems(updated);
+      }
     }
-    setDraggedIndex(null);
-    setDragOverIndex(null);
+    handleDragEnd();
   };
 
   // Context Menu trigger
@@ -293,15 +312,34 @@ export function Sidebar() {
                   draggable={true}
                   onDragStart={(e) => handleDragStart(e, index())}
                   onDragOver={(e) => handleDragOver(e, index())}
+                  onDragEnd={handleDragEnd}
                   onDrop={(e) => handleDrop(e, index())}
                   onContextMenu={(e) => handleContextMenu(e, item)}
-                  class={`group relative flex items-center rounded-md transition-all ${
-                    isDragged() ? "opacity-30 border-dashed border-primary" : ""
-                  } ${isOver() ? "ring-2 ring-primary/40 bg-primary/5" : ""}`}
+                  class={`group relative flex items-center rounded-md transition-all duration-200 ${
+                    isDragged()
+                      ? "drag-item-active"
+                      : isOver()
+                      ? dropPosition() === "before"
+                        ? "translate-y-0.5 bg-primary/5"
+                        : "-translate-y-0.5 bg-primary/5"
+                      : "hover:translate-x-0.5"
+                  }`}
                 >
+                  {/* Dynamic Drop Indicator Line */}
+                  <Show when={isOver() && !isDragged()}>
+                    <div
+                      class={`drop-indicator-line ${
+                        dropPosition() === "before" ? "-top-[1.5px]" : "-bottom-[1.5px]"
+                      }`}
+                    >
+                      <span class="drop-indicator-pill-left" />
+                      <span class="drop-indicator-pill-right" />
+                    </div>
+                  </Show>
+
                   <button
                     onClick={() => handleItemClick(item)}
-                    class={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all ${
+                    class={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all duration-150 ${
                       isActive()
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
@@ -309,16 +347,16 @@ export function Sidebar() {
                   >
                     <Icon
                       size={15}
-                      class={`flex-shrink-0 ${
+                      class={`flex-shrink-0 transition-transform duration-150 group-hover:scale-110 ${
                         isActive() ? "text-primary-foreground" : "text-muted-foreground"
                       }`}
                     />
                     <span class="truncate text-left flex-1">{getItemLabel(item)}</span>
                   </button>
 
-                  {/* Subtle Grip Drag Handle indicator on hover */}
+                  {/* Tactile Drag Handle with hover zoom & grab feedback */}
                   <span
-                    class="opacity-0 group-hover:opacity-60 hover:!opacity-100 absolute right-2 text-muted-foreground/70 cursor-grab active:cursor-grabbing p-0.5"
+                    class="drag-grip-handle opacity-0 group-hover:opacity-70 hover:!opacity-100 absolute right-2 text-muted-foreground/80 p-1 rounded hover:bg-background/80 hover:text-primary transition-all duration-150"
                     title={language() === "zh" ? "拖动排序 / 右键更多" : "Drag to reorder / Right click"}
                   >
                     <GripVertical size={13} />
@@ -337,9 +375,10 @@ export function Sidebar() {
               class="w-full flex items-center justify-between px-3 py-1.5 rounded text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
             >
               <div class="flex items-center space-x-1.5">
-                <Show when={showHiddenDrawer()} fallback={<ChevronRight size={12} />}>
-                  <ChevronDown size={12} />
-                </Show>
+                <ChevronRight
+                  size={12}
+                  class={`transition-transform duration-200 ${showHiddenDrawer() ? "rotate-90" : ""}`}
+                />
                 <span>
                   {language() === "zh"
                     ? `已收纳工具 (${hiddenItems().length})`
@@ -353,12 +392,12 @@ export function Sidebar() {
 
             {/* Expanded list of hidden tools */}
             <Show when={showHiddenDrawer()}>
-              <div class="mt-1 space-y-0.5 pl-2 animate-in slide-in-from-top-1 duration-150">
+              <div class="mt-1 space-y-0.5 pl-2 animate-in slide-in-from-top-1 duration-200">
                 <For each={hiddenItems()}>
                   {(item) => {
                     const Icon = getItemIcon(item.id);
                     return (
-                      <div class="group flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-colors">
+                      <div class="group flex items-center justify-between px-2.5 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all duration-150 hover:translate-x-0.5">
                         <button
                           onClick={() => handleItemClick(item)}
                           class="flex items-center space-x-2 truncate flex-1 text-left"

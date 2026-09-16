@@ -22,6 +22,7 @@ import {
   GripVertical,
   RotateCcw,
   Sliders,
+  ArrowUpDown,
 } from "lucide-solid";
 import { useApp } from "../context/AppContext";
 import { useI18n } from "../context/I18nContext";
@@ -319,20 +320,23 @@ export function ToolboxView() {
     setDragOverToolIndex(index);
   };
 
+  const handleToolDragEnd = () => {
+    setDraggedToolIndex(null);
+    setDragOverToolIndex(null);
+  };
+
   const handleToolDrop = (e: DragEvent, dropIndex: number) => {
     e.preventDefault();
     const startIndex = draggedToolIndex();
     if (startIndex === null || startIndex === dropIndex) {
-      setDraggedToolIndex(null);
-      setDragOverToolIndex(null);
+      handleToolDragEnd();
       return;
     }
 
     const currentOrder = orderedBaseTools().map((t) => t.id);
     const updatedOrder = reorderToolboxTools(startIndex, dropIndex, currentOrder);
     setCustomToolOrder(updatedOrder);
-    setDraggedToolIndex(null);
-    setDragOverToolIndex(null);
+    handleToolDragEnd();
     info(
       language() === "zh" ? "排序已更新" : "Order Updated",
       language() === "zh" ? "工具箱排列顺序已保存" : "Toolbox order saved"
@@ -527,13 +531,28 @@ export function ToolboxView() {
                     draggable={true}
                     onDragStart={(e) => handleToolDragStart(e, index())}
                     onDragOver={(e) => handleToolDragOver(e, index())}
+                    onDragEnd={handleToolDragEnd}
                     onDrop={(e) => handleToolDrop(e, index())}
-                    class={`group p-3 bg-card border rounded-lg shadow-sm transition-all flex flex-col min-h-36 select-none ${
-                      isDragged() ? "opacity-30 border-dashed border-primary" : "border-border hover:border-primary/40"
-                    } ${isOver() ? "ring-2 ring-primary/40 border-primary bg-primary/5" : ""}`}
+                    class={`group relative p-3 bg-card border rounded-lg shadow-sm flex flex-col min-h-36 select-none cursor-default transition-all duration-200 ${
+                      isDragged()
+                        ? "tool-card-dragging"
+                        : isOver()
+                        ? "tool-card-over"
+                        : "border-border hover:border-primary/40 hover:-translate-y-1 hover:shadow-md"
+                    }`}
                   >
+                    {/* Drag Hover Swap Indicator Overlay */}
+                    <Show when={isOver() && !isDragged()}>
+                      <div class="absolute inset-0 rounded-lg bg-primary/10 border-2 border-primary pointer-events-none flex items-center justify-center animate-in fade-in zoom-in-95 duration-150 z-20">
+                        <span class="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold shadow-lg flex items-center space-x-1.5 animate-pulse">
+                          <ArrowUpDown size={12} />
+                          <span>{language() === "zh" ? "放到此处交换排序" : "Drop to reorder"}</span>
+                        </span>
+                      </div>
+                    </Show>
+
                     <div class="flex items-start gap-2.5">
-                      <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                      <span class="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-110">
                         <Icon size={18} />
                       </span>
                       <div class="min-w-0 flex-1">
@@ -599,9 +618,9 @@ export function ToolboxView() {
                           <Star size={13} fill={isFavorite() ? "currentColor" : "none"} />
                         </button>
 
-                        {/* Grip Drag Handle */}
+                        {/* Tactile Grip Drag Handle */}
                         <span
-                          class="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-foreground p-0.5"
+                          class="drag-grip-handle text-muted-foreground/40 hover:text-foreground p-0.5 rounded hover:bg-muted/40"
                           title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
                         >
                           <GripVertical size={13} />
