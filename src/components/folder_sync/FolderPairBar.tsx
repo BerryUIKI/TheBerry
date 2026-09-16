@@ -41,7 +41,7 @@ export function FolderPairBar(props: FolderPairBarProps) {
         <div class="flex items-center justify-between mb-1.5">
           <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-            {t("folder_sync.left_folder")} (源目录)
+            {t("folder_sync.left_folder")} ({language() === "zh" ? "源目录" : "Source"})
           </label>
         </div>
         <div class="flex items-center gap-2">
@@ -83,7 +83,7 @@ export function FolderPairBar(props: FolderPairBarProps) {
         <div class="flex items-center justify-between mb-1.5">
           <label class="text-xs font-semibold text-foreground flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-            {t("folder_sync.right_folder")} (目标目录)
+            {t("folder_sync.right_folder")} ({language() === "zh" ? "目标目录" : "Target"})
           </label>
         </div>
         <div class="flex items-center gap-2">

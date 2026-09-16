@@ -47,10 +47,20 @@
 - Real-time filesystem change monitoring with configurable debouncing.
 - Safe deletion handling via Recycle Bin, timestamped Versioning archives, or permanent removal.
 
-### 8. 🧰 Toolbox Suite & Cryptographic File Tools
-- Multi-threaded file checksum calculator supporting MD5, SHA-1, SHA-256, and SHA-512.
-- High-performance batch file renamer supporting regular expressions, custom prefixes/suffixes, and real-time rename preview.
-- Master utility card hub with pin/unpin controls directly linked to sidebar visibility.
+### 8. 🧰 Full Developer & Productivity Toolbox (17/17 Complete Suite)
+- **Image Compressor**: Deep multi-threaded image optimization with SIMD encoding, quality sliders, max dimension scaling, and byte savings telemetry.
+- **Markdown & Rich Text Converter**: Bi-directional Markdown ➔ HTML ➔ Plain text conversions, live preview, and one-click rich text clipboard export for Word, Outlook, and WeChat.
+- **Excel & CSV Sheet Converter**: Rapid conversion between XLSX, XLS, CSV, and TSV with paginated table viewer, multi-sheet workbook tabs, JSON export, and Excel-compatible UTF-8 BOM encoding.
+- **PDF Organizer (Merge & Split)**: Combine multiple PDFs with custom reordering and per-file page ranges; extract and split pages by range into separate documents.
+- **PDF to Images**: High-resolution page rendering (1x, 2x, 3x DPI scale) exporting to PNG, JPEG, and WebP.
+- **Windows Native OCR & AI Vision**: Built-in Windows 10/11 offline OCR (`Windows.Media.Ocr`) with instant screenshot paste (`Ctrl+V`) and direct bridge to TheBerry AI assistant.
+- **Word to PDF Converter**: Headless batch conversion of `.docx` and `.doc` files to PDF via Windows Office automation.
+- **Cryptographic File Hash**: Multi-threaded checksum calculator verifying MD5, SHA-1, SHA-256, and SHA-512.
+- **Batch File Renamer**: Advanced renaming engine supporting regular expressions, prefixes/suffixes, sequential numbering, and real-time preview.
+- **QR Code Tools**: Offline QR code generation for text, URLs, and Wi-Fi networks, plus barcode scanning from images.
+- **JSON & YAML Converter**: Structured data formatting, bi-directional conversion, and live syntax validation.
+- **Customizable Card Hub**: Categorized sections and flat grid modes with pointer-based drag reordering and right-click pin to sidebar.
+- **100% Bilingual Localization**: Full English & Simplified Chinese coverage across all views, modal dialogs, tag badges, and toast notifications.
 
 ### 9. 🎨 Customizable Navigation & Three-Tier Stored Utilities Depot
 - HTML5 drag-and-drop reordering for both the Sidebar navigation and Toolbox cards.
