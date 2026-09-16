@@ -131,22 +131,14 @@ export function NavigationManagerModal(props: {
   const handleDrop = (e: DragEvent, dropIndex: number) => {
     e.preventDefault();
     const startIndex = draggedIndex();
-    const pos = dropPosition() || "before";
     if (startIndex === null || startIndex === dropIndex) {
       handleDragEnd();
       return;
     }
 
-    let targetIndex = dropIndex;
-    if (startIndex < dropIndex) {
-      targetIndex = pos === "before" ? dropIndex - 1 : dropIndex;
-    } else {
-      targetIndex = pos === "before" ? dropIndex : dropIndex + 1;
-    }
-
     const next = [...items()];
     const [moved] = next.splice(startIndex, 1);
-    next.splice(targetIndex, 0, moved);
+    next.splice(dropIndex, 0, moved);
 
     const reordered = next.map((it, idx) => ({ ...it, order: idx }));
     setItems(reordered);
@@ -260,7 +252,9 @@ export function NavigationManagerModal(props: {
                     <Show when={isOver() && !isDragged()}>
                       <div
                         class={`drop-indicator-line ${
-                          dropPosition() === "before" ? "-top-[1.5px]" : "-bottom-[1.5px]"
+                          draggedIndex() !== null && draggedIndex()! < index()
+                            ? "-bottom-[1.5px]"
+                            : "-top-[1.5px]"
                         }`}
                       >
                         <span class="drop-indicator-pill-left" />

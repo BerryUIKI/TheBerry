@@ -62,10 +62,15 @@ export function Sidebar() {
   const [sidebarItems, setSidebarItems] = createSignal<NavItemConfig[]>([]);
   const [showHiddenDrawer, setShowHiddenDrawer] = createSignal(false);
 
-  // Drag and drop states
+  // Drag and drop states (Pointer-based & Long-press)
+  let sidebarContainerRef: HTMLDivElement | undefined;
+  let pressTimer: number | null = null;
+  let startX = 0;
+  let startY = 0;
+  let dragStartIndex: number | null = null;
+  const [isPointerDragging, setIsPointerDragging] = createSignal(false);
   const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
-  const [dropPosition, setDropPosition] = createSignal<"before" | "after" | null>(null);
 
   // Context Menu state
   const [contextMenu, setContextMenu] = createSignal<{
@@ -89,12 +94,106 @@ export function Sidebar() {
     setSidebarItems(config.sidebarItems);
   };
 
+  const handlePointerDown = (e: PointerEvent, index: number) => {
+    // Only primary button (left click or touch)
+    if (e.button !== 0) return;
+
+    startX = e.clientX;
+    startY = e.clientY;
+    dragStartIndex = index;
+
+    if (pressTimer) clearTimeout(pressTimer);
+    // 150ms long-press threshold
+    pressTimer = window.setTimeout(() => {
+      setIsPointerDragging(true);
+      setDraggedIndex(index);
+      if (typeof navigator !== "undefined" && navigator.vibrate) {
+        navigator.vibrate(30);
+      }
+    }, 150);
+  };
+
+  const handleWindowPointerMove = (e: PointerEvent) => {
+    if (dragStartIndex === null) return;
+
+    const dx = Math.abs(e.clientX - startX);
+    const dy = Math.abs(e.clientY - startY);
+
+    // If moved > 4px, activate drag immediately without waiting for timer
+    if (!isPointerDragging() && (dx > 4 || dy > 4)) {
+      if (pressTimer) {
+        clearTimeout(pressTimer);
+        pressTimer = null;
+      }
+      setIsPointerDragging(true);
+      setDraggedIndex(dragStartIndex);
+    }
+
+    if (isPointerDragging() && sidebarContainerRef) {
+      const itemEls = sidebarContainerRef.querySelectorAll<HTMLElement>("[data-sidebar-item-index]");
+      let foundIndex: number | null = null;
+
+      itemEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const raw = el.getAttribute("data-sidebar-item-index");
+          if (raw !== null) {
+            foundIndex = parseInt(raw, 10);
+          }
+        }
+      });
+
+      setDragOverIndex(foundIndex);
+    }
+  };
+
+  const handleWindowPointerUp = () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+
+    if (dragStartIndex !== null) {
+      if (isPointerDragging()) {
+        const from = draggedIndex();
+        const to = dragOverIndex();
+        if (from !== null && to !== null && from !== to) {
+          const updated = reorderSidebarItems(from, to);
+          setSidebarItems(updated);
+          success(
+            language() === "zh" ? "排序已更新" : "Order Updated",
+            language() === "zh" ? "侧边栏导航已重新排列" : "Sidebar navigation reordered"
+          );
+        }
+      } else {
+        // Quick tap or click
+        const items = visibleItems();
+        if (dragStartIndex >= 0 && dragStartIndex < items.length) {
+          handleItemClick(items[dragStartIndex]);
+        }
+      }
+    }
+
+    setIsPointerDragging(false);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    dragStartIndex = null;
+  };
+
   onMount(() => {
     reloadNav();
     const handleNavChange = () => reloadNav();
     window.addEventListener("navigation-state-changed", handleNavChange);
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
+
     onCleanup(() => {
       window.removeEventListener("navigation-state-changed", handleNavChange);
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+      if (pressTimer) clearTimeout(pressTimer);
     });
   });
 
@@ -138,52 +237,6 @@ export function Sidebar() {
       setActiveView("toolbox");
       window.dispatchEvent(new CustomEvent("open-toolbox-tool", { detail: item.id }));
     }
-  };
-
-  // Drag and drop handlers with dynamic position sensing
-  const handleDragStart = (e: DragEvent, index: number) => {
-    setDraggedIndex(index);
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", `${index}`);
-    }
-  };
-
-  const handleDragOver = (e: DragEvent, index: number) => {
-    e.preventDefault();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = "move";
-    }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const pos = e.clientY < midY ? "before" : "after";
-    setDragOverIndex(index);
-    setDropPosition(pos);
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    setDropPosition(null);
-  };
-
-  const handleDrop = (e: DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const startIndex = draggedIndex();
-    const pos = dropPosition() || "before";
-    if (startIndex !== null && startIndex !== dropIndex) {
-      let targetIndex = dropIndex;
-      if (startIndex < dropIndex) {
-        targetIndex = pos === "before" ? dropIndex - 1 : dropIndex;
-      } else {
-        targetIndex = pos === "before" ? dropIndex : dropIndex + 1;
-      }
-      if (startIndex !== targetIndex && targetIndex >= 0 && targetIndex < visibleItems().length) {
-        const updated = reorderSidebarItems(startIndex, targetIndex);
-        setSidebarItems(updated);
-      }
-    }
-    handleDragEnd();
   };
 
   // Context Menu trigger
@@ -298,8 +351,8 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* Visible Items with Drag & Drop Reordering */}
-        <div class="space-y-0.5">
+        {/* Visible Items with Pointer & Long-Press Drag & Drop Reordering */}
+        <div ref={sidebarContainerRef} class="space-y-0.5">
           <For each={visibleItems()}>
             {(item, index) => {
               const isActive = () => activeView() === item.id;
@@ -309,19 +362,27 @@ export function Sidebar() {
 
               return (
                 <div
-                  draggable={true}
-                  onDragStart={(e) => handleDragStart(e, index())}
-                  onDragOver={(e) => handleDragOver(e, index())}
-                  onDragEnd={handleDragEnd}
-                  onDrop={(e) => handleDrop(e, index())}
+                  data-sidebar-item-index={index()}
+                  role="button"
+                  tabindex="0"
+                  onPointerDown={(e) => handlePointerDown(e, index())}
                   onContextMenu={(e) => handleContextMenu(e, item)}
-                  class={`group relative flex items-center rounded-md transition-all duration-200 ${
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleItemClick(item);
+                    }
+                  }}
+                  onDragStart={(e) => e.preventDefault()}
+                  class={`group relative flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium cursor-pointer select-none transition-all duration-150 touch-none ${
+                    isActive()
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
+                  } ${
                     isDragged()
-                      ? "drag-item-active"
+                      ? "drag-item-active z-30"
                       : isOver()
-                      ? dropPosition() === "before"
-                        ? "translate-y-0.5 bg-primary/5"
-                        : "-translate-y-0.5 bg-primary/5"
+                      ? "ring-2 ring-primary/60 bg-primary/10 border-primary"
                       : "hover:translate-x-0.5"
                   }`}
                 >
@@ -329,7 +390,9 @@ export function Sidebar() {
                   <Show when={isOver() && !isDragged()}>
                     <div
                       class={`drop-indicator-line ${
-                        dropPosition() === "before" ? "-top-[1.5px]" : "-bottom-[1.5px]"
+                        draggedIndex() !== null && draggedIndex()! < index()
+                          ? "-bottom-[1.5px]"
+                          : "-top-[1.5px]"
                       }`}
                     >
                       <span class="drop-indicator-pill-left" />
@@ -337,27 +400,20 @@ export function Sidebar() {
                     </div>
                   </Show>
 
-                  <button
-                    onClick={() => handleItemClick(item)}
-                    class={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-md text-xs font-medium transition-all duration-150 ${
-                      isActive()
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "text-sidebar-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
+                  <div class="flex items-center space-x-2.5 min-w-0 flex-1 pointer-events-none">
                     <Icon
                       size={15}
                       class={`flex-shrink-0 transition-transform duration-150 group-hover:scale-110 ${
                         isActive() ? "text-primary-foreground" : "text-muted-foreground"
                       }`}
                     />
-                    <span class="truncate text-left flex-1">{getItemLabel(item)}</span>
-                  </button>
+                    <span class="truncate text-left">{getItemLabel(item)}</span>
+                  </div>
 
-                  {/* Tactile Drag Handle with hover zoom & grab feedback */}
+                  {/* Tactile Drag Handle */}
                   <span
-                    class="drag-grip-handle opacity-0 group-hover:opacity-70 hover:!opacity-100 absolute right-2 text-muted-foreground/80 p-1 rounded hover:bg-background/80 hover:text-primary transition-all duration-150"
-                    title={language() === "zh" ? "拖动排序 / 右键更多" : "Drag to reorder / Right click"}
+                    class="drag-grip-handle flex items-center justify-center p-0.5 rounded text-muted-foreground/50 group-hover:text-foreground group-hover:opacity-100 opacity-40 hover:!opacity-100 transition-all duration-150 flex-shrink-0 cursor-grab active:cursor-grabbing"
+                    title={language() === "zh" ? "长按或拖拽排序 / 右键菜单" : "Hold or drag to reorder / Right click"}
                   >
                     <GripVertical size={13} />
                   </span>
