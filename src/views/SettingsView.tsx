@@ -4,9 +4,13 @@ import { getConfig, updateConfig } from "../services/system";
 import { revealInExplorer } from "../services/fileSearch";
 import {
   checkForUpdates,
+  downloadUpdate,
+  installAndRestart,
   downloadAndInstallUpdate,
   getAppVersion,
   onDownloadProgress,
+  formatBytes,
+  formatSpeed,
 } from "../services/updater";
 import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
@@ -46,6 +50,8 @@ import {
   Languages,
   Keyboard,
   ClipboardList,
+  Zap,
+  Gauge,
 } from "lucide-solid";
 
 export function SettingsView() {
@@ -76,6 +82,9 @@ export function SettingsView() {
   const [updateError, setUpdateError] = createSignal<string | null>(null);
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal<DownloadProgress | null>(null);
+  const [downloadedFilePath, setDownloadedFilePath] = createSignal<string | null>(null);
+  const [isInstalling, setIsInstalling] = createSignal(false);
+  const [silentInstall, setSilentInstall] = createSignal(true);
   const [qlStatus, setQlStatus] = createSignal<QuickLookStatus | null>(null);
   const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
   const [showAiModal, setShowAiModal] = createSignal(false);
@@ -105,6 +114,9 @@ export function SettingsView() {
       setDownloadProgress(prog);
       if (prog.done) {
         setIsDownloading(false);
+        if (prog.file_path) {
+          setDownloadedFilePath(prog.file_path);
+        }
       }
     }).then((unlisten) => {
       unlistenFn = unlisten;
@@ -198,12 +210,27 @@ export function SettingsView() {
     setIsDownloading(true);
     setUpdateError(null);
     try {
-      await downloadAndInstallUpdate(info.download_url);
+      const path = await downloadUpdate(info.download_url);
+      setDownloadedFilePath(path);
+      success("Download Completed", "Update package is ready to install.");
     } catch (err: any) {
       const msg = err?.message || String(err);
       setUpdateError(msg);
       error("Download Failed", msg);
+    } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleInstallAndRestart = async () => {
+    setIsInstalling(true);
+    try {
+      await installAndRestart(downloadedFilePath() || undefined, silentInstall());
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      setUpdateError(msg);
+      error("Install Failed", msg);
+      setIsInstalling(false);
     }
   };
 
@@ -278,7 +305,7 @@ export function SettingsView() {
 
         {/* Update Action Panel */}
         <Show when={updateInfo()?.has_update}>
-          <div class="p-3.5 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+          <div class="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
             <div class="flex items-start justify-between">
               <div>
                 <h3 class="text-xs font-bold text-foreground flex items-center space-x-1.5">
@@ -293,6 +320,15 @@ export function SettingsView() {
               </div>
 
               <div class="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent("open-update-modal", { detail: updateInfo() }));
+                  }}
+                  class="px-2.5 py-1 text-xs text-primary hover:text-primary/80 bg-primary/10 rounded flex items-center space-x-1 transition-colors"
+                >
+                  <Sparkles size={11} />
+                  <span>{t("updater.modal_title")}</span>
+                </button>
                 <a
                   href={updateInfo()?.release_url}
                   target="_blank"
@@ -302,30 +338,96 @@ export function SettingsView() {
                   <span>{t("settings.changelog")}</span>
                   <ExternalLink size={11} />
                 </a>
-                <button
-                  disabled={isDownloading()}
-                  onClick={handleStartUpdate}
-                  class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
+                <Show
+                  when={downloadProgress()?.done || downloadedFilePath()}
+                  fallback={
+                    <button
+                      disabled={isDownloading()}
+                      onClick={handleStartUpdate}
+                      class="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded hover:bg-primary/90 flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                      <Download size={13} class={isDownloading() ? "animate-bounce" : ""} />
+                      <span>{isDownloading() ? t("settings.downloading") : t("settings.update_now")}</span>
+                    </button>
+                  }
                 >
-                  <Download size={13} />
-                  <span>{isDownloading() ? t("settings.downloading") : t("settings.update_now")}</span>
-                </button>
+                  <button
+                    disabled={isInstalling()}
+                    onClick={handleInstallAndRestart}
+                    class="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded flex items-center space-x-1.5 transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    <Zap size={13} class={isInstalling() ? "animate-spin" : ""} />
+                    <span>{isInstalling() ? t("updater.installing") : t("updater.install_and_restart")}</span>
+                  </button>
+                </Show>
               </div>
             </div>
 
-            {/* Progress Bar */}
-            <Show when={downloadProgress()}>
-              <div class="space-y-1.5">
-                <div class="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
-                  <span>{downloadProgress()?.status}</span>
-                  <span>{Math.round(downloadProgress()?.percent || 0)}%</span>
+            {/* Progress Bar & Real-time Metrics */}
+            <Show when={isDownloading() || downloadProgress()}>
+              <div class="space-y-2 pt-1 border-t border-border/50">
+                <div class="flex items-center justify-between text-[11px] font-mono">
+                  <span class="text-muted-foreground flex items-center space-x-1.5">
+                    <Show
+                      when={downloadProgress()?.done || downloadedFilePath()}
+                      fallback={<RefreshCw size={11} class="animate-spin text-primary" />}
+                    >
+                      <CheckCircle2 size={12} class="text-green-500" />
+                    </Show>
+                    <span>
+                      {downloadProgress()?.done || downloadedFilePath()
+                        ? t("updater.download_completed")
+                        : downloadProgress()?.status || t("settings.downloading")}
+                    </span>
+                  </span>
+                  <span class="text-primary font-bold">{Math.round(downloadProgress()?.percent || 0)}%</span>
                 </div>
+
                 <div class="w-full bg-muted rounded-full h-2 overflow-hidden">
                   <div
-                    class="bg-primary h-full transition-all duration-150"
-                    style={{ width: `${downloadProgress()?.percent || 0}%` }}
+                    class="bg-primary h-full transition-all duration-150 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(0, downloadProgress()?.percent || 0))}%` }}
                   />
                 </div>
+
+                {/* Metrics: Downloaded / Total Size + Real-time Speed */}
+                <div class="flex items-center justify-between text-[10px] font-mono text-muted-foreground pt-0.5">
+                  <span class="flex items-center space-x-1">
+                    <HardDrive size={11} class="text-primary" />
+                    <span>
+                      {formatBytes(downloadProgress()?.bytes_downloaded || 0)}
+                      {downloadProgress()?.total_bytes ? ` / ${formatBytes(downloadProgress()?.total_bytes!)}` : ""}
+                    </span>
+                  </span>
+                  <span class="flex items-center space-x-1">
+                    <Gauge size={11} class="text-primary" />
+                    <span>
+                      {downloadProgress()?.done || downloadedFilePath()
+                        ? "100%"
+                        : formatSpeed(downloadProgress()?.speed_bytes_per_sec || 0)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </Show>
+
+            {/* In-place install & silent checkbox */}
+            <Show when={downloadProgress()?.done || downloadedFilePath()}>
+              <div class="pt-2 border-t border-border/40 space-y-2 text-xs">
+                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={silentInstall()}
+                    onChange={(e) => setSilentInstall(e.currentTarget.checked)}
+                    class="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                  />
+                  <span class="text-muted-foreground text-[11px]">
+                    {t("updater.silent_install")}
+                  </span>
+                </label>
+                <p class="text-[10px] text-muted-foreground italic">
+                  {t("updater.install_tip")}
+                </p>
               </div>
             </Show>
           </div>

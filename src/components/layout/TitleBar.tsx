@@ -83,7 +83,9 @@ export function TitleBar() {
         {/* Update Notification Pill */}
         <Show when={availableUpdate()}>
           <button
-            onClick={() => setActiveView("settings")}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("open-update-modal", { detail: availableUpdate() }));
+            }}
             class="px-2 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[10px] font-semibold flex items-center space-x-1 animate-pulse transition-colors"
           >
             <Sparkles size={10} />

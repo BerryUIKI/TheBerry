@@ -17,6 +17,8 @@ import { FileSearchView } from "./views/FileSearchView";
 import { FolderSyncView } from "./views/FolderSyncView";
 import { ToolboxView } from "./views/ToolboxView";
 import { SettingsView } from "./views/SettingsView";
+import { UpdateModal } from "./components/updater/UpdateModal";
+import { UpdateInfo } from "./types/updater";
 import { Switch, Match } from "solid-js";
 
 export function App() {
@@ -25,6 +27,8 @@ export function App() {
   const [isSpotlightOpen, setIsSpotlightOpen] = createSignal(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = createSignal(false);
   const [isGooseOpen, setIsGooseOpen] = createSignal(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = createSignal(false);
+  const [updateModalInfo, setUpdateModalInfo] = createSignal<UpdateInfo | null>(null);
 
   const handleKeyDown = (e: KeyboardEvent) => {
     // Spotlight Search (Ctrl+K)
@@ -80,6 +84,15 @@ export function App() {
     const handleOpenGoose = () => setIsGooseOpen(true);
     window.addEventListener("open-goose", handleOpenGoose);
 
+    const handleOpenUpdateModal = (e: Event) => {
+      const customEvent = e as CustomEvent<UpdateInfo | null>;
+      if (customEvent.detail) {
+        setUpdateModalInfo(customEvent.detail);
+      }
+      setIsUpdateModalOpen(true);
+    };
+    window.addEventListener("open-update-modal", handleOpenUpdateModal);
+
     let unlistenNavigate: (() => void) | null = null;
     let unlistenCleared: (() => void) | null = null;
 
@@ -105,6 +118,7 @@ export function App() {
       window.removeEventListener("open-shortcuts", handleOpenShortcuts);
       window.removeEventListener("toggle-goose-sidebar", handleToggleGoose);
       window.removeEventListener("open-goose", handleOpenGoose);
+      window.removeEventListener("open-update-modal", handleOpenUpdateModal);
       if (unlistenNavigate) unlistenNavigate();
       if (unlistenCleared) unlistenCleared();
     });
@@ -173,6 +187,13 @@ export function App() {
 
       {/* First Launch Data Storage Modal */}
       <FirstLaunchModal />
+
+      {/* Global Software Update Modal */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen()}
+        onClose={() => setIsUpdateModalOpen(false)}
+        updateInfo={updateModalInfo()}
+      />
 
       {/* Global Non-blocking Toasts */}
       <ToastContainer />

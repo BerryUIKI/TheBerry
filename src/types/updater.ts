@@ -13,6 +13,8 @@ export interface DownloadProgress {
   bytes_downloaded: number;
   total_bytes?: number;
   percent: number;
+  speed_bytes_per_sec?: number;
   done: boolean;
   status: string;
+  file_path?: string;
 }

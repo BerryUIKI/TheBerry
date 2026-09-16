@@ -150,6 +150,8 @@ pub fn run() {
             modules::file_search::commands::open_file_path,
             // Updater Module
             modules::updater::commands::check_for_updates,
+            modules::updater::commands::download_update,
+            modules::updater::commands::install_and_restart,
             modules::updater::commands::download_and_install_update,
             modules::updater::commands::get_app_version,
             // Backup Module
