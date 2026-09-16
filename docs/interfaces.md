@@ -263,29 +263,40 @@ interface SystemDrive {
 
 ## 9. Updater Module (`modules::updater`)
 
-### Data Structure
+### Data Structures
 ```typescript
 interface UpdateInfo {
-  has_update: boolean;
   current_version: string;
   latest_version: string;
-  download_url: string;
-  asset_name: string;
+  has_update: boolean;
+  release_notes: string;
   release_url: string;
-  release_notes?: string;
+  download_url?: string;
+  asset_name?: string;
+  published_at?: string;
 }
 
 interface DownloadProgress {
-  total_bytes: number;
-  downloaded_bytes: number;
-  percentage: number;
+  bytes_downloaded: number;
+  total_bytes?: number;
+  percent: number;
+  speed_bytes_per_sec?: number;
+  done: boolean;
+  status: string;
+  file_path?: string;
 }
 ```
 
 ### Commands
 - `check_for_updates()`: `Promise<UpdateInfo>`
-- `download_and_install_update(downloadUrl: string)`: `Promise<string>`
+- `download_update(downloadUrl: string)`: `Promise<string>`
+- `install_and_restart(filePath?: string, silent?: boolean)`: `Promise<void>`
+- `download_and_install_update(downloadUrl: string)`: `Promise<string>` (legacy compatibility)
 - `get_app_version()`: `Promise<string>`
+
+### Events
+- `update-download-progress`: Emitted continuously with `DownloadProgress` payload during streaming download directly into the `<data_dir>/updates/` cache.
+- `app-update-available`: Emitted with `UpdateInfo` payload when background check detects a newer release.
 
 ---
 
@@ -393,3 +404,161 @@ interface QuickLookPreviewPayload {
 - `get_quicklook_status()`: `Promise<QuickLookStatus>`
 - `quicklook_preview(payload: QuickLookPreviewPayload)`: `Promise<boolean>`
 - `quicklook_close()`: `Promise<void>`
+
+---
+
+## 13. Folder Sync Module (`modules::folder_sync`)
+
+### Data Structures
+```typescript
+type CompareVariant = "time_and_size" | "content_hash" | "size_only";
+type SyncVariant = "two_way" | "mirror" | "update" | "custom";
+type CompareResult = "equal" | "left_only" | "right_only" | "left_newer" | "right_newer" | "different_content" | "conflict";
+type SyncAction = "copy_left_to_right" | "copy_right_to_left" | "delete_left" | "delete_right" | "do_nothing" | "conflict";
+type DeletionVariant = "recycle_bin" | "versioning" | "permanent";
+
+interface PathFilter {
+  include_patterns: string[];
+  exclude_patterns: string[];
+  min_size_bytes?: number | null;
+  max_size_bytes?: number | null;
+}
+
+interface FileInfo {
+  relative_path: string;
+  size_bytes: number;
+  modified_timestamp_secs: number;
+  is_dir: boolean;
+  hash?: string | null;
+}
+
+interface ComparisonItem {
+  id: string;
+  relative_path: string;
+  is_dir: boolean;
+  left?: FileInfo | null;
+  right?: FileInfo | null;
+  compare_result: CompareResult;
+  suggested_action: SyncAction;
+  action: SyncAction;
+}
+
+interface ComparisonSummary {
+  total_items: number;
+  equal_items: number;
+  left_only_items: number;
+  right_only_items: number;
+  different_items: number;
+  conflict_items: number;
+  bytes_to_transfer_l2r: number;
+  bytes_to_transfer_r2l: number;
+  items_to_delete_right: number;
+  items_to_delete_left: number;
+}
+
+interface ComparisonManifest {
+  items: ComparisonItem[];
+  summary: ComparisonSummary;
+}
+
+interface SyncProfile {
+  id: string;
+  name: string;
+  left_path: string;
+  right_path: string;
+  sync_variant: SyncVariant;
+  compare_variant: CompareVariant;
+  deletion_variant: DeletionVariant;
+  versioning_dir?: string | null;
+  filter: PathFilter;
+  realtime_enabled: boolean;
+  realtime_debounce_secs: number;
+  last_sync_timestamp?: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+interface SyncProgressEvent {
+  job_id: string;
+  current_file: string;
+  items_processed: number;
+  total_items: number;
+  bytes_processed: number;
+  total_bytes: number;
+  speed_bytes_per_sec: number;
+  stage: "scanning" | "comparing" | "syncing" | "completed" | "failed" | "canceled";
+  message: string;
+}
+```
+
+### Commands
+- `folder_sync_compare(left_path: string, right_path: string, compare_variant: CompareVariant, sync_variant: SyncVariant, filter?: PathFilter)`: `Promise<ComparisonManifest>`
+- `folder_sync_execute(job_id: string, left_path: string, right_path: string, items: ComparisonItem[], deletion_variant: DeletionVariant, versioning_dir?: string)`: `Promise<SyncResult>`
+- `folder_sync_cancel(job_id: string)`: `Promise<boolean>`
+- `folder_sync_get_profiles()`: `Promise<SyncProfile[]>`
+- `folder_sync_save_profile(profile: SyncProfile)`: `Promise<SyncProfile>`
+- `folder_sync_delete_profile(profile_id: string)`: `Promise<boolean>`
+- `folder_sync_toggle_realtime(profile_id: string, enabled: boolean)`: `Promise<boolean>`
+
+### Events
+- `folder-sync-progress`: Emitted during folder comparison and synchronization execution with `SyncProgressEvent` metrics.
+
+---
+
+## 14. Toolbox Utilities Module (`modules::toolbox`)
+
+### Data Structures
+```typescript
+interface FileChecksums {
+  file_path: string;
+  file_name: string;
+  file_size: number;
+  md5: string;
+  sha1: string;
+  sha256: string;
+  sha512: string;
+}
+
+interface RenameItem {
+  original_path: string;
+  new_path: string;
+}
+
+interface BatchRenameResult {
+  total: number;
+  success_count: number;
+  failure_count: number;
+  errors: string[];
+}
+```
+
+### Commands
+- `calculate_file_hash(path: string)`: `Promise<FileChecksums>`
+- `batch_rename_files(items: RenameItem[])`: `Promise<BatchRenameResult>`
+
+---
+
+## 15. Navigation & Layout Customization (`services::navigation`)
+
+### Data Structures
+```typescript
+interface NavItemConfig {
+  id: string;
+  customName?: string;
+  hidden: boolean;
+  order: number;
+}
+
+interface NavigationState {
+  sidebarItems: NavItemConfig[];
+  toolboxOrder: string[];
+}
+```
+
+### Storage & Event Sync
+- **Local Storage Key**: `the_berry_navigation_config`
+- **Synchronization Event**: `navigation-state-changed` (CustomEvent dispatched across components on reordering, hiding, renaming, or resetting)
+- **Three-Tier Hidden Items Depot**:
+  1. *Sidebar Stored Utilities Drawer*: Collapsible popover displaying hidden utilities with click-to-restore toggles.
+  2. *Toolbox Master Depot*: Toolbox hub card grid with pin/unpin toggles (`Pin`/`PinOff`) directly linking sidebar navigation visibility.
+  3. *Navigation Manager Modal*: Global management modal to reorder items, customize aliases, and toggle visibility.

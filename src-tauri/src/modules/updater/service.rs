@@ -29,8 +29,12 @@ pub struct DownloadProgress {
     pub bytes_downloaded: u64,
     pub total_bytes: Option<u64>,
     pub percent: f32,
+    #[serde(default)]
+    pub speed_bytes_per_sec: u64,
     pub done: bool,
     pub status: String,
+    #[serde(default)]
+    pub file_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -124,7 +128,17 @@ impl UpdaterService {
         let matched_asset = release
             .assets
             .iter()
-            .find(|a| a.name.contains(target_keyword))
+            .find(|a| {
+                #[cfg(target_os = "windows")]
+                {
+                    a.name.contains(target_keyword) && a.name.ends_with(".exe")
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    a.name.contains(target_keyword)
+                }
+            })
+            .or_else(|| release.assets.iter().find(|a| a.name.contains(target_keyword)))
             .or_else(|| release.assets.first());
 
         let download_url = matched_asset.map(|a| a.browser_download_url.clone());
@@ -160,14 +174,32 @@ impl UpdaterService {
         Ok(())
     }
 
-    pub async fn download_and_install_update(
+    pub fn get_updates_dir(data_dir: Option<&Path>) -> PathBuf {
+        if let Some(root) = data_dir {
+            root.join("updates")
+        } else {
+            dirs::data_dir()
+                .map(|d| d.join("TheBerry").join("updates"))
+                .unwrap_or_else(|| {
+                    dirs::cache_dir()
+                        .unwrap_or_else(|| PathBuf::from("."))
+                        .join("TheBerryUpdates")
+                })
+        }
+    }
+
+    pub async fn download_update(
         download_url: &str,
         data_dir: Option<&Path>,
         app_handle: AppHandle,
     ) -> Result<String, String> {
         Self::validate_download_url(download_url)?;
 
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(300))
+            .build()
+            .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
         let res = client
             .get(download_url)
             .header(USER_AGENT, "TheBerry-Desktop-App")
@@ -175,28 +207,30 @@ impl UpdaterService {
             .await
             .map_err(|e| format!("Failed to connect to download URL: {}", e))?;
 
+        if !res.status().is_success() {
+            return Err(format!("Download failed with HTTP status: {}", res.status()));
+        }
+
         let total_size = res.content_length();
         let target_filename = download_url
             .split('/')
             .next_back()
             .unwrap_or("the-berry-update.exe");
 
-        let updates_dir = if let Some(root) = data_dir {
-            root.join("updates")
-        } else {
-            dirs::cache_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("TheBerryUpdates")
-        };
-
+        let updates_dir = Self::get_updates_dir(data_dir);
         let _ = std::fs::create_dir_all(&updates_dir);
         let destination = updates_dir.join(target_filename);
+        let temp_destination = updates_dir.join(format!("{}.part", target_filename));
 
-        let mut file = File::create(&destination)
-            .map_err(|e| format!("Failed to create update file on disk: {}", e))?;
+        let mut file = File::create(&temp_destination)
+            .map_err(|e| format!("Failed to create temporary update file on disk: {}", e))?;
 
         let mut stream = res.bytes_stream();
         let mut downloaded: u64 = 0;
+        let mut last_speed_check = std::time::Instant::now();
+        let mut bytes_since_last_check: u64 = 0;
+        let mut current_speed: u64 = 0;
+        let mut last_emit_time = std::time::Instant::now();
 
         let _ = app_handle.emit(
             "update-download-progress",
@@ -204,8 +238,10 @@ impl UpdaterService {
                 bytes_downloaded: 0,
                 total_bytes: total_size,
                 percent: 0.0,
+                speed_bytes_per_sec: 0,
                 done: false,
-                status: "Downloading update package...".to_string(),
+                status: "Starting download...".to_string(),
+                file_path: None,
             },
         );
 
@@ -214,28 +250,58 @@ impl UpdaterService {
             file.write_all(&chunk)
                 .map_err(|e| format!("Failed to write chunk: {}", e))?;
 
-            downloaded += chunk.len() as u64;
-            let percent = if let Some(tot) = total_size {
-                if tot > 0 {
-                    (downloaded as f32 / tot as f32) * 100.0
+            let chunk_len = chunk.len() as u64;
+            downloaded += chunk_len;
+            bytes_since_last_check += chunk_len;
+
+            let elapsed_speed = last_speed_check.elapsed();
+            if elapsed_speed >= Duration::from_millis(400) {
+                let secs = elapsed_speed.as_secs_f64();
+                if secs > 0.0 {
+                    current_speed = (bytes_since_last_check as f64 / secs) as u64;
+                }
+                bytes_since_last_check = 0;
+                last_speed_check = std::time::Instant::now();
+            }
+
+            if last_emit_time.elapsed() >= Duration::from_millis(150) {
+                let percent = if let Some(tot) = total_size {
+                    if tot > 0 {
+                        ((downloaded as f32 / tot as f32) * 100.0).min(99.9)
+                    } else {
+                        0.0
+                    }
                 } else {
                     0.0
-                }
-            } else {
-                0.0
-            };
+                };
 
-            let _ = app_handle.emit(
-                "update-download-progress",
-                DownloadProgress {
-                    bytes_downloaded: downloaded,
-                    total_bytes: total_size,
-                    percent,
-                    done: false,
-                    status: format!("Downloaded {:.1} MB", downloaded as f32 / (1024.0 * 1024.0)),
-                },
-            );
+                let _ = app_handle.emit(
+                    "update-download-progress",
+                    DownloadProgress {
+                        bytes_downloaded: downloaded,
+                        total_bytes: total_size,
+                        percent,
+                        speed_bytes_per_sec: current_speed,
+                        done: false,
+                        status: "Downloading...".to_string(),
+                        file_path: None,
+                    },
+                );
+                last_emit_time = std::time::Instant::now();
+            }
         }
+
+        file.flush()
+            .map_err(|e| format!("Failed to flush file: {}", e))?;
+        drop(file);
+
+        if destination.exists() {
+            let _ = std::fs::remove_file(&destination);
+        }
+        std::fs::rename(&temp_destination, &destination)
+            .map_err(|e| format!("Failed to finalize update package on disk: {}", e))?;
+
+        let dest_str = destination.to_string_lossy().to_string();
 
         let _ = app_handle.emit(
             "update-download-progress",
@@ -243,16 +309,145 @@ impl UpdaterService {
                 bytes_downloaded: downloaded,
                 total_bytes: total_size,
                 percent: 100.0,
+                speed_bytes_per_sec: 0,
                 done: true,
-                status: "Download completed. Launching installer...".to_string(),
+                status: "Download completed".to_string(),
+                file_path: Some(dest_str.clone()),
             },
         );
 
-        // Execute Installer
-        let dest_str = destination.to_string_lossy().to_string();
-        Self::execute_installer(&destination)?;
-
         Ok(dest_str)
+    }
+
+    pub fn install_and_restart(
+        file_path: Option<&str>,
+        silent: bool,
+        data_dir: Option<&Path>,
+        app_handle: AppHandle,
+    ) -> Result<(), String> {
+        let _ = silent;
+        let updates_dir = Self::get_updates_dir(data_dir);
+        let installer_path: PathBuf = if let Some(custom) = file_path {
+            let p = PathBuf::from(custom);
+            if p.exists() {
+                p
+            } else {
+                updates_dir.join(custom)
+            }
+        } else {
+            // Find newest .exe or installer in updates_dir
+            let mut candidates: Vec<PathBuf> = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&updates_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    #[cfg(target_os = "windows")]
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "exe") {
+                        candidates.push(path);
+                    }
+                    #[cfg(target_os = "macos")]
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "dmg" || ext == "pkg") {
+                        candidates.push(path);
+                    }
+                    #[cfg(target_os = "linux")]
+                    if path.is_file() && path.extension().is_some_and(|ext| ext == "AppImage" || ext == "deb") {
+                        candidates.push(path);
+                    }
+                }
+            }
+            candidates.sort_by_key(|p| {
+                p.metadata()
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+            });
+            candidates
+                .into_iter()
+                .next_back()
+                .ok_or_else(|| "No update installer found in updates directory".to_string())?
+        };
+
+        if !installer_path.exists() {
+            return Err(format!(
+                "Installer file does not exist: {}",
+                installer_path.display()
+            ));
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+            let current_exe = std::env::current_exe()
+                .map_err(|e| format!("Failed to get current executable path: {}", e))?;
+
+            let bat_path = updates_dir.join("apply_update.bat");
+            let silent_flag = if silent { "/S" } else { "" };
+            let bat_content = format!(
+                "@echo off\r\nchcp 65001 >nul\r\nping 127.0.0.1 -n 2 >nul\r\nstart \"\" /wait \"{}\" {}\r\nstart \"\" \"{}\"\r\ndel \"%~f0\"\r\n",
+                installer_path.to_str().unwrap_or_default(),
+                silent_flag,
+                current_exe.to_str().unwrap_or_default(),
+            );
+
+            std::fs::write(&bat_path, bat_content)
+                .map_err(|e| format!("Failed to write update launcher batch: {}", e))?;
+
+            let mut cmd = Command::new("cmd");
+            cmd.args(["/c", bat_path.to_str().unwrap_or_default()]);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            cmd.spawn()
+                .map_err(|e| format!("Failed to launch in-place installer: {}", e))?;
+
+            // Gracefully terminate current process so NSIS can overwrite files in place
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                app.exit(0);
+            });
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            Command::new("open")
+                .arg(&installer_path)
+                .spawn()
+                .map_err(|e| format!("Failed to open disk image: {}", e))?;
+
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                app.exit(0);
+            });
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            let _ = Command::new("chmod")
+                .args(["+x", installer_path.to_str().unwrap_or_default()])
+                .status();
+
+            Command::new(&installer_path)
+                .spawn()
+                .map_err(|e| format!("Failed to run update executable: {}", e))?;
+
+            let app = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                app.exit(0);
+            });
+        }
+
+        Ok(())
+    }
+
+    pub async fn download_and_install_update(
+        download_url: &str,
+        data_dir: Option<&Path>,
+        app_handle: AppHandle,
+    ) -> Result<String, String> {
+        let dest = Self::download_update(download_url, data_dir, app_handle.clone()).await?;
+        Self::install_and_restart(Some(&dest), true, data_dir, app_handle)?;
+        Ok(dest)
     }
 
     pub fn execute_installer(installer_path: &Path) -> Result<(), String> {

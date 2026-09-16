@@ -211,3 +211,102 @@ body, html {
   opacity: 0.85;
 }
 
+/* Drag and Drop Dynamic Animations & Motion */
+@keyframes dropLinePulse {
+  0% {
+    opacity: 0.7;
+    transform: scaleX(0.98);
+    box-shadow: 0 0 6px hsl(var(--primary) / 0.5);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+    box-shadow: 0 0 12px hsl(var(--primary) / 0.9), 0 0 4px hsl(var(--primary));
+  }
+}
+
+@keyframes dropPulseCard {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px hsl(var(--primary) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+  }
+}
+
+.drop-indicator-line {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2.5px;
+  background-color: hsl(var(--primary));
+  border-radius: 9999px;
+  box-shadow: 0 0 8px hsl(var(--primary)), 0 0 2px hsl(var(--primary));
+  z-index: 30;
+  pointer-events: none;
+  animation: dropLinePulse 1s ease-in-out infinite alternate;
+}
+
+.drop-indicator-pill-left,
+.drop-indicator-pill-right {
+  position: absolute;
+  top: -3.5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background-color: hsl(var(--primary));
+  box-shadow: 0 0 6px hsl(var(--primary));
+}
+
+.drop-indicator-pill-left {
+  left: -2px;
+}
+
+.drop-indicator-pill-right {
+  right: -2px;
+}
+
+.drag-item-active {
+  opacity: 0.45 !important;
+  transform: scale(0.97) rotate(-0.8deg) !important;
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.18) !important;
+  border: 1.5px dashed hsl(var(--primary) / 0.8) !important;
+  background-color: hsl(var(--primary) / 0.06) !important;
+}
+
+.tool-card-dragging {
+  opacity: 0.45 !important;
+  transform: scale(0.97) rotate(-1deg) !important;
+  box-shadow: 0 14px 28px -4px rgba(0, 0, 0, 0.22) !important;
+  border: 2px dashed hsl(var(--primary) / 0.8) !important;
+  background-color: hsl(var(--primary) / 0.05) !important;
+}
+
+.tool-card-over {
+  transform: translateY(-3px) scale(1.02) !important;
+  box-shadow: 0 12px 24px -4px hsl(var(--primary) / 0.22), 0 4px 8px -2px hsl(var(--primary) / 0.15) !important;
+  border-color: hsl(var(--primary)) !important;
+  background-color: hsl(var(--primary) / 0.08) !important;
+  animation: dropPulseCard 1.5s infinite;
+}
+
+.drag-grip-handle {
+  cursor: grab;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.15s ease, opacity 0.15s ease;
+}
+
+.drag-grip-handle:hover {
+  cursor: grab;
+  transform: scale(1.22);
+  color: hsl(var(--primary));
+}
+
+.drag-grip-handle:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+
