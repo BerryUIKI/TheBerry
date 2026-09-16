@@ -185,14 +185,13 @@ export function ToolboxView() {
   const { language } = useI18n();
   const { info, success } = useToast();
   const [query, setQuery] = createSignal("");
-  const [category, setCategory] = createSignal<"all" | "stored" | ToolCategory>("all");
+  const [category, setCategory] = createSignal<"all" | ToolCategory>("all");
   const [favorites, setFavorites] = createSignal(new Set(["image-converter", "markdown-converter"]));
 
   const [activeModal, setActiveModal] = createSignal<"file-hash" | "batch-rename" | "qr-code" | "structured-data" | null>(null);
 
   const [customToolOrder, setCustomToolOrder] = createSignal<string[]>([]);
   const [sidebarPinnedIds, setSidebarPinnedIds] = createSignal<Set<string>>(new Set());
-  const [sidebarHiddenIds, setSidebarHiddenIds] = createSignal<Set<string>>(new Set());
   const [draggedToolIndex, setDraggedToolIndex] = createSignal<number | null>(null);
   const [dragOverToolIndex, setDragOverToolIndex] = createSignal<number | null>(null);
 
@@ -210,9 +209,7 @@ export function ToolboxView() {
     const cfg = loadNavigationConfig();
     setCustomToolOrder(cfg.toolboxOrder || []);
     const pinned = new Set(cfg.sidebarItems.filter((it) => !it.hidden).map((it) => it.id));
-    const hidden = new Set(cfg.sidebarItems.filter((it) => it.hidden).map((it) => it.id));
     setSidebarPinnedIds(pinned);
-    setSidebarHiddenIds(hidden);
   };
 
   onMount(() => {
@@ -256,17 +253,10 @@ export function ToolboxView() {
 
   const filteredTools = createMemo(() => {
     const normalizedQuery = query().trim().toLocaleLowerCase();
-    const hiddenIds = sidebarHiddenIds();
 
     return orderedBaseTools().filter((tool) => {
-      if (category() === "stored") {
-        const navId = resolveNavId(tool.id);
-        const isStored = hiddenIds.has(tool.id) || hiddenIds.has(navId);
-        if (!isStored) return false;
-      } else {
-        const categoryMatches = category() === "all" || tool.category === category();
-        if (!categoryMatches) return false;
-      }
+      const categoryMatches = category() === "all" || tool.category === category();
+      if (!categoryMatches) return false;
 
       if (!normalizedQuery) return true;
 
@@ -382,18 +372,18 @@ export function ToolboxView() {
     if (isPinned) {
       unpinFromSidebar(navId);
       success(
-        language() === "zh" ? "已从侧边栏收纳" : "Stored from Sidebar",
+        language() === "zh" ? "已从侧边栏移除" : "Unpinned from Sidebar",
         language() === "zh"
-          ? `"${localize(tool.name)}" 已从左侧侧边栏收纳，可在工具箱找回`
-          : `"${localize(tool.name)}" stored from sidebar`
+          ? `"${localize(tool.name)}" 已从左侧侧边栏取消固定`
+          : `"${localize(tool.name)}" unpinned from sidebar`
       );
     } else {
       pinToSidebar(navId);
       success(
         language() === "zh" ? "已固定至左侧侧边栏" : "Pinned to Sidebar",
         language() === "zh"
-          ? `"${localize(tool.name)}" 已放回左侧侧边栏`
-          : `"${localize(tool.name)}" restored to sidebar`
+          ? `"${localize(tool.name)}" 已固定至左侧侧边栏`
+          : `"${localize(tool.name)}" pinned to sidebar`
       );
     }
     reloadNavState();
@@ -447,31 +437,6 @@ export function ToolboxView() {
             </button>
           )}
         </For>
-
-        {/* Dedicated "Stored from Sidebar" Category Filter Button */}
-        <Show when={sidebarHiddenIds().size > 0}>
-          <button
-            type="button"
-            aria-pressed={category() === "stored"}
-            onClick={() => setCategory("stored")}
-            class={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors flex items-center space-x-1.5 ${
-              category() === "stored"
-                ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                : "bg-card text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
-            }`}
-          >
-            <span>{language() === "zh" ? "侧边栏已收纳" : "Stored from Sidebar"}</span>
-            <span
-              class={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                category() === "stored"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {sidebarHiddenIds().size}
-            </span>
-          </button>
-        </Show>
       </div>
 
       <div>
@@ -572,10 +537,6 @@ export function ToolboxView() {
                   const navId = resolveNavId(tool.id);
                   return sidebarPinnedIds().has(tool.id) || sidebarPinnedIds().has(navId);
                 };
-                const isStoredFromSidebar = () => {
-                  const navId = resolveNavId(tool.id);
-                  return sidebarHiddenIds().has(tool.id) || sidebarHiddenIds().has(navId);
-                };
                 const isDragged = () => draggedToolIndex() === index();
                 const isOver = () => dragOverToolIndex() === index();
 
@@ -621,12 +582,6 @@ export function ToolboxView() {
                               ? language() === "zh" ? "已可用" : "Available"
                               : language() === "zh" ? "开发中" : "In development"}
                           </span>
-
-                          <Show when={isStoredFromSidebar()}>
-                            <span class="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                              {language() === "zh" ? "已收纳" : "Stored"}
-                            </span>
-                          </Show>
                         </div>
                         <p class="text-[11px] text-muted-foreground mt-1 leading-relaxed line-clamp-1">
                           {localize(tool.description)}
@@ -645,12 +600,8 @@ export function ToolboxView() {
                           title={
                             isPinned()
                               ? language() === "zh"
-                                ? "从侧边栏收纳 (点击收纳)"
-                                : "Unpin from sidebar"
-                              : isStoredFromSidebar()
-                              ? language() === "zh"
-                                ? "放回左侧侧边栏 (点击恢复)"
-                                : "Restore to sidebar"
+                                ? "已固定在侧边栏 (点击取消固定)"
+                                : "Pinned in sidebar (click to unpin)"
                               : language() === "zh"
                               ? "固定至左侧侧边栏"
                               : "Pin to sidebar"

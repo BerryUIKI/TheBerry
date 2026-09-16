@@ -344,10 +344,10 @@ export function NavigationManagerModal(props: {
                         title={
                           item.hidden
                             ? language() === "zh"
-                              ? "从收纳箱恢复显示到侧边栏"
+                              ? "恢复显示到侧边栏"
                               : "Show on sidebar"
                             : language() === "zh"
-                            ? "从侧边栏隐藏并收纳"
+                            ? "从侧边栏隐藏"
                             : "Hide from sidebar"
                         }
                       >

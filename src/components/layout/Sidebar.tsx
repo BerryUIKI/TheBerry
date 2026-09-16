@@ -18,8 +18,6 @@ import {
   GripVertical,
   Sliders,
   ChevronDown,
-  ChevronRight,
-  Eye,
   EyeOff,
   Edit2,
   RotateCcw,
@@ -60,7 +58,6 @@ export function Sidebar() {
   const { success } = useToast();
 
   const [sidebarItems, setSidebarItems] = createSignal<NavItemConfig[]>([]);
-  const [showHiddenDrawer, setShowHiddenDrawer] = createSignal(false);
 
   // Drag and drop states (Pointer-based & Long-press)
   let sidebarContainerRef: HTMLDivElement | undefined;
@@ -198,7 +195,6 @@ export function Sidebar() {
   });
 
   const visibleItems = () => sidebarItems().filter((item) => !item.hidden && item.id !== "toolbox");
-  const hiddenItems = () => sidebarItems().filter((item) => item.hidden && item.id !== "toolbox");
 
   const getItemMeta = (id: string) => KNOWN_NAV_ITEMS[id] || {
     id,
@@ -274,10 +270,10 @@ export function Sidebar() {
         onClick: () => {
           toggleSidebarItemHidden(target.id, true);
           success(
-            language() === "zh" ? "已隐藏" : "Hidden",
+            language() === "zh" ? "已从侧边栏隐藏" : "Hidden from Sidebar",
             language() === "zh"
-              ? `"${label}" 已移至收纳箱，可在侧边栏底部找回`
-              : `"${label}" moved to stored items`
+              ? `"${label}" 已隐藏，可在“侧边栏导航与布局”中随时恢复`
+              : `"${label}" hidden from sidebar, restore anytime in Navigation & Layout`
           );
         },
       },
@@ -345,7 +341,7 @@ export function Sidebar() {
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("open-navigation-manager"))}
             class="text-muted-foreground/60 hover:text-foreground hover:bg-secondary/60 p-1 rounded transition-colors"
-            title={language() === "zh" ? "管理侧边栏导航与排序" : "Manage sidebar navigation & ordering"}
+            title={language() === "zh" ? "侧边栏导航与布局" : "Sidebar Navigation & Layout"}
           >
             <Sliders size={12} />
           </button>
@@ -425,108 +421,24 @@ export function Sidebar() {
 
       </div>
 
-      {/* Bottom Footer: Stored Utilities chip & Permanent Toolbox */}
-      <div class="p-2 border-t border-sidebar-border space-y-1.5 flex-shrink-0">
-        {/* Hidden / Stored Items Drawer Section */}
-        <Show when={hiddenItems().length > 0}>
-          <div class="rounded-lg bg-background/50 border border-border/60 overflow-hidden transition-all">
-            <button
-              onClick={() => setShowHiddenDrawer((prev) => !prev)}
-              class="w-full flex items-center justify-between px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/40 transition-colors"
-              title={language() === "zh" ? "展开/折叠已收纳工具" : "Toggle stored utilities"}
-            >
-              <div class="flex items-center space-x-1.5 min-w-0">
-                <ChevronRight
-                  size={11}
-                  class={`transition-transform duration-200 flex-shrink-0 ${showHiddenDrawer() ? "rotate-90" : ""}`}
-                />
-                <span class="truncate">
-                  {language() === "zh" ? "已收纳工具" : "Stored Utilities"}
-                </span>
-              </div>
-              <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-mono flex-shrink-0">
-                +{hiddenItems().length}
-              </span>
-            </button>
-
-            {/* Expanded list of hidden tools */}
-            <Show when={showHiddenDrawer()}>
-              <div class="p-1 space-y-0.5 max-h-36 overflow-y-auto border-t border-border/40 animate-in slide-in-from-bottom-1 duration-150">
-                <For each={hiddenItems()}>
-                  {(item) => {
-                    const Icon = getItemIcon(item.id);
-                    return (
-                      <div class="group flex items-center justify-between px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all duration-150 hover:translate-x-0.5">
-                        <button
-                          onClick={() => handleItemClick(item)}
-                          class="flex items-center space-x-2 truncate flex-1 text-left"
-                          title={language() === "zh" ? "打开此工具" : "Open tool"}
-                        >
-                          <Icon size={13} class="flex-shrink-0 text-muted-foreground" />
-                          <span class="truncate text-[11px]">{getItemLabel(item)}</span>
-                        </button>
-
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleSidebarItemHidden(item.id, false);
-                            success(
-                              language() === "zh" ? "已放回侧边栏" : "Restored",
-                              language() === "zh"
-                                ? `"${getItemLabel(item)}" 已恢复显示在侧边栏`
-                                : `"${getItemLabel(item)}" restored to sidebar`
-                            );
-                          }}
-                          class="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-primary/20 text-primary rounded transition-all flex-shrink-0"
-                          title={language() === "zh" ? "恢复并放回侧边栏" : "Restore to sidebar"}
-                        >
-                          <Eye size={12} />
-                        </button>
-                      </div>
-                    );
-                  }}
-                </For>
-              </div>
-            </Show>
-          </div>
-        </Show>
-
-        {/* Permanent Toolbox Button */}
+      {/* Bottom Footer: Permanent Toolbox Button */}
+      <div class="p-2 border-t border-sidebar-border flex-shrink-0">
         <button
           onClick={() => setActiveView("toolbox")}
-          class={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
+          class={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
             activeView() === "toolbox"
               ? "bg-primary text-primary-foreground shadow-sm"
               : "text-sidebar-foreground hover:bg-secondary hover:text-foreground bg-secondary/30"
           }`}
-          title={language() === "zh" ? "打开全部工具箱" : "Open all tools in Toolbox"}
+          title={t("nav.toolbox")}
         >
-          <div class="flex items-center space-x-2.5 min-w-0">
-            <Boxes
-              size={16}
-              class={`flex-shrink-0 ${
-                activeView() === "toolbox" ? "text-primary-foreground" : "text-primary"
-              }`}
-            />
-            <span class="truncate">{t("nav.toolbox")}</span>
-          </div>
-
-          <Show when={hiddenItems().length > 0 && !showHiddenDrawer()}>
-            <span
-              class={`text-[10px] px-1.5 py-0.2 rounded-full font-mono flex-shrink-0 ${
-                activeView() === "toolbox"
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-              title={
-                language() === "zh"
-                  ? `${hiddenItems().length} 个工具已收纳至工具箱`
-                  : `${hiddenItems().length} utilities stored in toolbox`
-              }
-            >
-              +{hiddenItems().length}
-            </span>
-          </Show>
+          <Boxes
+            size={16}
+            class={`flex-shrink-0 ${
+              activeView() === "toolbox" ? "text-primary-foreground" : "text-primary"
+            }`}
+          />
+          <span class="truncate">{t("nav.toolbox")}</span>
         </button>
       </div>
 

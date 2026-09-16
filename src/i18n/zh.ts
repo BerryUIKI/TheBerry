@@ -412,6 +412,6 @@ export const zh = {
   "nav.reset_default_name": "恢复默认名称",
   "nav.reset_layout": "恢复默认布局",
   "nav.drag_to_reorder": "按住拖动排序",
-  "nav.navigation_manager_title": "侧边栏导航与收纳定制",
-  "nav.navigation_manager_desc": "自定义侧边栏项目排序、隐藏/显示、修改别名及恢复默认",
+  "nav.navigation_manager_title": "侧边栏导航与布局",
+  "nav.navigation_manager_desc": "自定义侧边栏项目排序、显示与隐藏、修改别名及恢复默认",
 } as const;
