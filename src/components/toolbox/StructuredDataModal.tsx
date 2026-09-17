@@ -21,7 +21,7 @@ export function StructuredDataModal(props: Props) {
     JSON.stringify(
       {
         name: "TheBerry",
-        version: "0.2.0",
+        version: "0.1.12",
         features: ["clipboard", "launcher", "snippets", "file-search", "toolbox"],
         settings: {
           theme: "system",

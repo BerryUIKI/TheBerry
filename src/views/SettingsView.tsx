@@ -60,7 +60,7 @@ export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.2.0",
+    version: "0.1.12",
     theme: "dark",
     language: "en",
     close_to_tray: true,
@@ -76,7 +76,7 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.2.0");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.12");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
