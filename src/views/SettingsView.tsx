@@ -60,13 +60,13 @@ export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.11",
+    version: "0.1.12",
     theme: "dark",
     language: "en",
     close_to_tray: true,
     autostart: false,
     clipboard_history_limit: 200,
-    clipboard_monitor_enabled: true,
+    clipboard_monitor_enabled: false,
     custom_data_dir: "",
   });
   const [autostartActive, setAutostartActive] = createSignal(false);
@@ -76,7 +76,7 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.11");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.12");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
@@ -783,6 +783,9 @@ export function SettingsView() {
                 type="button"
                 onClick={async () => {
                   const nextVal = !config().clipboard_monitor_enabled;
+                  if (nextVal && !window.confirm(t("clipboard.enable_monitor_confirm"))) {
+                    return;
+                  }
                   try {
                     await setClipboardMonitorEnabled(nextVal);
                     await handleSave({ clipboard_monitor_enabled: nextVal });
@@ -810,6 +813,10 @@ export function SettingsView() {
             <p class="text-[11px] text-muted-foreground leading-relaxed">
               {t("settings.clipboard_monitor_desc")}
             </p>
+            <div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-start space-x-2 text-[11px] leading-relaxed">
+              <AlertCircle size={14} class="flex-shrink-0 mt-0.5 text-amber-500" />
+              <span>{t("settings.clipboard_monitor_warning")}</span>
+            </div>
           </div>
 
           {/* AI Assistant Configuration (Goose / TheBerry) */}

@@ -28,22 +28,22 @@ fn test_config_manager_load_save() {
     let manager = ConfigManager::new();
     let initial_config = manager.load_app_config(&data_dir).expect("failed to load initial config");
 
-    assert_eq!(initial_config.version, "0.1.11");
+    assert_eq!(initial_config.version, "0.1.12");
     assert_eq!(initial_config.theme, "dark");
     assert!(initial_config.close_to_tray);
-    assert!(initial_config.clipboard_monitor_enabled);
+    assert!(!initial_config.clipboard_monitor_enabled);
 
     let mut modified = initial_config.clone();
     modified.theme = "light".to_string();
     modified.clipboard_history_limit = 500;
-    modified.clipboard_monitor_enabled = false;
+    modified.clipboard_monitor_enabled = true;
 
     manager.save_app_config(&data_dir, &modified).expect("failed to save config");
 
     let loaded = manager.load_app_config(&data_dir).expect("failed to reload config");
     assert_eq!(loaded.theme, "light");
     assert_eq!(loaded.clipboard_history_limit, 500);
-    assert!(!loaded.clipboard_monitor_enabled);
+    assert!(loaded.clipboard_monitor_enabled);
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn test_config_manager_corrupted_config_fallback() {
     let manager = ConfigManager::new();
     let config = manager.load_app_config(&data_dir).expect("should not crash on invalid toml");
     assert_eq!(config.theme, "dark");
-    assert_eq!(config.version, "0.1.11");
+    assert_eq!(config.version, "0.1.12");
 }
 
 #[test]

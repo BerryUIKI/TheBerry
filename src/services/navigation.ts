@@ -10,7 +10,7 @@ export function getDefaultNavigationState(): NavigationState {
   return {
     sidebarItems: DEFAULT_SIDEBAR_ORDER.map((id, index) => ({
       id,
-      hidden: false,
+      hidden: id === "clipboard",
       order: index,
     })),
     toolboxOrder: [],
@@ -39,7 +39,7 @@ export function loadNavigationConfig(): NavigationState {
       if (!existingIds.has(id)) {
         items.push({
           id,
-          hidden: false,
+          hidden: id === "clipboard",
           order: items.length,
         });
       }

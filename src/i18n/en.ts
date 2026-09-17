@@ -167,12 +167,16 @@ export const en = {
   "settings.shortcuts_title": "Global Shortcuts & HUD",
   "settings.clipboard_monitor": "Clipboard Monitoring",
   "settings.clipboard_monitor_desc": "Automatically capture copied text and images into history using zero-lock Windows sequence checking. Turn off if you experience conflicts with third-party software or input methods.",
+  "settings.clipboard_monitor_warning": "Security Risk: Background clipboard monitoring continuously archives copied text and images, including passwords, secret keys, and API tokens. It can also interfere with password manager auto-clearing protections.",
 
   // Clipboard View
   "clipboard.title": "Clipboard History",
   "clipboard.subtitle": "Continuous clipboard monitoring with automatic type detection and offline storage",
   "clipboard.monitor_paused_notice": "Clipboard monitoring is paused. Copied text and images will not be recorded.",
   "clipboard.resume_monitor": "Resume Monitoring",
+  "clipboard.security_warning_title": "Security Notice: Sensitive Data & Password Risk",
+  "clipboard.security_warning_desc": "Continuously monitoring the clipboard logs copied passwords, API keys, and sensitive tokens to local storage. It may also conflict with password manager clipboard-clearing protections. Keep disabled unless actively needed.",
+  "clipboard.enable_monitor_confirm": "Enabling clipboard history monitoring will log copied clipboard items, which may include sensitive passwords or secret keys. Are you sure you want to enable monitoring?",
   "clipboard.search_placeholder": "Search clipboard history...",
   "clipboard.filter_all": "All",
   "clipboard.filter_pinned": "Pinned",

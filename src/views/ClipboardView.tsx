@@ -35,6 +35,7 @@ import {
   Languages,
   Pause,
   Play,
+  ShieldAlert,
 } from "lucide-solid";
 
 export function ClipboardView() {
@@ -311,6 +312,9 @@ export function ClipboardView() {
           <button
             onClick={async () => {
               const nextVal = !monitorEnabled();
+              if (nextVal && !window.confirm(t("clipboard.enable_monitor_confirm"))) {
+                return;
+              }
               try {
                 await setClipboardMonitorEnabled(nextVal);
                 setMonitorEnabled(nextVal);
@@ -375,15 +379,31 @@ export function ClipboardView() {
         </div>
       </div>
 
+      {/* Security Warning Notice */}
+      <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-xl text-xs flex items-start space-x-2.5 shadow-xs">
+        <ShieldAlert size={16} class="text-amber-500 flex-shrink-0 mt-0.5" />
+        <div class="space-y-0.5">
+          <div class="font-semibold text-foreground flex items-center space-x-1.5">
+            <span>{t("clipboard.security_warning_title")}</span>
+          </div>
+          <p class="text-[11px] leading-relaxed text-muted-foreground">
+            {t("clipboard.security_warning_desc")}
+          </p>
+        </div>
+      </div>
+
       {/* Paused Banner */}
       <Show when={!monitorEnabled()}>
-        <div class="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 rounded-lg text-xs flex items-center justify-between shadow-xs">
+        <div class="p-3 bg-secondary/60 border border-border text-foreground rounded-lg text-xs flex items-center justify-between shadow-xs">
           <div class="flex items-center space-x-2">
             <Activity size={14} class="flex-shrink-0 text-amber-500" />
             <span>{t("clipboard.monitor_paused_notice")}</span>
           </div>
           <button
             onClick={async () => {
+              if (!window.confirm(t("clipboard.enable_monitor_confirm"))) {
+                return;
+              }
               try {
                 await setClipboardMonitorEnabled(true);
                 setMonitorEnabled(true);
@@ -392,7 +412,7 @@ export function ClipboardView() {
                 error("Resume Failed", String(err));
               }
             }}
-            class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium text-xs transition-colors shadow-xs"
+            class="px-2.5 py-1 bg-primary hover:bg-primary/90 text-primary-foreground rounded font-medium text-xs transition-colors shadow-xs"
           >
             {t("clipboard.resume_monitor")}
           </button>

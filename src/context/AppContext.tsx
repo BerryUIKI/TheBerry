@@ -18,7 +18,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType>();
 
 export function AppProvider(props: { children: JSX.Element }) {
-  const [activeView, setActiveView] = createSignal<ViewType>("clipboard");
+  const [activeView, setActiveView] = createSignal<ViewType>("snippets");
   const [isInitialized, setIsInitialized] = createSignal<boolean>(false);
   const [dataDir, setDataDir] = createSignal<string | null>(null);
   const [suggestedDataDir, setSuggestedDataDir] = createSignal<string>("");
