@@ -167,12 +167,16 @@ export const zh = {
   "settings.shortcuts_title": "全局快捷键与 HUD",
   "settings.clipboard_monitor": "剪贴板自动监听",
   "settings.clipboard_monitor_desc": "在后台自动捕获并记录复制的文本与图片（Windows 采用零锁低开销序列号检测）。若在特定软件或输入法下遇到冲突，可关闭此开关。",
+  "settings.clipboard_monitor_warning": "安全风险提示：后台剪贴板监听会持续记录复制的文本与图片（包括密码、私钥及 API Token），并可能破坏密码管理器的自动清理保护机制。如非必要，建议保持关闭。",
 
   // Clipboard View
   "clipboard.title": "剪贴板历史",
   "clipboard.subtitle": "实时监听系统剪贴板，自动识别文本、图片与链接并离线存储",
   "clipboard.monitor_paused_notice": "剪贴板后台监听已暂停，新复制的内容不会自动记录。",
   "clipboard.resume_monitor": "恢复监听",
+  "clipboard.security_warning_title": "安全风险提示：敏感凭据与密码泄露风险",
+  "clipboard.security_warning_desc": "开启剪贴板自动记录会在后台持续捕获并保存剪贴板内容。这可能会无意中记录从密码管理器或浏览器中复制的密码、API 密钥及敏感凭证，并可能与密码管理器的剪贴板清理保护产生冲突。",
+  "clipboard.enable_monitor_confirm": "开启剪贴板自动监听将持续记录剪贴板内容，可能涉及密码与私钥等敏感凭证。确定要开启监听吗？",
   "clipboard.search_placeholder": "搜索剪贴板历史记录...",
   "clipboard.filter_all": "全部",
   "clipboard.filter_pinned": "已置顶",

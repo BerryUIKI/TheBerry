@@ -39,7 +39,8 @@ describe("Navigation & Layout Customization Service", () => {
   it("provides complete default navigation state", () => {
     const state = getDefaultNavigationState();
     expect(state.sidebarItems.length).toBe(DEFAULT_SIDEBAR_ORDER.length);
-    expect(state.sidebarItems.every((it) => !it.hidden)).toBe(true);
+    expect(state.sidebarItems.find((it) => it.id === "clipboard")?.hidden).toBe(true);
+    expect(state.sidebarItems.filter((it) => it.id !== "clipboard").every((it) => !it.hidden)).toBe(true);
     expect(state.sidebarItems[0].id).toBe("clipboard");
     expect(state.toolboxOrder).toEqual([]);
   });
@@ -50,14 +51,14 @@ describe("Navigation & Layout Customization Service", () => {
   });
 
   it("reorders sidebar items accurately", () => {
-    // Reorder from index 0 ("clipboard") to index 2
+    // Reorder from index 0 ("snippets") to index 2 ("snippets" moves after "image_converter")
     const reordered = reorderSidebarItems(0, 2);
-    expect(reordered[0].id).toBe("snippets");
-    expect(reordered[2].id).toBe("clipboard");
+    expect(reordered[0].id).toBe("launcher");
+    expect(reordered[2].id).toBe("snippets");
 
     const reloaded = loadNavigationConfig();
-    expect(reloaded.sidebarItems[0].id).toBe("snippets");
-    expect(reloaded.sidebarItems[2].id).toBe("clipboard");
+    expect(reloaded.sidebarItems[0].id).toBe("launcher");
+    expect(reloaded.sidebarItems[2].id).toBe("snippets");
   });
 
   it("toggles hiding and showing sidebar items", () => {
@@ -108,7 +109,8 @@ describe("Navigation & Layout Customization Service", () => {
 
     const resetState = resetNavigationToDefault();
     expect(resetState.sidebarItems.length).toBe(DEFAULT_SIDEBAR_ORDER.length);
-    expect(resetState.sidebarItems.every((it) => !it.hidden)).toBe(true);
+    expect(resetState.sidebarItems.find((it) => it.id === "clipboard")?.hidden).toBe(true);
+    expect(resetState.sidebarItems.filter((it) => it.id !== "clipboard").every((it) => !it.hidden)).toBe(true);
     expect(resetState.sidebarItems.find((it) => it.id === "qr-code")).toBeUndefined();
   });
 });
