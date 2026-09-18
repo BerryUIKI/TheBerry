@@ -1,19 +1,22 @@
 import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useTheme } from "../../context/ThemeContext";
 import { minimizeWindow, toggleMaximizeWindow, closeWindow } from "../../services/system";
-import { onUpdateAvailable, getAppVersion } from "../../services/updater";
+import { onUpdateAvailable, getAppVersion, checkForUpdates } from "../../services/updater";
 import { UpdateInfo } from "../../types/updater";
 import { useApp } from "../../context/AppContext";
 import { useI18n } from "../../context/I18nContext";
-import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard, Settings } from "lucide-solid";
+import { useToast } from "../../context/ToastContext";
+import { Sun, Moon, Minus, Square, Copy, X, Sparkles, Keyboard, Settings, RefreshCw } from "lucide-solid";
 
 export function TitleBar() {
   const { theme, toggleTheme } = useTheme();
   const { activeView, setActiveView } = useApp();
   const { t, assistantName } = useI18n();
+  const { success, info, error } = useToast();
   const [isMaximized, setIsMaximized] = createSignal(false);
-  const [appVersion, setAppVersion] = createSignal("0.1.6");
+  const [appVersion, setAppVersion] = createSignal("0.1.13");
   const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = createSignal(false);
 
   onMount(() => {
     getAppVersion()
@@ -61,6 +64,34 @@ export function TitleBar() {
     }
   };
 
+  const handleCheckUpdate = async (e?: MouseEvent) => {
+    e?.stopPropagation();
+    if (isCheckingUpdate()) return;
+    setIsCheckingUpdate(true);
+    try {
+      const releaseInfo = await checkForUpdates();
+      if (releaseInfo.has_update) {
+        setAvailableUpdate(releaseInfo);
+        window.dispatchEvent(new CustomEvent("open-update-modal", { detail: releaseInfo }));
+        success(
+          t("titlebar.update_available_title"),
+          t("titlebar.update_available_msg", { version: releaseInfo.latest_version })
+        );
+      } else {
+        info(
+          t("titlebar.up_to_date_title"),
+          t("titlebar.up_to_date_msg", { version: releaseInfo.current_version || appVersion() })
+        );
+      }
+    } catch (err: any) {
+      console.error("Check for updates failed:", err);
+      const msg = err?.message || String(err);
+      error(t("titlebar.check_failed_title"), msg);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
   return (
     <header
       data-tauri-drag-region
@@ -76,9 +107,18 @@ export function TitleBar() {
         <span class="text-xs font-semibold tracking-wider text-foreground uppercase opacity-90">
           TheBerry
         </span>
-        <span class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono">
-          v{appVersion()}
-        </span>
+        <button
+          type="button"
+          onClick={handleCheckUpdate}
+          disabled={isCheckingUpdate()}
+          title={isCheckingUpdate() ? t("titlebar.checking_updates") : t("titlebar.check_updates_tooltip")}
+          class="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-muted-foreground/20 active:scale-95 text-muted-foreground hover:text-foreground font-mono transition-all flex items-center space-x-1 cursor-pointer disabled:opacity-60 disabled:cursor-wait border border-transparent hover:border-border/60"
+        >
+          <Show when={isCheckingUpdate()}>
+            <RefreshCw size={10} class="animate-spin text-primary" />
+          </Show>
+          <span>v{appVersion()}</span>
+        </button>
 
         {/* Update Notification Pill */}
         <Show when={availableUpdate()}>

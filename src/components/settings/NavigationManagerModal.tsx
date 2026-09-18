@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, createEffect, For, Show } from "solid-js";
 import {
   X,
   GripVertical,
@@ -9,8 +9,8 @@ import {
   Sliders,
   Check,
   Search,
-  Pin,
-  PinOff,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-solid";
 import {
   loadNavigationConfig,
@@ -39,21 +39,117 @@ export function NavigationManagerModal(props: {
   const [searchQuery, setSearchQuery] = createSignal("");
   const [editingId, setEditingId] = createSignal<string | null>(null);
   const [editInputVal, setEditInputVal] = createSignal("");
-  const [draggedIndex, setDraggedIndex] = createSignal<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
+  // Pointer-based item drag & drop state
+  let listContainerRef: HTMLDivElement | undefined;
+  let dragCandidateId: string | null = null;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  const [isPointerDragging, setIsPointerDragging] = createSignal(false);
+  const [draggedId, setDraggedId] = createSignal<string | null>(null);
+  const [dragOverId, setDragOverId] = createSignal<string | null>(null);
   const [dropPosition, setDropPosition] = createSignal<"before" | "after" | null>(null);
+
+  // Draggable Modal Dialog state
+  const [modalPos, setModalPos] = createSignal({ x: 0, y: 0 });
+  let isDraggingModal = false;
+  let modalStartPos = { x: 0, y: 0 };
+  let modalPointerStart = { x: 0, y: 0 };
+
+  createEffect(() => {
+    if (props.isOpen) {
+      setModalPos({ x: 0, y: 0 });
+    }
+  });
 
   const reload = () => {
     const config = loadNavigationConfig();
     setItems(config.sidebarItems);
   };
 
+  // Item pointer event listeners on window
+  const handleGlobalPointerMove = (e: PointerEvent) => {
+    if (!dragCandidateId) return;
+
+    const dx = Math.abs(e.clientX - dragStartX);
+    const dy = Math.abs(e.clientY - dragStartY);
+
+    if (!isPointerDragging() && (dx > 3 || dy > 3)) {
+      setIsPointerDragging(true);
+      setDraggedId(dragCandidateId);
+    }
+
+    if (isPointerDragging() && listContainerRef) {
+      const itemEls = listContainerRef.querySelectorAll<HTMLElement>("[data-nav-id]");
+      let foundId: string | null = null;
+      let pos: "before" | "after" = "before";
+
+      itemEls.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
+          const id = el.getAttribute("data-nav-id");
+          if (id) {
+            foundId = id;
+            const midY = rect.top + rect.height / 2;
+            pos = e.clientY < midY ? "before" : "after";
+          }
+        }
+      });
+
+      setDragOverId(foundId);
+      setDropPosition(pos);
+    }
+  };
+
+  const handleGlobalPointerUp = () => {
+    if (isPointerDragging() && draggedId() && dragOverId() && draggedId() !== dragOverId()) {
+      const fromId = draggedId()!;
+      const toId = dragOverId()!;
+      const pos = dropPosition();
+
+      const currentItems = [...items()];
+      const fromIndex = currentItems.findIndex((it) => it.id === fromId);
+      if (fromIndex !== -1) {
+        const [movedItem] = currentItems.splice(fromIndex, 1);
+        let targetIndex = currentItems.findIndex((it) => it.id === toId);
+        if (targetIndex !== -1) {
+          if (pos === "after") {
+            targetIndex += 1;
+          }
+          currentItems.splice(targetIndex, 0, movedItem);
+          const reordered = currentItems.map((it, idx) => ({ ...it, order: idx }));
+          setItems(reordered);
+          saveNavigationConfig({
+            ...loadNavigationConfig(),
+            sidebarItems: reordered,
+          });
+          success(
+            language() === "zh" ? "排序已更新" : "Order Updated",
+            language() === "zh" ? "侧边栏导航已重新排列" : "Sidebar navigation reordered"
+          );
+        }
+      }
+    }
+
+    dragCandidateId = null;
+    setIsPointerDragging(false);
+    setDraggedId(null);
+    setDragOverId(null);
+    setDropPosition(null);
+  };
+
   onMount(() => {
     reload();
     const handleNavChange = () => reload();
     window.addEventListener("navigation-state-changed", handleNavChange);
+    window.addEventListener("pointermove", handleGlobalPointerMove);
+    window.addEventListener("pointerup", handleGlobalPointerUp);
+    window.addEventListener("pointercancel", handleGlobalPointerUp);
+
     onCleanup(() => {
       window.removeEventListener("navigation-state-changed", handleNavChange);
+      window.removeEventListener("pointermove", handleGlobalPointerMove);
+      window.removeEventListener("pointerup", handleGlobalPointerUp);
+      window.removeEventListener("pointercancel", handleGlobalPointerUp);
     });
   });
 
@@ -101,53 +197,86 @@ export function NavigationManagerModal(props: {
     );
   };
 
-  // Drag and drop reordering inside modal with dynamic position sensing
-  const handleDragStart = (e: DragEvent, index: number) => {
-    setDraggedIndex(index);
-    if (e.dataTransfer) {
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", `${index}`);
+  const handleMoveUp = (e: MouseEvent, id: string) => {
+    e.stopPropagation();
+    const current = [...items()];
+    const idx = current.findIndex((it) => it.id === id);
+    if (idx > 0) {
+      const temp = current[idx];
+      current[idx] = current[idx - 1];
+      current[idx - 1] = temp;
+      const reordered = current.map((it, i) => ({ ...it, order: i }));
+      setItems(reordered);
+      saveNavigationConfig({
+        ...loadNavigationConfig(),
+        sidebarItems: reordered,
+      });
+      success(
+        language() === "zh" ? "排序已更新" : "Order Updated",
+        language() === "zh" ? "导航项已上移" : "Item moved up"
+      );
     }
   };
 
-  const handleDragOver = (e: DragEvent, index: number) => {
-    e.preventDefault();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = "move";
+  const handleMoveDown = (e: MouseEvent, id: string) => {
+    e.stopPropagation();
+    const current = [...items()];
+    const idx = current.findIndex((it) => it.id === id);
+    if (idx >= 0 && idx < current.length - 1) {
+      const temp = current[idx];
+      current[idx] = current[idx + 1];
+      current[idx + 1] = temp;
+      const reordered = current.map((it, i) => ({ ...it, order: i }));
+      setItems(reordered);
+      saveNavigationConfig({
+        ...loadNavigationConfig(),
+        sidebarItems: reordered,
+      });
+      success(
+        language() === "zh" ? "排序已更新" : "Order Updated",
+        language() === "zh" ? "导航项已下移" : "Item moved down"
+      );
     }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const pos = e.clientY < midY ? "before" : "after";
-    setDragOverIndex(index);
-    setDropPosition(pos);
   };
 
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-    setDropPosition(null);
+  const handleItemPointerDown = (e: PointerEvent, itemId: string, isHandle: boolean) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (!isHandle && (target.closest("button") || target.closest("input"))) return;
+
+    dragCandidateId = itemId;
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
   };
 
-  const handleDrop = (e: DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    const startIndex = draggedIndex();
-    if (startIndex === null || startIndex === dropIndex) {
-      handleDragEnd();
-      return;
-    }
+  // Dragging the Modal Window by its header
+  const handleModalHeaderPointerDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input")) return;
 
-    const next = [...items()];
-    const [moved] = next.splice(startIndex, 1);
-    next.splice(dropIndex, 0, moved);
+    isDraggingModal = true;
+    modalStartPos = { ...modalPos() };
+    modalPointerStart = { x: e.clientX, y: e.clientY };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
 
-    const reordered = next.map((it, idx) => ({ ...it, order: idx }));
-    setItems(reordered);
-    saveNavigationConfig({
-      ...loadNavigationConfig(),
-      sidebarItems: reordered,
+  const handleModalHeaderPointerMove = (e: PointerEvent) => {
+    if (!isDraggingModal) return;
+    const dx = e.clientX - modalPointerStart.x;
+    const dy = e.clientY - modalPointerStart.y;
+    setModalPos({
+      x: modalStartPos.x + dx,
+      y: modalStartPos.y + dy,
     });
+  };
 
-    handleDragEnd();
+  const handleModalHeaderPointerUp = (e: PointerEvent) => {
+    if (!isDraggingModal) return;
+    isDraggingModal = false;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch (_) {}
   };
 
   const filteredItems = () => {
@@ -166,13 +295,27 @@ export function NavigationManagerModal(props: {
       <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md animate-in fade-in duration-150 p-4"
         onClick={(e) => {
-          if (e.target === e.currentTarget) props.onClose();
+          if (e.target === e.currentTarget && !isPointerDragging() && !isDraggingModal) {
+            props.onClose();
+          }
         }}
       >
-        <div class="w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
-          {/* Modal Header */}
-          <div class="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/30">
-            <div class="flex items-center space-x-2.5">
+        <div
+          style={{
+            transform: `translate3d(${modalPos().x}px, ${modalPos().y}px, 0)`,
+          }}
+          class="w-full max-w-xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150 select-none"
+        >
+          {/* Modal Header (Draggable) */}
+          <div
+            onPointerDown={handleModalHeaderPointerDown}
+            onPointerMove={handleModalHeaderPointerMove}
+            onPointerUp={handleModalHeaderPointerUp}
+            onPointerCancel={handleModalHeaderPointerUp}
+            class="px-5 py-4 border-b border-border flex items-center justify-between bg-muted/30 cursor-grab active:cursor-grabbing select-none"
+            title={language() === "zh" ? "按住可拖动窗口" : "Hold to drag dialog"}
+          >
+            <div class="flex items-center space-x-2.5 pointer-events-none">
               <div class="p-2 rounded-xl bg-primary/10 text-primary">
                 <Sliders size={18} />
               </div>
@@ -190,7 +333,7 @@ export function NavigationManagerModal(props: {
 
             <button
               onClick={props.onClose}
-              class="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+              class="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all cursor-pointer"
             >
               <X size={15} />
             </button>
@@ -211,7 +354,7 @@ export function NavigationManagerModal(props: {
 
             <button
               onClick={handleResetDefaults}
-              class="px-2.5 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center space-x-1.5 transition-colors"
+              class="px-2.5 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-secondary flex items-center space-x-1.5 transition-colors cursor-pointer"
               title={language() === "zh" ? "恢复默认布局" : "Restore defaults"}
             >
               <RotateCcw size={13} />
@@ -219,33 +362,27 @@ export function NavigationManagerModal(props: {
             </button>
           </div>
 
-          {/* Item List */}
-          <div class="p-4 overflow-y-auto space-y-2 flex-1">
+          {/* Item List with Pointer Drag Reordering */}
+          <div ref={listContainerRef} class="p-4 overflow-y-auto space-y-2 flex-1">
             <For each={filteredItems()}>
               {(item, index) => {
-                const meta = KNOWN_NAV_ITEMS[item.id];
                 const isEditing = () => editingId() === item.id;
-                const isDragged = () => draggedIndex() === index();
-                const isOver = () => dragOverIndex() === index();
+                const isDragged = () => isPointerDragging() && draggedId() === item.id;
+                const isOver = () => isPointerDragging() && dragOverId() === item.id;
 
                 return (
                   <div
-                    draggable={!isEditing()}
-                    onDragStart={(e) => handleDragStart(e, index())}
-                    onDragOver={(e) => handleDragOver(e, index())}
-                    onDragEnd={handleDragEnd}
-                    onDrop={(e) => handleDrop(e, index())}
-                    class={`group relative flex items-center justify-between p-2.5 rounded-xl border select-none transition-all duration-200 ${
+                    data-nav-id={item.id}
+                    onPointerDown={(e) => handleItemPointerDown(e, item.id, false)}
+                    class={`group relative flex items-center justify-between p-2.5 rounded-xl border select-none transition-all duration-150 touch-none ${
                       item.hidden
                         ? "bg-muted/20 border-border/50 opacity-60 hover:opacity-90"
                         : "bg-card border-border hover:border-primary/40 shadow-sm"
                     } ${
                       isDragged()
-                        ? "drag-item-active"
+                        ? "drag-item-active z-30"
                         : isOver()
-                        ? dropPosition() === "before"
-                          ? "translate-y-0.5 bg-primary/5"
-                          : "-translate-y-0.5 bg-primary/5"
+                        ? "bg-primary/5 border-primary/60 ring-2 ring-primary/30"
                         : "hover:translate-x-0.5"
                     }`}
                   >
@@ -253,9 +390,7 @@ export function NavigationManagerModal(props: {
                     <Show when={isOver() && !isDragged()}>
                       <div
                         class={`drop-indicator-line ${
-                          draggedIndex() !== null && draggedIndex()! < index()
-                            ? "-bottom-[1.5px]"
-                            : "-top-[1.5px]"
+                          dropPosition() === "after" ? "-bottom-[1.5px]" : "-top-[1.5px]"
                         }`}
                       >
                         <span class="drop-indicator-pill-left" />
@@ -263,10 +398,14 @@ export function NavigationManagerModal(props: {
                       </div>
                     </Show>
 
-                    {/* Left: Drag Handle + Icon + Label */}
+                    {/* Left: Drag Handle + Label */}
                     <div class="flex items-center space-x-3 flex-1 min-w-0 pr-2">
                       <span
-                        class="drag-grip-handle text-muted-foreground/60 hover:text-foreground p-1 rounded hover:bg-muted/40"
+                        class="drag-grip-handle text-muted-foreground/60 hover:text-foreground p-1 rounded hover:bg-muted/40 cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          handleItemPointerDown(e, item.id, true);
+                        }}
                         title={language() === "zh" ? "按住拖动排序" : "Drag to reorder"}
                       >
                         <GripVertical size={15} />
@@ -275,7 +414,7 @@ export function NavigationManagerModal(props: {
                       <Show
                         when={isEditing()}
                         fallback={
-                          <div class="flex items-center space-x-2 min-w-0">
+                          <div class="flex items-center space-x-2 min-w-0 pointer-events-none">
                             <span class="text-xs font-semibold text-foreground truncate">
                               {getItemLabel(item)}
                             </span>
@@ -306,14 +445,14 @@ export function NavigationManagerModal(props: {
                           />
                           <button
                             onClick={() => handleSaveEdit(item.id)}
-                            class="p-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+                            class="p-1.5 rounded bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                             title={language() === "zh" ? "保存别名" : "Save"}
                           >
                             <Check size={13} />
                           </button>
                           <button
                             onClick={() => handleResetName(item.id)}
-                            class="px-2 py-1 rounded bg-secondary text-[11px] text-muted-foreground hover:text-foreground"
+                            class="px-2 py-1 rounded bg-secondary text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
                             title={language() === "zh" ? "恢复原名" : "Reset name"}
                           >
                             {language() === "zh" ? "原名" : "Reset"}
@@ -322,21 +461,45 @@ export function NavigationManagerModal(props: {
                       </Show>
                     </div>
 
-                    {/* Right: Actions (Edit Name, Toggle Visibility) */}
-                    <div class="flex items-center space-x-1 flex-shrink-0">
+                    {/* Right: Quick Up/Down buttons + Edit Name + Toggle Visibility */}
+                    <div class="flex items-center space-x-0.5 flex-shrink-0">
                       <Show when={!isEditing()}>
+                        {/* Quick Up/Down Reorder Buttons */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleMoveUp(e, item.id)}
+                          disabled={index() === 0}
+                          class="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title={language() === "zh" ? "上移一位" : "Move up"}
+                        >
+                          <ChevronUp size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleMoveDown(e, item.id)}
+                          disabled={index() === filteredItems().length - 1}
+                          class="p-1 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-secondary disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title={language() === "zh" ? "下移一位" : "Move down"}
+                        >
+                          <ChevronDown size={13} />
+                        </button>
+
+                        <div class="h-3 w-[1px] bg-border mx-0.5" />
+
+                        {/* Edit alias */}
                         <button
                           onClick={() => handleStartEdit(item)}
-                          class="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          class="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors cursor-pointer"
                           title={language() === "zh" ? "编辑别名" : "Edit display name"}
                         >
                           <Edit2 size={13} />
                         </button>
                       </Show>
 
+                      {/* Toggle Hide / Show */}
                       <button
                         onClick={() => handleToggleHide(item.id)}
-                        class={`p-1.5 rounded-lg transition-colors ${
+                        class={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                           item.hidden
                             ? "text-muted-foreground hover:text-primary hover:bg-primary/10"
                             : "text-foreground hover:bg-secondary"
@@ -369,7 +532,7 @@ export function NavigationManagerModal(props: {
             </span>
             <button
               onClick={props.onClose}
-              class="px-3.5 py-1.5 rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
+              class="px-3.5 py-1.5 rounded-lg font-medium bg-primary text-primary-foreground hover:bg-primary/90 text-xs cursor-pointer"
             >
               {language() === "zh" ? "完成" : "Done"}
             </button>
