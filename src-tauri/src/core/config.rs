@@ -27,6 +27,10 @@ fn default_clipboard_monitor_enabled() -> bool {
     false
 }
 
+fn default_quicklook_enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
@@ -43,6 +47,8 @@ pub struct AppConfig {
     pub clipboard_history_limit: usize,
     #[serde(default = "default_clipboard_monitor_enabled")]
     pub clipboard_monitor_enabled: bool,
+    #[serde(default = "default_quicklook_enabled")]
+    pub quicklook_enabled: bool,
     pub custom_data_dir: String,
 }
 
@@ -58,7 +64,8 @@ impl Default for AppConfig {
             hud_shortcut: "Alt+Space".to_string(),
             clipboard_history_limit: 200,
             clipboard_monitor_enabled: false,
-            custom_data_dir: String::new(),
+            quicklook_enabled: true,
+            custom_data_dir: "".to_string(),
         }
     }
 }

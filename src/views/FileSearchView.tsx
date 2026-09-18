@@ -43,6 +43,7 @@ export function FileSearchView() {
   const [fileType, setFileType] = createSignal<SearchQuery["file_type_filter"]>("all");
   const [caseSensitive, setCaseSensitive] = createSignal(false);
   const [copiedPath, setCopiedPath] = createSignal<string | null>(null);
+  const [selectedItem, setSelectedItem] = createSignal<SearchResultItem | null>(null);
 
   // Sorting state
   const [sortField, setSortField] = createSignal<SortField>("name");
@@ -62,11 +63,24 @@ export function FileSearchView() {
     }
   };
 
+  const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    if (e.code === "Space" && selectedItem()) {
+      const activeElement = document.activeElement;
+      if (activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")) {
+        return;
+      }
+      e.preventDefault();
+      previewWithQuickLook(selectedItem()!.path);
+    }
+  };
+
   onMount(() => {
     loadDrives();
+    window.addEventListener("keydown", handleGlobalKeyDown);
   });
 
   onCleanup(() => {
+    window.removeEventListener("keydown", handleGlobalKeyDown);
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
@@ -338,8 +352,11 @@ export function FileSearchView() {
             <For each={sortedResults()}>
               {(item) => (
                 <div
+                  onClick={() => setSelectedItem(item)}
                   onDblClick={() => handleOpen(item)}
-                  class="px-3.5 py-2.5 flex items-center justify-between hover:bg-secondary/50 transition-colors group cursor-pointer"
+                  class={`px-3.5 py-2.5 flex items-center justify-between transition-colors group cursor-pointer ${
+                    selectedItem()?.path === item.path ? "bg-secondary/60 ring-1 ring-primary/40 rounded-lg" : "hover:bg-secondary/40"
+                  }`}
                 >
                   <div class="flex items-center space-x-3 min-w-0 flex-1">
                     {getFileIcon(item)}
