@@ -44,7 +44,29 @@ impl QuickLookService {
 
     /// Discovers QuickLook.exe executable path
     pub fn discover_binary() -> Option<PathBuf> {
-        // 1. Check PATH
+        // 1. Check embedded in TheBerry directory / resources
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let candidates = [
+                    exe_dir.join("resources").join("quicklook").join("QuickLook.exe"),
+                    exe_dir.join("quicklook").join("QuickLook.exe"),
+                    exe_dir.join("QuickLook.exe"),
+                ];
+                for c in &candidates {
+                    if c.is_file() {
+                        return Some(c.clone());
+                    }
+                }
+            }
+        }
+
+        // 2. Check workspace dev directory
+        let dev_candidate = PathBuf::from(r"F:\dev\TheBerry\src-tauri\resources\quicklook\QuickLook.exe");
+        if dev_candidate.is_file() {
+            return Some(dev_candidate);
+        }
+
+        // 3. Check PATH
         if let Ok(path_var) = std::env::var("PATH") {
             for dir in std::env::split_paths(&path_var) {
                 let candidate = dir.join("QuickLook.exe");
@@ -54,7 +76,25 @@ impl QuickLookService {
             }
         }
 
-        // 2. Check standard installation directories
+        // 4. Check WindowsApps Store QuickLook
+        if let Ok(prog_files) = std::env::var("ProgramFiles") {
+            let win_apps = Path::new(&prog_files).join("WindowsApps");
+            if win_apps.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&win_apps) {
+                    for entry in entries.flatten() {
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        if name.contains("QuickLook") {
+                            let candidate = entry.path().join("Package").join("QuickLook.exe");
+                            if candidate.is_file() {
+                                return Some(candidate);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 5. Check standard installation directories
         if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
             let candidate = Path::new(&local_app_data)
                 .join("Programs")
@@ -86,29 +126,80 @@ impl QuickLookService {
         None
     }
 
-    /// Gets current QuickLook status on Windows
-    pub fn get_status() -> QuickLookStatus {
-        let pipe_path = Self::get_pipe_path();
-        let binary_path = Self::discover_binary();
+    /// Checks if QuickLook process is currently running on Windows
+    pub fn is_process_running() -> bool {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut cmd = Command::new("tasklist");
+        cmd.args(["/FI", "IMAGENAME eq QuickLook.exe", "/NH"]);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        if let Ok(output) = cmd.output() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            return stdout.to_lowercase().contains("quicklook.exe");
+        }
+        false
+    }
 
-        // Check if pipe is currently accessible
-        let mut is_running = false;
-        if let Some(ref p) = pipe_path {
-            if OpenOptions::new().write(true).open(p).is_ok() {
-                is_running = true;
-            }
+    /// Starts embedded QuickLook background process
+    pub fn start_process() -> Result<bool, String> {
+        if Self::is_process_running() {
+            return Ok(true);
+        }
+        let bin = Self::discover_binary().ok_or_else(|| "QuickLook executable not found.".to_string())?;
+
+        // Ensure UserData directory exists if portable
+        if let Some(p) = bin.parent() {
+            let user_data = p.join("UserData");
+            let _ = std::fs::create_dir_all(&user_data);
         }
 
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        const DETACHED_PROCESS: u32 = 0x00000008;
+        let mut cmd = Command::new(&bin);
+        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        cmd.spawn().map_err(|e| format!("Failed to spawn QuickLook process: {}", e))?;
+        Ok(true)
+    }
+
+    /// Stops QuickLook process
+    pub fn stop_process() -> Result<bool, String> {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let mut cmd = Command::new("taskkill");
+        cmd.args(["/IM", "QuickLook.exe", "/F"]);
+        cmd.creation_flags(CREATE_NO_WINDOW);
+        let _ = cmd.output();
+        Ok(true)
+    }
+
+    /// Gets current QuickLook status on Windows
+    pub fn get_status(enabled: bool) -> QuickLookStatus {
+        let pipe_path = Self::get_pipe_path();
+        let binary_path = Self::discover_binary();
+        let is_running = Self::is_process_running();
         let is_installed = binary_path.is_some() || is_running;
+        let is_embedded = binary_path
+            .as_ref()
+            .map(|p| {
+                let s = p.to_string_lossy();
+                s.contains("resources") || s.contains("TheBerry")
+            })
+            .unwrap_or(false);
 
         QuickLookStatus {
-            is_supported_os: std::env::consts::OS == "windows",
+            is_supported_os: true,
             is_installed,
             is_running,
+            is_enabled: enabled,
+            is_embedded,
+            has_builtin_fallback: true,
             binary_path: binary_path.map(|p| p.to_string_lossy().to_string()),
             pipe_name: pipe_path,
             error_message: if !is_installed {
-                Some("QuickLook is not detected. Please install QuickLook from GitHub or Microsoft Store.".to_string())
+                Some("QuickLook is not detected. Built-in previewer active.".to_string())
+            } else if !enabled {
+                Some("QuickLook preview is disabled by user.".to_string())
             } else {
                 None
             },
@@ -160,8 +251,11 @@ impl QuickLookService {
 
         // Secondary fallback: CLI Process execution
         if let Some(bin_path) = Self::discover_binary() {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
             let mut cmd = Command::new(&bin_path);
             cmd.arg(&abs_path);
+            cmd.creation_flags(CREATE_NO_WINDOW);
             if cmd.spawn().is_ok() {
                 return Ok(true);
             }

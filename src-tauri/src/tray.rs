@@ -41,6 +41,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let lang_submenu = Submenu::with_items(app, lang_menu_text, true, &[&lang_en_item, &lang_zh_item])?;
 
     let shortcut_item = MenuItem::with_id(app, "toggle_shortcuts", shortcut_text, true, None::<&str>)?;
+
+    let ql_text = if config.quicklook_enabled {
+        if is_zh { "✓ QuickLook 极速预览已启用" } else { "✓ QuickLook Preview Enabled" }
+    } else {
+        if is_zh { "  启用 QuickLook 极速预览" } else { "  Enable QuickLook Preview" }
+    };
+    let quicklook_item = MenuItem::with_id(app, "toggle_quicklook", ql_text, true, None::<&str>)?;
     let sep3 = PredefinedMenuItem::separator(app)?;
     let quit_item = MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)?;
 
@@ -53,11 +60,13 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
         &sep2,
         &lang_submenu,
         &shortcut_item,
+        &quicklook_item,
         &sep3,
         &quit_item,
     ])?;
 
     let shortcut_item_clone = shortcut_item.clone();
+    let quicklook_item_clone = quicklook_item.clone();
     let lang_en_clone = lang_en_item.clone();
     let lang_zh_clone = lang_zh_item.clone();
 
@@ -133,7 +142,45 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 };
                 let _ = shortcut_item_clone.set_text(updated_label);
             }
+            "toggle_quicklook" => {
+                let state = app.state::<AppState>();
+                let mut cfg = state.config_manager.get_app_config();
+                cfg.quicklook_enabled = !cfg.quicklook_enabled;
+                let new_state = cfg.quicklook_enabled;
+                let is_zh = cfg.language == "zh";
+
+                if let Some(root) = state.config_manager.get_data_dir() {
+                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                }
+
+                #[cfg(target_os = "windows")]
+                {
+                    if new_state {
+                        let _ = crate::modules::quicklook::windows::QuickLookService::start_process();
+                    } else {
+                        let _ = crate::modules::quicklook::windows::QuickLookService::stop_process();
+                    }
+                }
+
+                let new_text = if new_state {
+                    if is_zh { "✓ QuickLook 极速预览已启用" } else { "✓ QuickLook Preview Enabled" }
+                } else {
+                    if is_zh { "  启用 QuickLook 极速预览" } else { "  Enable QuickLook Preview" }
+                };
+                let _ = quicklook_item_clone.set_text(new_text);
+
+                #[cfg(target_os = "windows")]
+                let status = crate::modules::quicklook::windows::QuickLookService::get_status(new_state);
+                #[cfg(not(target_os = "windows"))]
+                let status = crate::modules::quicklook::stub::QuickLookService::get_status(new_state);
+
+                let _ = app.emit("quicklook-status-changed", &status);
+            }
             "quit" => {
+                #[cfg(target_os = "windows")]
+                {
+                    let _ = crate::modules::quicklook::windows::QuickLookService::stop_process();
+                }
                 app.exit(0);
             }
             _ => {}

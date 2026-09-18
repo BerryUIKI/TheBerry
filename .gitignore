@@ -26,3 +26,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# QuickLook UserData runtime files
+src-tauri/resources/quicklook/UserData/*
+!src-tauri/resources/quicklook/UserData/.gitkeep
+

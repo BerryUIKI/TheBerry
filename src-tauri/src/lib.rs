@@ -94,6 +94,16 @@ pub fn run() {
                 }
             });
 
+            // Auto-start embedded QuickLook if enabled in config
+            if cfg.quicklook_enabled {
+                #[cfg(target_os = "windows")]
+                {
+                    tauri::async_runtime::spawn(async move {
+                        let _ = modules::quicklook::windows::QuickLookService::start_process();
+                    });
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -172,8 +182,12 @@ pub fn run() {
             modules::goose::commands::stop_ollama_daemon,
             // QuickLook Windows-Only Preview Module
             modules::quicklook::commands::get_quicklook_status,
+            modules::quicklook::commands::set_quicklook_enabled,
+            modules::quicklook::commands::start_quicklook,
+            modules::quicklook::commands::stop_quicklook,
             modules::quicklook::commands::quicklook_preview,
             modules::quicklook::commands::quicklook_close,
+            modules::quicklook::commands::get_quicklook_file_preview,
             // Toolbox Hub Commands
             modules::toolbox::commands::calculate_file_hash,
             modules::toolbox::commands::batch_rename_files,

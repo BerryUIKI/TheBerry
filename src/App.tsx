@@ -19,6 +19,7 @@ import { ToolboxView } from "./views/ToolboxView";
 import { SettingsView } from "./views/SettingsView";
 import { UpdateModal } from "./components/updater/UpdateModal";
 import { NavigationManagerModal } from "./components/settings/NavigationManagerModal";
+import { QuickLookModal } from "./components/quicklook/QuickLookModal";
 import { UpdateInfo } from "./types/updater";
 import { Switch, Match } from "solid-js";
 
@@ -206,6 +207,9 @@ export function App() {
         isOpen={isNavManagerOpen()}
         onClose={() => setIsNavManagerOpen(false)}
       />
+
+      {/* Global QuickLook Instant File Preview Modal */}
+      <QuickLookModal />
 
       {/* Global Non-blocking Toasts */}
       <ToastContainer />

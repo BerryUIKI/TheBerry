@@ -8,7 +8,8 @@ use the_berry_lib::modules::quicklook::stub::QuickLookService;
 
 #[test]
 fn test_quicklook_status_query() {
-    let status = QuickLookService::get_status();
+    let status = QuickLookService::get_status(true);
+    assert!(status.is_enabled, "Should reflect enabled state");
     #[cfg(target_os = "windows")]
     {
         assert!(status.is_supported_os, "Should be supported OS on Windows");
@@ -22,6 +23,9 @@ fn test_quicklook_status_query() {
         assert!(!status.is_supported_os, "Should NOT be supported OS on non-Windows");
         assert!(!status.is_running);
     }
+
+    let disabled_status = QuickLookService::get_status(false);
+    assert!(!disabled_status.is_enabled, "Should reflect disabled state");
 }
 
 #[test]

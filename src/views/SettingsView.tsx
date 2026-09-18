@@ -15,7 +15,14 @@ import {
 import { isAutostartEnabled, setAutostart } from "../services/autostart";
 import { exportFullBackup, importFullBackup } from "../services/backup";
 import { copyToSystemClipboard, setClipboardMonitorEnabled } from "../services/clipboard";
-import { getQuickLookStatus } from "../services/quicklook";
+import {
+  getQuickLookStatus,
+  setQuickLookEnabled,
+  startQuickLook,
+  stopQuickLook,
+  previewWithQuickLook,
+  onQuickLookStatusChanged,
+} from "../services/quicklook";
 import { setGlobalShortcutsEnabled, setHudShortcut } from "../services/shortcuts";
 import { HotkeyRecorder } from "../components/settings/HotkeyRecorder";
 import { GooseConfigModal } from "../components/goose/GooseConfigModal";
@@ -65,8 +72,11 @@ export function SettingsView() {
     language: "en",
     close_to_tray: true,
     autostart: false,
+    global_shortcuts_enabled: true,
+    hud_shortcut: "Alt+Space",
     clipboard_history_limit: 200,
     clipboard_monitor_enabled: false,
+    quicklook_enabled: true,
     custom_data_dir: "",
   });
   const [autostartActive, setAutostartActive] = createSignal(false);
@@ -86,6 +96,7 @@ export function SettingsView() {
   const [isInstalling, setIsInstalling] = createSignal(false);
   const [silentInstall, setSilentInstall] = createSignal(true);
   const [qlStatus, setQlStatus] = createSignal<QuickLookStatus | null>(null);
+  const [isStartingQl, setIsStartingQl] = createSignal(false);
   const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
   const [showAiModal, setShowAiModal] = createSignal(false);
 
@@ -110,6 +121,8 @@ export function SettingsView() {
     await reloadSettings();
 
     let unlistenFn: (() => void) | null = null;
+    let unlistenQlFn: (() => void) | null = null;
+
     onDownloadProgress((prog) => {
       setDownloadProgress(prog);
       if (prog.done) {
@@ -122,10 +135,67 @@ export function SettingsView() {
       unlistenFn = unlisten;
     });
 
+    onQuickLookStatusChanged((status) => {
+      setQlStatus(status);
+      setConfigState((prev) => ({ ...prev, quicklook_enabled: status.is_enabled }));
+    }).then((unlisten) => {
+      unlistenQlFn = unlisten;
+    });
+
     onCleanup(() => {
       if (unlistenFn) unlistenFn();
+      if (unlistenQlFn) unlistenQlFn();
     });
   });
+
+  const handleToggleQuickLook = async (checked: boolean) => {
+    try {
+      const updated = await setQuickLookEnabled(checked);
+      setQlStatus(updated);
+      await handleSave({ quicklook_enabled: checked });
+      if (checked) {
+        success(t("settings.quicklook"), t("settings.quicklook_running"));
+      } else {
+        info(t("settings.quicklook"), t("settings.quicklook_disabled"));
+      }
+    } catch (err: any) {
+      error("QuickLook Error", err.message || String(err));
+    }
+  };
+
+  const handleStartQuickLook = async () => {
+    setIsStartingQl(true);
+    try {
+      const status = await startQuickLook();
+      setQlStatus(status);
+      success(t("settings.quicklook"), t("settings.quicklook_running"));
+    } catch (err: any) {
+      error("QuickLook Start Failed", err.message || String(err));
+    } finally {
+      setIsStartingQl(false);
+    }
+  };
+
+  const handleStopQuickLook = async () => {
+    setIsStartingQl(true);
+    try {
+      const status = await stopQuickLook();
+      setQlStatus(status);
+      info(t("settings.quicklook"), t("settings.quicklook_stopped"));
+    } catch (err: any) {
+      error("QuickLook Stop Failed", err.message || String(err));
+    } finally {
+      setIsStartingQl(false);
+    }
+  };
+
+  const handleTestPreview = async () => {
+    try {
+      await previewWithQuickLook("README.md");
+    } catch (err: any) {
+      error("Test Preview Failed", err.message || String(err));
+    }
+  };
 
   const handleToggleAutostart = async (checked: boolean) => {
     try {
@@ -695,49 +765,151 @@ export function SettingsView() {
             </div>
           </div>
 
-          {/* QuickLook Integration (Windows Only) */}
-          <div class="pt-3 border-t border-border space-y-2">
+          {/* QuickLook Integration (Embedded Full Package + Built-in Native Previewer) */}
+          <div class="pt-3 border-t border-border space-y-3">
             <div class="flex items-center justify-between">
               <label class="font-medium text-foreground flex items-center space-x-1.5">
                 <Eye size={14} class="text-primary" />
                 <span>{t("settings.quicklook")}</span>
               </label>
-              <Show when={qlStatus()}>
-                <span
-                  class={`text-[10px] px-2 py-0.5 rounded font-mono ${
-                    qlStatus()?.is_running
-                      ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                      : qlStatus()?.is_installed
-                      ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+              <div class="flex items-center space-x-2">
+                <Show
+                  when={config().quicklook_enabled !== false}
+                  fallback={
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-destructive/10 text-destructive border border-destructive/20">
+                      {t("settings.quicklook_disabled")}
+                    </span>
+                  }
                 >
-                  {qlStatus()?.is_running
-                    ? "Running (Named Pipe Active)"
-                    : qlStatus()?.is_installed
-                    ? "Installed (Standby)"
-                    : qlStatus()?.is_supported_os
-                    ? "Not Detected"
-                    : "Not Supported on this OS"}
-                </span>
-              </Show>
+                  <Show
+                    when={qlStatus()?.is_running}
+                    fallback={
+                      <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                        {t("settings.quicklook_stopped")} ({t("settings.quicklook_builtin_active")})
+                      </span>
+                    }
+                  >
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center space-x-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                      <span>{t("settings.quicklook_running")}</span>
+                    </span>
+                  </Show>
+                </Show>
+              </div>
             </div>
+
             <p class="text-[11px] text-muted-foreground leading-relaxed">
               {t("settings.quicklook_desc")}
             </p>
-            <Show when={qlStatus()?.is_supported_os && !qlStatus()?.is_installed}>
-              <div class="pt-1">
-                <a
-                  href="https://github.com/QL-Win/QuickLook"
-                  target="_blank"
-                  rel="noreferrer"
-                  class="inline-flex items-center space-x-1 text-xs text-primary hover:underline font-medium"
-                >
-                  <span>Download QuickLook from GitHub / Store</span>
-                  <ExternalLink size={11} />
-                </a>
+
+            {/* Enable/Disable Toggle Switch */}
+            <div class="flex items-center justify-between p-2.5 rounded-lg bg-secondary/30 border border-border">
+              <div class="space-y-0.5 pr-4">
+                <span class="text-xs font-semibold text-foreground block">
+                  {t("settings.enable_quicklook")}
+                </span>
+                <span class="text-[11px] text-muted-foreground block">
+                  {t("settings.enable_quicklook_desc")}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleQuickLook(config().quicklook_enabled === false)}
+                class={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${
+                  config().quicklook_enabled !== false ? "bg-primary" : "bg-muted"
+                }`}
+              >
+                <div
+                  class={`w-3.5 h-3.5 rounded-full bg-white transition-transform ${
+                    config().quicklook_enabled !== false ? "translate-x-4" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Quick Actions Bar */}
+            <Show when={config().quicklook_enabled !== false}>
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <div class="flex items-center space-x-2">
+                  <Show
+                    when={qlStatus()?.is_running}
+                    fallback={
+                      <button
+                        type="button"
+                        disabled={isStartingQl()}
+                        onClick={handleStartQuickLook}
+                        class="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+                      >
+                        <Power size={13} />
+                        <span>{isStartingQl() ? "..." : t("settings.quicklook_start_btn")}</span>
+                      </button>
+                    }
+                  >
+                    <button
+                      type="button"
+                      disabled={isStartingQl()}
+                      onClick={handleStopQuickLook}
+                      class="px-2.5 py-1.5 bg-destructive/10 hover:bg-destructive/20 text-destructive border border-destructive/20 rounded text-xs font-medium flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <Power size={13} />
+                      <span>{isStartingQl() ? "..." : t("settings.quicklook_stop_btn")}</span>
+                    </button>
+                  </Show>
+
+                  <button
+                    type="button"
+                    onClick={handleTestPreview}
+                    class="px-2.5 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground border border-border rounded text-xs font-medium flex items-center space-x-1.5 transition-colors"
+                  >
+                    <Eye size={13} class="text-primary" />
+                    <span>{t("settings.quicklook_test_btn")}</span>
+                  </button>
+                </div>
+
+                <Show when={qlStatus()?.is_embedded}>
+                  <span class="text-[10px] text-muted-foreground font-mono">
+                    {t("settings.quicklook_embedded_badge")}
+                  </span>
+                </Show>
               </div>
             </Show>
+
+            {/* Feature Capability Highlights */}
+            <div class="flex flex-wrap gap-1.5 pt-1">
+              <span class="text-[10px] px-2 py-0.5 rounded bg-secondary/80 text-foreground/80 border border-border">
+                🎥 Video Click-to-Pause & Seek (Space, ←/→, ↑/↓, M, F)
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-secondary/80 text-foreground/80 border border-border">
+                🖼️ SVG Dark & Checkerboard Theme
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-secondary/80 text-foreground/80 border border-border">
+                🚀 Open With & Auto-Dismiss
+              </span>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-secondary/80 text-foreground/80 border border-border">
+                📄 Markdown / Code / PDF / CSV
+              </span>
+            </div>
+
+            <div class="pt-1 flex items-center space-x-4 text-xs">
+              <a
+                href="https://github.com/BerryUIKI/QuickLook"
+                target="_blank"
+                rel="noreferrer"
+                class="inline-flex items-center space-x-1 text-primary hover:underline font-medium"
+              >
+                <span>{t("settings.quicklook_upstream_fork")}</span>
+                <ExternalLink size={11} />
+              </a>
+              <a
+                href="https://github.com/QL-Win/QuickLook"
+                target="_blank"
+                rel="noreferrer"
+                class="inline-flex items-center space-x-1 text-muted-foreground hover:text-foreground hover:underline"
+              >
+                <span>Upstream QL-Win/QuickLook</span>
+                <ExternalLink size={11} />
+              </a>
+            </div>
           </div>
 
           {/* Global Shortcuts & Quick Access HUD */}
