@@ -40,6 +40,13 @@ export const en = {
   "titlebar.restore": "Restore",
   "titlebar.close": "Close (Hide to Tray)",
   "titlebar.update_available": "Update {version} Available",
+  "titlebar.check_updates_tooltip": "Click to check for updates",
+  "titlebar.checking_updates": "Checking for updates...",
+  "titlebar.update_available_title": "Update Available",
+  "titlebar.update_available_msg": "Version {version} is ready to install!",
+  "titlebar.up_to_date_title": "Up to Date",
+  "titlebar.up_to_date_msg": "TheBerry v{version} is currently up to date.",
+  "titlebar.check_failed_title": "Update Check Failed",
 
   // Assistant
   "ai.name": "TheBerry",
@@ -143,6 +150,7 @@ export const en = {
   "settings.updater": "Software Update",
   "settings.updater_desc": "Check for new releases and install updates directly.",
   "settings.check_update": "Check for Updates",
+  "settings.click_to_check": "Click version number to check for updates",
   "settings.saved_success": "Settings saved successfully",
   "settings.version_card": "Version & Automatic Updates",
   "settings.installed_version": "Installed Version:",

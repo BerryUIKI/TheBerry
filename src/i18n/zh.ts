@@ -40,6 +40,13 @@ export const zh = {
   "titlebar.restore": "向下还原",
   "titlebar.close": "关闭 (最小化到托盘)",
   "titlebar.update_available": "发现新版本 {version}",
+  "titlebar.check_updates_tooltip": "点击检查更新",
+  "titlebar.checking_updates": "正在检查更新...",
+  "titlebar.update_available_title": "发现新版本",
+  "titlebar.update_available_msg": "版本 {version} 可供升级！",
+  "titlebar.up_to_date_title": "已是最新版本",
+  "titlebar.up_to_date_msg": "TheBerry v{version} 目前已是最新版本。",
+  "titlebar.check_failed_title": "检查更新失败",
 
   // Assistant
   "ai.name": "豆花",
@@ -143,6 +150,7 @@ export const zh = {
   "settings.updater": "软件检查与更新",
   "settings.updater_desc": "检查 GitHub 最新版本并支持一键下载安装。",
   "settings.check_update": "检查更新",
+  "settings.click_to_check": "点击版本号检查更新",
   "settings.saved_success": "设置保存成功",
   "settings.version_card": "版本信息与自动更新",
   "settings.installed_version": "当前安装版本：",

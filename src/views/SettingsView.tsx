@@ -60,7 +60,7 @@ export function SettingsView() {
   const { theme, setTheme } = useTheme();
   const { t, language, setLanguage, assistantName } = useI18n();
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.12",
+    version: "0.1.13",
     theme: "dark",
     language: "en",
     close_to_tray: true,
@@ -76,7 +76,7 @@ export function SettingsView() {
   const [savedMessage, setSavedMessage] = createSignal<string | null>(null);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.12");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.13");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
@@ -190,14 +190,20 @@ export function SettingsView() {
       const releaseInfo = await checkForUpdates();
       setUpdateInfo(releaseInfo);
       if (releaseInfo.has_update) {
-        success("Update Available", `Version ${releaseInfo.latest_version} is ready to install!`);
+        success(
+          t("titlebar.update_available_title"),
+          t("titlebar.update_available_msg", { version: releaseInfo.latest_version })
+        );
       } else {
-        info("Up to Date", `TheBerry v${releaseInfo.current_version} is the latest version.`);
+        info(
+          t("titlebar.up_to_date_title"),
+          t("titlebar.up_to_date_msg", { version: releaseInfo.current_version })
+        );
       }
     } catch (err: any) {
-      const msg = err.message || String(err);
+      const msg = err?.message || String(err);
       setUpdateError(msg);
-      error("Update Check Failed", msg);
+      error(t("titlebar.check_failed_title"), msg);
     } finally {
       setCheckingUpdate(false);
     }
@@ -273,10 +279,21 @@ export function SettingsView() {
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-          <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
-            <span class="text-muted-foreground">{t("settings.installed_version")}</span>
-            <span class="font-mono font-semibold text-foreground">v{currentVersion()}</span>
-          </div>
+          <button
+            type="button"
+            onClick={handleCheckUpdate}
+            disabled={checkingUpdate()}
+            title={t("settings.click_to_check")}
+            class="p-3 bg-background border border-border hover:border-primary/50 hover:bg-muted/30 rounded flex items-center justify-between cursor-pointer transition-all text-left w-full disabled:opacity-60 disabled:cursor-wait group"
+          >
+            <span class="text-muted-foreground group-hover:text-foreground transition-colors">{t("settings.installed_version")}</span>
+            <span class="font-mono font-semibold text-foreground flex items-center space-x-1.5">
+              <span>v{currentVersion()}</span>
+              <Show when={checkingUpdate()}>
+                <RefreshCw size={12} class="animate-spin text-primary" />
+              </Show>
+            </span>
+          </button>
 
           <div class="p-3 bg-background border border-border rounded flex items-center justify-between">
             <span class="text-muted-foreground">{t("settings.update_status")}</span>
@@ -867,7 +884,18 @@ export function SettingsView() {
           <strong>TheBerry</strong> is a modern personal desktop tool suite crafted with <strong>Tauri v2 + Rust</strong> on the backend and <strong>SolidJS + Tailwind CSS</strong> on the frontend.
         </p>
         <div class="pt-2 flex items-center space-x-4 text-[11px] text-muted-foreground">
-          <span>Version: v{currentVersion()}</span>
+          <button
+            type="button"
+            onClick={handleCheckUpdate}
+            disabled={checkingUpdate()}
+            title={t("settings.click_to_check")}
+            class="hover:text-primary transition-colors cursor-pointer disabled:opacity-60 inline-flex items-center space-x-1 underline-offset-2 hover:underline"
+          >
+            <span>Version: v{currentVersion()}</span>
+            <Show when={checkingUpdate()}>
+              <RefreshCw size={10} class="animate-spin text-primary" />
+            </Show>
+          </button>
           <span>•</span>
           <span>Repository: github.com/BerryUIKI/TheBerry</span>
         </div>
