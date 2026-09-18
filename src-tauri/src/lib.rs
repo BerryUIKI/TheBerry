@@ -119,6 +119,7 @@ pub fn run() {
             commands::window::show_main_window,
             commands::window::toggle_hud_window,
             commands::window::resize_hud_window,
+            commands::window::open_settings_window,
             // Shortcuts Module
             modules::shortcuts::commands::set_global_shortcuts_enabled,
             modules::shortcuts::commands::set_hud_shortcut,

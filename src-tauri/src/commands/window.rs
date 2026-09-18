@@ -20,12 +20,45 @@ pub async fn toggle_maximize_window(window: Window) -> Result<bool, String> {
 
 #[tauri::command]
 pub async fn close_window(window: Window, state: State<'_, AppState>) -> Result<(), String> {
+    if window.label() == "settings" {
+        window.close().map_err(|e| e.to_string())?;
+        return Ok(());
+    }
     let config = state.config_manager.get_app_config();
     if config.close_to_tray {
         window.hide().map_err(|e| e.to_string())?;
     } else {
         window.close().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("settings") {
+        let _ = window.show();
+        let _ = window.unminimize();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+
+    let builder = tauri::WebviewWindowBuilder::new(
+        &app,
+        "settings",
+        tauri::WebviewUrl::App("index.html?window=settings".into()),
+    )
+    .title("TheBerry Settings")
+    .inner_size(920.0, 660.0)
+    .min_inner_size(780.0, 520.0)
+    .decorations(false)
+    .transparent(false)
+    .resizable(true)
+    .center();
+
+    #[cfg(target_os = "windows")]
+    let builder = builder.shadow(true);
+
+    builder.build().map_err(|e| e.to_string())?;
     Ok(())
 }
 

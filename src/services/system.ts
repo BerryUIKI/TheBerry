@@ -28,3 +28,8 @@ export async function toggleMaximizeWindow(): Promise<boolean> {
 export async function closeWindow(): Promise<void> {
   return safeInvoke<void>("close_window");
 }
+
+export async function openSettingsWindow(): Promise<void> {
+  return safeInvoke<void>("open_settings_window");
+}
+
