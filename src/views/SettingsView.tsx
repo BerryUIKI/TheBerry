@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup, Show, Switch, Match } from "solid-js";
 import { AppConfig } from "../types/config";
+import { listen } from "@tauri-apps/api/event";
 import { SettingsCategory } from "../types/settings";
 import { getConfig, updateConfig, openSettingsWindow } from "../services/system";
 import {
@@ -104,11 +105,19 @@ export function SettingsView(props: SettingsViewProps) {
     }
   };
 
-  onMount(async () => {
-    await reloadSettings();
-
+  onMount(() => {
     let unlistenProgFn: (() => void) | null = null;
     let unlistenQlFn: (() => void) | null = null;
+    let unlistenConfigFn: (() => void) | null = null;
+    let disposed = false;
+
+    listen<AppConfig>("config-changed", (event) => setConfigState(event.payload))
+      .then((unlisten) => {
+        if (disposed) unlisten();
+        else unlistenConfigFn = unlisten;
+      })
+      .catch((e) => console.warn("Failed to listen for settings changes:", e));
+    void reloadSettings();
 
     onDownloadProgress((prog) => {
       setDownloadProgress(prog);
@@ -119,27 +128,29 @@ export function SettingsView(props: SettingsViewProps) {
         }
       }
     }).then((unlisten) => {
-      unlistenProgFn = unlisten;
-    });
+      if (disposed) unlisten();
+      else unlistenProgFn = unlisten;
+    }).catch((e) => console.warn("Failed to listen for download progress:", e));
 
     onQuickLookStatusChanged((status) => {
       setQlStatus(status);
       setConfigState((prev) => ({ ...prev, quicklook_enabled: status.is_enabled }));
     }).then((unlisten) => {
-      unlistenQlFn = unlisten;
-    });
+      if (disposed) unlisten();
+      else unlistenQlFn = unlisten;
+    }).catch((e) => console.warn("Failed to listen for QuickLook changes:", e));
 
     onCleanup(() => {
+      disposed = true;
       if (unlistenProgFn) unlistenProgFn();
       if (unlistenQlFn) unlistenQlFn();
+      if (unlistenConfigFn) unlistenConfigFn();
     });
   });
 
   const handleSave = async (updated: Partial<AppConfig>) => {
-    const current = { ...config(), ...updated };
-    setConfigState(current);
     try {
-      await updateConfig(current);
+      setConfigState(await updateConfig(updated));
       success("Settings Saved");
     } catch (e) {
       error("Failed to save settings", String(e));

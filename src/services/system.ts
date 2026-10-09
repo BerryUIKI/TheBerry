@@ -13,7 +13,7 @@ export async function getConfig(): Promise<AppConfig> {
   return safeInvoke<AppConfig>("get_config");
 }
 
-export async function updateConfig(config: AppConfig): Promise<AppConfig> {
+export async function updateConfig(config: Partial<AppConfig>): Promise<AppConfig> {
   return safeInvoke<AppConfig>("update_config", { config });
 }
 

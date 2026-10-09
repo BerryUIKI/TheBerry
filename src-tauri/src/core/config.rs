@@ -158,16 +158,96 @@ impl ConfigManager {
     }
 
     pub fn save_app_config(&self, data_dir: &Path, config: &AppConfig) -> std::io::Result<()> {
+        let mut current = self.app_config.write().unwrap();
         ensure_directory_exists(data_dir)?;
         let config_file = data_dir.join("config.toml");
         let serialized = toml::to_string_pretty(config)
             .map_err(|e| std::io::Error::other(e.to_string()))?;
         fs::write(config_file, serialized)?;
-        *self.app_config.write().unwrap() = config.clone();
+        *current = config.clone();
         Ok(())
     }
 
     pub fn get_app_config(&self) -> AppConfig {
         self.app_config.read().unwrap().clone()
+    }
+
+    /// Merge a field-level update under the same lock used to persist it.
+    pub fn patch_app_config(
+        &self,
+        data_dir: &Path,
+        patch: serde_json::Map<String, serde_json::Value>,
+    ) -> std::io::Result<AppConfig> {
+        let mut current = self.app_config.write().unwrap();
+        let mut value = serde_json::to_value(&*current).map_err(std::io::Error::other)?;
+        let fields = value.as_object_mut().unwrap();
+        for (key, value) in patch {
+            if !fields.contains_key(&key) {
+                return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("Unknown setting: {key}")));
+            }
+            fields.insert(key, value);
+        }
+        let updated: AppConfig = serde_json::from_value(value).map_err(std::io::Error::other)?;
+        ensure_directory_exists(data_dir)?;
+        let serialized = toml::to_string_pretty(&updated).map_err(std::io::Error::other)?;
+        fs::write(data_dir.join("config.toml"), serialized)?;
+        *current = updated.clone();
+        Ok(updated)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manager() -> ConfigManager {
+        ConfigManager {
+            bootstrap: RwLock::new(BootstrapConfig::default()),
+            app_config: RwLock::new(AppConfig::default()),
+        }
+    }
+
+    #[test]
+    fn unrelated_saves_preserve_paused_monitoring() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = manager();
+        for patch in [
+            serde_json::json!({"clipboard_monitor_enabled": true}),
+            serde_json::json!({"clipboard_monitor_enabled": false}),
+            serde_json::json!({"theme": "light"}),
+        ] {
+            manager.patch_app_config(dir.path(), patch.as_object().unwrap().clone()).unwrap();
+        }
+        let current = manager.get_app_config();
+        assert!(!current.clipboard_monitor_enabled);
+        assert_eq!(current.theme, "light");
+        let persisted: AppConfig = toml::from_str(&fs::read_to_string(dir.path().join("config.toml")).unwrap()).unwrap();
+        assert!(!persisted.clipboard_monitor_enabled);
+    }
+
+    #[test]
+    fn concurrent_field_updates_do_not_overwrite_each_other() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = manager();
+        std::thread::scope(|scope| {
+            for patch in [serde_json::json!({"theme": "light"}), serde_json::json!({"language": "zh"})] {
+                let manager = &manager;
+                let path = dir.path();
+                scope.spawn(move || manager.patch_app_config(path, patch.as_object().unwrap().clone()).unwrap());
+            }
+        });
+        let current = manager.get_app_config();
+        assert_eq!(current.theme, "light");
+        assert_eq!(current.language, "zh");
+    }
+
+    #[test]
+    fn rejects_invalid_patch_without_changing_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        let manager = manager();
+        for patch in [serde_json::json!({"clipboard_monitor_enabled": "true"}), serde_json::json!({"unknown": true})] {
+            assert!(manager.patch_app_config(dir.path(), patch.as_object().unwrap().clone()).is_err());
+        }
+        assert!(!manager.get_app_config().clipboard_monitor_enabled);
     }
 }
