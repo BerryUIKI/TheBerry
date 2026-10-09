@@ -29,6 +29,7 @@ import { DownloadProgress, UpdateInfo } from "../types/updater";
 import { useApp } from "../context/AppContext";
 import { useToast } from "../context/ToastContext";
 import { useI18n } from "../context/I18nContext";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import { SettingsSidebar, SETTINGS_CATEGORIES } from "../components/settings/SettingsSidebar";
 import { GeneralSection } from "../components/settings/sections/GeneralSection";
@@ -300,7 +301,8 @@ export function SettingsView(props: SettingsViewProps) {
 
   const handleTestPreview = async () => {
     try {
-      await previewWithQuickLook("README.md");
+      const path = await open({ title: "Select a file to preview", multiple: false, directory: false });
+      if (typeof path === "string") await previewWithQuickLook(path);
     } catch (err: any) {
       error("Test Preview Failed", err.message || String(err));
     }
