@@ -62,5 +62,9 @@ jobs:
       - name: Run Backend Tests (Cargo)
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
+      # GitHub-hosted matrix runners have disposable OS accounts.
+      - name: Run Live Autostart Test (CI account only)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --test autostart_tests -- --ignored
+
       - name: Run Backend Clippy (Cargo)
         run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
