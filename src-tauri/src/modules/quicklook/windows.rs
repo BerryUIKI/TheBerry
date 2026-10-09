@@ -3,7 +3,22 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Child, Command};
+use std::sync::Mutex;
+
+// An already-running installation is never owned by TheBerry.
+static OWNED_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+
+fn stop_owned_process(owned: &mut Option<Child>) -> Result<bool, String> {
+    if let Some(child) = owned.as_mut() {
+        if child.try_wait().map_err(|e| e.to_string())?.is_none() {
+            child.kill().map_err(|e| format!("Failed to stop owned QuickLook process: {}", e))?;
+            child.wait().map_err(|e| e.to_string())?;
+        }
+    }
+    *owned = None;
+    Ok(true)
+}
 
 use super::types::{QuickLookPreviewPayload, QuickLookStatus};
 
@@ -142,6 +157,13 @@ impl QuickLookService {
 
     /// Starts embedded QuickLook background process
     pub fn start_process() -> Result<bool, String> {
+        let mut owned = OWNED_PROCESS.lock().map_err(|e| e.to_string())?;
+        if let Some(child) = owned.as_mut() {
+            if child.try_wait().map_err(|e| e.to_string())?.is_none() {
+                return Ok(true);
+            }
+            *owned = None;
+        }
         if Self::is_process_running() {
             return Ok(true);
         }
@@ -158,19 +180,14 @@ impl QuickLookService {
         const DETACHED_PROCESS: u32 = 0x00000008;
         let mut cmd = Command::new(&bin);
         cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
-        cmd.spawn().map_err(|e| format!("Failed to spawn QuickLook process: {}", e))?;
+        *owned = Some(cmd.spawn().map_err(|e| format!("Failed to spawn QuickLook process: {}", e))?);
         Ok(true)
     }
 
-    /// Stops QuickLook process
+    /// Stops only the child launched by TheBerry, leaving external hosts alone.
     pub fn stop_process() -> Result<bool, String> {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let mut cmd = Command::new("taskkill");
-        cmd.args(["/IM", "QuickLook.exe", "/F"]);
-        cmd.creation_flags(CREATE_NO_WINDOW);
-        let _ = cmd.output();
-        Ok(true)
+        let mut owned = OWNED_PROCESS.lock().map_err(|e| e.to_string())?;
+        stop_owned_process(&mut owned)
     }
 
     /// Gets current QuickLook status on Windows
@@ -274,6 +291,32 @@ impl QuickLookService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shutdown_leaves_unowned_processes_running() {
+        use std::os::windows::process::CommandExt;
+        use std::process::Stdio;
+        struct TestChild(Option<Child>);
+        impl Drop for TestChild {
+            fn drop(&mut self) {
+                if let Some(child) = self.0.as_mut() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+            }
+        }
+        let spawn = || TestChild(Some(Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 30"])
+            .creation_flags(0x08000000)
+            .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null())
+            .spawn().unwrap()));
+        let mut owned = spawn();
+        let mut external = spawn();
+        assert!(stop_owned_process(&mut owned.0).unwrap());
+        assert!(owned.0.is_none());
+        assert!(external.0.as_mut().unwrap().try_wait().unwrap().is_none());
+        // Both test helpers are reaped even if an assertion fails.
+    }
 
     #[test]
     fn test_user_sid_resolution() {
