@@ -122,6 +122,13 @@ export function QuickLookModal() {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (!isOpen()) return;
+    const videoShortcut = previewInfo()?.category === "video" &&
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "m", "f"].includes(e.key);
+    if (e.key === "Escape" || e.code === "Space" ||
+        (e.key === "Enter" && !e.ctrlKey && !e.altKey && !e.metaKey) || videoShortcut) {
+      // Modal shortcuts must not reach underlying view listeners.
+      e.stopImmediatePropagation();
+    }
 
     // Global modal escape
     if (e.key === "Escape") {
@@ -195,12 +202,12 @@ export function QuickLookModal() {
 
     window.addEventListener("open-quicklook-modal", handleOpenModalEvent);
     window.addEventListener("close-quicklook-modal", handleCloseModalEvent);
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
 
     onCleanup(() => {
       window.removeEventListener("open-quicklook-modal", handleOpenModalEvent);
       window.removeEventListener("close-quicklook-modal", handleCloseModalEvent);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
     });
   });
 

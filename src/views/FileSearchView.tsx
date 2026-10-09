@@ -64,13 +64,14 @@ export function FileSearchView() {
   };
 
   const handleGlobalKeyDown = (e: KeyboardEvent) => {
+    if (e.defaultPrevented) return;
     if (e.code === "Space" && selectedItem()) {
       const activeElement = document.activeElement;
       if (activeElement && (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA")) {
         return;
       }
       e.preventDefault();
-      previewWithQuickLook(selectedItem()!.path);
+      void previewWithQuickLook(selectedItem()!.path).catch((err) => error("Preview failed", String(err)));
     }
   };
 
