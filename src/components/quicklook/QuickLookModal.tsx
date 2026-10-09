@@ -46,10 +46,15 @@ export function QuickLookModal() {
 
   let videoElement: HTMLVideoElement | undefined;
   let modalContainerRef: HTMLDivElement | undefined;
+  let previewRequest = 0;
+  onCleanup(() => { ++previewRequest; });
 
   const loadPreview = async (targetPath: string) => {
     if (!targetPath) return;
+    const request = ++previewRequest;
     setFilePath(targetPath);
+    setPreviewInfo(null);
+    setIsOpen(true);
     setIsLoading(true);
     setLoadError(null);
     setZoomLevel(1);
@@ -59,18 +64,21 @@ export function QuickLookModal() {
 
     try {
       const info = await getFilePreviewInfo(targetPath);
+      if (request !== previewRequest) return;
       setPreviewInfo(info);
-      setIsOpen(true);
     } catch (err) {
+      if (request !== previewRequest) return;
       setLoadError(String(err));
-      setIsOpen(true);
     } finally {
-      setIsLoading(false);
+      if (request === previewRequest) setIsLoading(false);
     }
   };
 
   const handleClose = () => {
+    ++previewRequest;
     setIsOpen(false);
+    setIsLoading(false);
+    setLoadError(null);
     setPreviewInfo(null);
     setFilePath("");
   };
