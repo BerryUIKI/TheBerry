@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use crate::core::config::AppConfig;
 use crate::core::paths::get_suggested_data_dir;
@@ -64,44 +64,24 @@ pub fn get_config(state: State<AppState>) -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub fn update_config(config: AppConfig, state: State<AppState>) -> Result<AppConfig, String> {
+pub fn update_config(
+    config: serde_json::Map<String, serde_json::Value>,
+    app: AppHandle,
+    state: State<AppState>,
+) -> Result<AppConfig, String> {
     let data_dir = state
         .config_manager
         .get_data_dir()
         .ok_or_else(|| "Data directory not configured".to_string())?;
 
-    let mut current = state.config_manager.get_app_config();
-
-    if !config.version.is_empty() {
-        current.version = config.version;
-    }
-    if !config.theme.is_empty() {
-        current.theme = config.theme;
-    }
-    if !config.language.is_empty() {
-        current.language = config.language;
-    }
-    current.close_to_tray = config.close_to_tray;
-    current.autostart = config.autostart;
-    current.global_shortcuts_enabled = config.global_shortcuts_enabled;
-    if !config.hud_shortcut.is_empty() {
-        current.hud_shortcut = config.hud_shortcut;
-    }
-    if config.clipboard_history_limit > 0 {
-        current.clipboard_history_limit = config.clipboard_history_limit;
-    }
-    current.clipboard_monitor_enabled = config.clipboard_monitor_enabled;
-    state
-        .clipboard_monitor_enabled
-        .store(config.clipboard_monitor_enabled, std::sync::atomic::Ordering::Relaxed);
-    if !config.custom_data_dir.is_empty() {
-        current.custom_data_dir = config.custom_data_dir;
-    }
-
-    state
+    let monitor_changed = config.contains_key("clipboard_monitor_enabled");
+    let current = state
         .config_manager
-        .save_app_config(&data_dir, &current)
+        .patch_app_config(&data_dir, config)
         .map_err(|e| format!("Failed to save config: {}", e))?;
-
+    if monitor_changed {
+        state.clipboard_monitor_enabled.store(current.clipboard_monitor_enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+    let _ = app.emit("config-changed", &current);
     Ok(current)
 }

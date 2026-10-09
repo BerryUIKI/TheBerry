@@ -65,8 +65,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
       // ignore
     }
     try {
-      const current = await getConfig();
-      await updateConfig({ ...current, language: lang });
+      await updateConfig({ language: lang });
     } catch (e) {
       console.error("Failed to persist language to backend config:", e);
     }

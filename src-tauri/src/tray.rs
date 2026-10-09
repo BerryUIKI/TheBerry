@@ -102,10 +102,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
             "lang_en" => {
                 let state = app.state::<AppState>();
-                let mut cfg = state.config_manager.get_app_config();
-                cfg.language = "en".to_string();
                 if let Some(root) = state.config_manager.get_data_dir() {
-                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                    let patch = serde_json::json!({"language": "en"});
+                    if let Ok(cfg) = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone()) {
+                        let _ = app.emit("config-changed", &cfg);
+                    }
                 }
                 let _ = lang_en_clone.set_text("✓ English");
                 let _ = lang_zh_clone.set_text("  简体中文");
@@ -113,10 +114,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             }
             "lang_zh" => {
                 let state = app.state::<AppState>();
-                let mut cfg = state.config_manager.get_app_config();
-                cfg.language = "zh".to_string();
                 if let Some(root) = state.config_manager.get_data_dir() {
-                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                    let patch = serde_json::json!({"language": "zh"});
+                    if let Ok(cfg) = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone()) {
+                        let _ = app.emit("config-changed", &cfg);
+                    }
                 }
                 let _ = lang_en_clone.set_text("  English");
                 let _ = lang_zh_clone.set_text("✓ 简体中文");
@@ -130,7 +132,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 let is_zh = cfg.language == "zh";
 
                 if let Some(root) = state.config_manager.get_data_dir() {
-                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                    let patch = serde_json::json!({"global_shortcuts_enabled": new_state});
+                    if let Ok(updated) = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone()) {
+                        cfg = updated;
+                        let _ = app.emit("config-changed", &cfg);
+                    }
                 }
 
                 let _ = ShortcutService::set_enabled(app, new_state, &cfg.hud_shortcut);
@@ -150,7 +156,11 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
                 let is_zh = cfg.language == "zh";
 
                 if let Some(root) = state.config_manager.get_data_dir() {
-                    let _ = state.config_manager.save_app_config(&root, &cfg);
+                    let patch = serde_json::json!({"quicklook_enabled": new_state});
+                    if let Ok(updated) = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone()) {
+                        cfg = updated;
+                        let _ = app.emit("config-changed", &cfg);
+                    }
                 }
 
                 #[cfg(target_os = "windows")]
