@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useApp, ViewType } from "./context/AppContext";
 import { useToast } from "./context/ToastContext";
 import { listen } from "@tauri-apps/api/event";
