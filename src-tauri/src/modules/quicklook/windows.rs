@@ -147,12 +147,8 @@ impl QuickLookService {
         }
         let bin = Self::discover_binary().ok_or_else(|| "QuickLook executable not found.".to_string())?;
 
-        // Ensure UserData directory exists if portable
-        if let Some(p) = bin.parent() {
-            let user_data = p.join("UserData");
-            let _ = std::fs::create_dir_all(&user_data);
-        }
-
+        // The bundled host uses its per-user AppData layout (no portable.lock).
+        // Never create runtime data next to an installed executable.
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         const DETACHED_PROCESS: u32 = 0x00000008;
