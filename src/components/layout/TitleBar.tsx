@@ -14,7 +14,7 @@ export function TitleBar() {
   const { t, assistantName } = useI18n();
   const { success, info, error } = useToast();
   const [isMaximized, setIsMaximized] = createSignal(false);
-  const [appVersion, setAppVersion] = createSignal("0.1.13");
+  const [appVersion, setAppVersion] = createSignal("0.1.14");
   const [availableUpdate, setAvailableUpdate] = createSignal<UpdateInfo | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = createSignal(false);
 

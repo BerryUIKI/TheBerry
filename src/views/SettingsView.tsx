@@ -53,7 +53,7 @@ export function SettingsView(props: SettingsViewProps) {
   const [searchQuery, setSearchQuery] = createSignal("");
 
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.13",
+    version: "0.1.14",
     theme: "dark",
     language: "en",
     close_to_tray: true,
@@ -72,7 +72,7 @@ export function SettingsView(props: SettingsViewProps) {
   const [isExporting, setIsExporting] = createSignal(false);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.13");
+  const [currentVersion, setCurrentVersion] = createSignal("0.1.14");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
