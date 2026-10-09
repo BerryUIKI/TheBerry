@@ -10,15 +10,19 @@ use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, Shortcut, Shortcu
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app_state = AppState::new();
-    let db_manager_for_listener = app_state.db_manager.clone();
-    let config_manager_for_setup = app_state.config_manager.clone();
-    let shutdown_flag_for_listener = app_state.shutdown_flag.clone();
-    let clipboard_monitor_for_listener = app_state.clipboard_monitor_enabled.clone();
-    let goose_service_for_setup = app_state.goose_service.clone();
-    let shutdown_rx_for_updater = app_state.shutdown_tx.subscribe();
+    let builder = tauri::Builder::default();
 
-    tauri::Builder::default()
+    // Detect duplicate launches before any other plugin or application data is initialized.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
@@ -38,8 +42,16 @@ pub fn run() {
                 })
                 .build(),
         )
-        .manage(app_state)
-        .setup(move |app| {
+        .setup(|app| {
+            let app_state = AppState::new();
+            let db_manager_for_listener = app_state.db_manager.clone();
+            let config_manager_for_setup = app_state.config_manager.clone();
+            let shutdown_flag_for_listener = app_state.shutdown_flag.clone();
+            let clipboard_monitor_for_listener = app_state.clipboard_monitor_enabled.clone();
+            let goose_service_for_setup = app_state.goose_service.clone();
+            let shutdown_rx_for_updater = app_state.shutdown_tx.subscribe();
+            app.manage(app_state);
+
             if let Err(e) = tray::setup_tray(app.handle()) {
                 tracing::warn!("Failed to setup tray icon: {}", e);
             }
