@@ -13,3 +13,6 @@ export async function scanImagePaths(paths: string[], recursive: boolean = true)
   return safeInvoke<string[]>("scan_image_paths", { paths, recursive });
 }
 
+export async function getImageThumbnail(path: string): Promise<string | null> {
+  return safeInvoke<string | null>("get_image_thumbnail", { path });
+}
