@@ -28,6 +28,7 @@ import { getFilePreviewInfo } from "../../services/quicklook";
 import { openFilePath, revealInExplorer } from "../../services/fileSearch";
 import { FilePreviewInfo } from "../../types/quicklook";
 import { useToast } from "../../context/ToastContext";
+import { parseDelimitedRows } from "../../utils/delimitedText";
 
 export function QuickLookModal() {
   const { success, error } = useToast();
@@ -249,13 +250,10 @@ export function QuickLookModal() {
     }
   };
 
-  // Parse simple CSV rows
-  const parseCsvRows = (csvText: string) => {
-    const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    return lines.slice(0, 100).map((line) => {
-      return line.split(",").map((c) => c.trim().replace(/^"(.*)"$/, "$1"));
-    });
-  };
+  const csvRows = () => parseDelimitedRows(
+    previewInfo()?.text_preview || "",
+    previewInfo()?.extension === "tsv" ? "\t" : ",",
+  );
 
   return (
     <Show when={isOpen()}>
@@ -607,7 +605,7 @@ export function QuickLookModal() {
                     <div class="overflow-auto max-h-[62vh] p-2">
                       <table class="w-full text-xs text-left border-collapse font-mono">
                         <tbody>
-                          {parseCsvRows(previewInfo()?.text_preview || "").map((row, rIdx) => (
+                          {csvRows().map((row, rIdx) => (
                             <tr class={rIdx === 0 ? "bg-secondary/80 font-bold" : "hover:bg-secondary/30 border-b border-border/40"}>
                               {row.map((cell) => (
                                 <td class="px-3 py-1.5 border-r border-border/40 truncate max-w-xs">{cell}</td>
