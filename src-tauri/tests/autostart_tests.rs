@@ -1,6 +1,7 @@
 use the_berry_lib::modules::autostart::service::AutostartService;
 
 #[test]
+#[ignore = "Modifies live OS startup settings; run only in a disposable user account"]
 fn test_autostart_enable_query_disable_lifecycle() {
     // Check initial status
     let initial_result = AutostartService::is_enabled();
