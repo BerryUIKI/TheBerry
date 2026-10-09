@@ -205,7 +205,7 @@ pub async fn get_quicklook_file_preview(path: String) -> Result<FilePreviewInfo,
                     buf.truncate(max_read as usize);
                     is_truncated = true;
                 }
-                text_preview = String::from_utf8(buf).ok();
+                text_preview = Some(String::from_utf8_lossy(&buf).into_owned());
             }
         }
         _ => {
@@ -243,4 +243,21 @@ fn urlencoding_simple(s: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn truncating_multibyte_text_keeps_the_preview() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("multibyte.txt");
+        fs::write(&path, "中".repeat(180_000)).unwrap();
+        let preview = get_quicklook_file_preview(path.to_string_lossy().into_owned()).await.unwrap();
+        assert!(preview.is_truncated);
+        let text = preview.text_preview.unwrap();
+        assert!(text.starts_with("中中中"));
+        assert_eq!(text.trim_end_matches('\u{fffd}'), "中".repeat((512 * 1024) / 3));
+    }
 }
