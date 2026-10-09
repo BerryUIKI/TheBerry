@@ -83,12 +83,17 @@ impl Default for ConfigManager {
 
 impl ConfigManager {
     pub fn new() -> Self {
-        let manager = Self {
-            bootstrap: RwLock::new(BootstrapConfig::default()),
-            app_config: RwLock::new(AppConfig::default()),
-        };
+        let manager = Self::with_bootstrap(BootstrapConfig::default());
         manager.load_bootstrap();
         manager
+    }
+
+    /// Construct an in-memory manager without reading or writing the user profile.
+    pub fn with_bootstrap(bootstrap: BootstrapConfig) -> Self {
+        Self {
+            bootstrap: RwLock::new(bootstrap),
+            app_config: RwLock::new(AppConfig::default()),
+        }
     }
 
     pub fn is_initialized(&self) -> bool {

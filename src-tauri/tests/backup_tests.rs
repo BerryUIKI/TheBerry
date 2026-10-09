@@ -1,18 +1,24 @@
 use std::sync::Arc;
 use tempfile::tempdir;
-use the_berry_lib::core::config::ConfigManager;
+use the_berry_lib::core::config::{BootstrapConfig, ConfigManager};
 use the_berry_lib::core::database::DatabaseManager;
 use the_berry_lib::modules::backup::service::BackupService;
 use the_berry_lib::modules::clipboard::service::ClipboardService;
 use the_berry_lib::modules::snippets::service::{SnippetPayload, SnippetService};
+
+fn isolated_config(data_dir: &std::path::Path) -> Arc<ConfigManager> {
+    Arc::new(ConfigManager::with_bootstrap(BootstrapConfig {
+        custom_data_dir: Some(data_dir.to_string_lossy().to_string()),
+        initialized: true,
+    }))
+}
 
 #[test]
 fn test_full_backup_export_and_import_lifecycle() {
     let temp1 = tempdir().expect("failed to create temp dir 1");
     let db_manager1 = Arc::new(DatabaseManager::new());
     db_manager1.initialize(temp1.path()).expect("failed to init db 1");
-    let config_manager1 = Arc::new(ConfigManager::new());
-    let _ = config_manager1.save_bootstrap(&temp1.path().to_string_lossy());
+    let config_manager1 = isolated_config(temp1.path());
     let _ = config_manager1.load_app_config(temp1.path());
 
     // Add clipboard and snippet items
@@ -43,8 +49,7 @@ fn test_full_backup_export_and_import_lifecycle() {
     let temp2 = tempdir().expect("failed to create temp dir 2");
     let db_manager2 = Arc::new(DatabaseManager::new());
     db_manager2.initialize(temp2.path()).expect("failed to init db 2");
-    let config_manager2 = Arc::new(ConfigManager::new());
-    let _ = config_manager2.save_bootstrap(&temp2.path().to_string_lossy());
+    let config_manager2 = isolated_config(temp2.path());
     let _ = config_manager2.load_app_config(temp2.path());
 
     // Import backup into database 2
