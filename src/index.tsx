@@ -6,6 +6,7 @@ import { ThemeProvider } from "./context/ThemeContext";
 import { AppProvider } from "./context/AppContext";
 import { ToastProvider } from "./context/ToastContext";
 import { I18nProvider } from "./context/I18nContext";
+import { QuickLookModal } from "./components/quicklook/QuickLookModal";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -26,6 +27,7 @@ if (root) {
               ) : (
                 <App />
               )}
+              <QuickLookModal />
             </ToastProvider>
           </AppProvider>
         </I18nProvider>
