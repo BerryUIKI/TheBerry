@@ -51,7 +51,6 @@ pub async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     .inner_size(920.0, 660.0)
     .min_inner_size(780.0, 520.0)
     .decorations(false)
-    .transparent(false)
     .resizable(true)
     .center();
 
