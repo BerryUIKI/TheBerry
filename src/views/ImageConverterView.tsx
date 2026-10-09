@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { ConvertResult, ConvertTask, SupportedOutputFormat } from "../types/imageConverter";
 import { convertSingleImage, scanImagePaths } from "../services/imageConverter";
 import { previewWithQuickLook } from "../services/quicklook";
+import { ImageThumbnail } from "../components/imageConverter/ImageThumbnail";
 import { useToast } from "../context/ToastContext";
 import { useI18n } from "../context/I18nContext";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
@@ -768,7 +769,7 @@ export function ImageConverterView() {
                       onClick={() => previewWithQuickLook(path)}
                       class="flex items-center space-x-3 min-w-0 flex-1"
                     >
-                      <Image size={16} class="text-primary flex-shrink-0" />
+                      <ImageThumbnail path={path} />
                       <div class="min-w-0">
                         <p class="font-medium text-foreground truncate">{filename}</p>
                         <p class="text-[10px] text-muted-foreground font-mono truncate">{path}</p>

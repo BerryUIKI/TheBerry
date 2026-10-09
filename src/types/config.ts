@@ -8,6 +8,7 @@ export interface AppConfig {
   hud_shortcut: string;
   clipboard_history_limit: number;
   clipboard_monitor_enabled: boolean;
+  quicklook_enabled: boolean;
   custom_data_dir: string;
 }
 

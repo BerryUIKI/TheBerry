@@ -1,4 +1,4 @@
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 use crate::core::AppState;
 use super::service::{ClipboardItem, ClipboardService};
 
@@ -64,13 +64,14 @@ pub fn get_clipboard_monitor_enabled(state: State<AppState>) -> Result<bool, Str
 }
 
 #[tauri::command]
-pub fn set_clipboard_monitor_enabled(enabled: bool, state: State<AppState>) -> Result<bool, String> {
-    state.clipboard_monitor_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
+pub fn set_clipboard_monitor_enabled(enabled: bool, app: AppHandle, state: State<AppState>) -> Result<bool, String> {
     if let Some(data_dir) = state.config_manager.get_data_dir() {
-        let mut current = state.config_manager.get_app_config();
-        current.clipboard_monitor_enabled = enabled;
-        let _ = state.config_manager.save_app_config(&data_dir, &current);
+        let patch = serde_json::json!({"clipboard_monitor_enabled": enabled});
+        let current = state.config_manager.patch_app_config(&data_dir, patch.as_object().unwrap().clone())
+            .map_err(|e| format!("Failed to save clipboard monitoring setting: {e}"))?;
+        let _ = app.emit("config-changed", &current);
     }
+    state.clipboard_monitor_enabled.store(enabled, std::sync::atomic::Ordering::Relaxed);
     Ok(enabled)
 }
 

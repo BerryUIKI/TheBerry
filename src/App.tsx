@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup } from "solid-js";
+import { createSignal, onMount, onCleanup, Show } from "solid-js";
 import { useApp, ViewType } from "./context/AppContext";
 import { useToast } from "./context/ToastContext";
 import { listen } from "@tauri-apps/api/event";
@@ -23,7 +23,7 @@ import { UpdateInfo } from "./types/updater";
 import { Switch, Match } from "solid-js";
 
 export function App() {
-  const { activeView, setActiveView } = useApp();
+  const { activeView, setActiveView, returnToPreviousView } = useApp();
   const { success } = useToast();
   const [isSpotlightOpen, setIsSpotlightOpen] = createSignal(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = createSignal(false);
@@ -69,6 +69,10 @@ export function App() {
       }
       if (isSpotlightOpen()) {
         setIsSpotlightOpen(false);
+        return;
+      }
+      if (activeView() === "settings") {
+        returnToPreviousView();
         return;
       }
     }
@@ -137,8 +141,10 @@ export function App() {
 
       {/* Main Workspace Body */}
       <div class="flex-1 flex overflow-hidden">
-        {/* Persistent Sidebar */}
-        <Sidebar />
+        {/* Persistent Sidebar (hidden when in dedicated settings view) */}
+        <Show when={activeView() !== "settings"}>
+          <Sidebar />
+        </Show>
 
         {/* Dynamic View Canvas with smooth view-transition */}
         <main class="flex-1 overflow-hidden relative">

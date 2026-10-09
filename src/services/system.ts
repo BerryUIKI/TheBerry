@@ -13,7 +13,7 @@ export async function getConfig(): Promise<AppConfig> {
   return safeInvoke<AppConfig>("get_config");
 }
 
-export async function updateConfig(config: AppConfig): Promise<AppConfig> {
+export async function updateConfig(config: Partial<AppConfig>): Promise<AppConfig> {
   return safeInvoke<AppConfig>("update_config", { config });
 }
 
@@ -28,3 +28,8 @@ export async function toggleMaximizeWindow(): Promise<boolean> {
 export async function closeWindow(): Promise<void> {
   return safeInvoke<void>("close_window");
 }
+
+export async function openSettingsWindow(): Promise<void> {
+  return safeInvoke<void>("open_settings_window");
+}
+

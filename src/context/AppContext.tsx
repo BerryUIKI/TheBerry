@@ -6,6 +6,8 @@ export type ViewType = "clipboard" | "snippets" | "launcher" | "image_converter"
 interface AppContextType {
   activeView: () => ViewType;
   setActiveView: (view: ViewType) => void;
+  previousView: () => ViewType;
+  returnToPreviousView: () => void;
   isInitialized: () => boolean;
   dataDir: () => string | null;
   suggestedDataDir: () => string;
@@ -18,7 +20,21 @@ interface AppContextType {
 const AppContext = createContext<AppContextType>();
 
 export function AppProvider(props: { children: JSX.Element }) {
-  const [activeView, setActiveView] = createSignal<ViewType>("snippets");
+  const [activeView, setActiveViewState] = createSignal<ViewType>("snippets");
+  const [previousView, setPreviousView] = createSignal<ViewType>("snippets");
+
+  const setActiveView = (view: ViewType) => {
+    const current = activeView();
+    if (view === "settings" && current !== "settings") {
+      setPreviousView(current);
+    }
+    setActiveViewState(view);
+  };
+
+  const returnToPreviousView = () => {
+    const prev = previousView();
+    setActiveViewState(prev === "settings" ? "snippets" : prev);
+  };
   const [isInitialized, setIsInitialized] = createSignal<boolean>(false);
   const [dataDir, setDataDir] = createSignal<string | null>(null);
   const [suggestedDataDir, setSuggestedDataDir] = createSignal<string>("");
@@ -64,6 +80,8 @@ export function AppProvider(props: { children: JSX.Element }) {
       value={{
         activeView,
         setActiveView,
+        previousView,
+        returnToPreviousView,
         isInitialized,
         dataDir,
         suggestedDataDir,
