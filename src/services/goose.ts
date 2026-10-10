@@ -1,5 +1,5 @@
 import { safeInvoke } from "./tauri";
-import { GooseStatus, GooseStreamChunk, SendGooseMessagePayload } from "../types/goose";
+import { GooseStatus, GooseStreamChunk, SendGooseMessagePayload, LocalModel, LocalRuntimeStatus, LocalModelDownloadProgress } from "../types/goose";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 
 export async function getGooseStatus(): Promise<GooseStatus> {
@@ -64,6 +64,44 @@ export async function startOllamaDaemon(): Promise<import("../types/goose").Olla
 
 export async function stopOllamaDaemon(): Promise<void> {
   return safeInvoke<void>("stop_ollama_daemon");
+}
+
+export async function listLocalModels(): Promise<LocalModel[]> {
+  return safeInvoke<LocalModel[]>("list_local_models");
+}
+
+export async function getLocalRuntimeStatus(): Promise<LocalRuntimeStatus> {
+  return safeInvoke<LocalRuntimeStatus>("get_local_runtime_status");
+}
+
+export async function startLocalRuntime(modelId: string): Promise<LocalRuntimeStatus> {
+  return safeInvoke<LocalRuntimeStatus>("start_local_runtime", { modelId });
+}
+
+export async function stopLocalRuntime(): Promise<void> {
+  return safeInvoke<void>("stop_local_runtime");
+}
+
+export async function downloadLocalModel(modelId: string): Promise<void> {
+  return safeInvoke<void>("download_local_model", { modelId });
+}
+
+export async function cancelLocalModelDownload(modelId: string): Promise<boolean> {
+  return safeInvoke<boolean>("cancel_local_model_download", { modelId });
+}
+
+export async function importLocalModel(path: string): Promise<LocalModel> {
+  return safeInvoke<LocalModel>("import_local_model", { path });
+}
+
+export async function removeLocalModel(modelId: string): Promise<void> {
+  return safeInvoke<void>("remove_local_model", { modelId });
+}
+
+export async function onLocalModelDownloadProgress(
+  callback: (progress: LocalModelDownloadProgress) => void
+): Promise<UnlistenFn> {
+  return listen<LocalModelDownloadProgress>("goose://local-model-download", (event) => callback(event.payload));
 }
 
 

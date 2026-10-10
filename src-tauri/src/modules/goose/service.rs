@@ -1,16 +1,39 @@
-use std::collections::HashMap;
+use futures_util::StreamExt;
+use std::collections::{BTreeMap, HashMap};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
-use tauri::{AppHandle, Emitter};
-use futures_util::StreamExt;
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager};
 use uuid::Uuid;
 
 use super::process::GooseProcessManager;
 use super::types::{AIConfig, GooseStatus, GooseStreamChunk, SendGooseMessagePayload};
 
+#[derive(Default)]
+struct LocalToolCallDelta {
+    id: String,
+    name: String,
+    arguments: String,
+}
+
+impl LocalToolCallDelta {
+    fn as_json(self) -> serde_json::Value {
+        serde_json::json!({
+            "id": self.id,
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "arguments": if self.arguments.is_empty() { "{}".to_string() } else { self.arguments }
+            }
+        })
+    }
+}
+
 pub struct GooseService {
     process_manager: Arc<GooseProcessManager>,
     ollama_manager: Arc<super::ollama::OllamaProcessManager>,
+    local_manager: Arc<super::local::LocalInferenceManager>,
     http_client: reqwest::Client,
     ai_config: RwLock<AIConfig>,
     active_cancellations: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
@@ -24,12 +47,20 @@ impl Default for GooseService {
 
 impl GooseService {
     pub fn new() -> Self {
+        let data_dir = dirs::document_dir()
+            .unwrap_or_else(|| PathBuf::from("Documents"))
+            .join("BerryAppData");
+        Self::new_with_data_dir(data_dir)
+    }
+
+    pub fn new_with_data_dir(data_dir: PathBuf) -> Self {
         let default_cfg = AIConfig::default();
         let loaded_cfg = Self::load_persisted_config().unwrap_or(default_cfg);
 
         Self {
             process_manager: Arc::new(GooseProcessManager::new()),
             ollama_manager: Arc::new(super::ollama::OllamaProcessManager::new()),
+            local_manager: Arc::new(super::local::LocalInferenceManager::new(data_dir)),
             http_client: reqwest::Client::builder()
                 .connect_timeout(std::time::Duration::from_secs(30))
                 .timeout(std::time::Duration::from_secs(120))
@@ -153,7 +184,9 @@ impl GooseService {
                 None
             }
         };
-        self.ollama_manager.ensure_running(custom_path.as_deref(), 11434).await
+        self.ollama_manager
+            .ensure_running(custom_path.as_deref(), 11434)
+            .await
     }
 
     pub async fn get_ollama_status(&self) -> super::ollama::OllamaStatus {
@@ -162,6 +195,56 @@ impl GooseService {
 
     pub async fn stop_ollama_daemon(&self) -> Result<(), String> {
         self.ollama_manager.stop_server().await
+    }
+
+    pub fn list_local_models(&self) -> Result<Vec<super::local::LocalModel>, String> {
+        self.local_manager.list_models()
+    }
+
+    pub fn set_local_model_data_dir(&self, data_dir: PathBuf) {
+        self.local_manager.set_data_dir(data_dir);
+    }
+
+    pub async fn get_local_runtime_status(&self) -> super::local::LocalRuntimeStatus {
+        self.local_manager.status().await
+    }
+
+    pub async fn start_local_runtime(
+        &self,
+        app_handle: &AppHandle,
+        model_id: &str,
+    ) -> Result<super::local::LocalRuntimeStatus, String> {
+        let resource_dir = app_handle.path().resource_dir().ok();
+        self.local_manager.start(resource_dir, model_id).await
+    }
+
+    pub async fn stop_local_runtime(&self) -> Result<(), String> {
+        self.local_manager.stop().await
+    }
+
+    pub async fn download_local_model(
+        &self,
+        app_handle: AppHandle,
+        model_id: &str,
+    ) -> Result<(), String> {
+        self.local_manager
+            .download_catalog_model(app_handle, model_id)
+            .await
+    }
+
+    pub fn cancel_local_model_download(&self, model_id: &str) -> bool {
+        self.local_manager.cancel_download(model_id)
+    }
+
+    pub fn import_local_model(
+        &self,
+        source_path: &str,
+    ) -> Result<super::local::LocalModel, String> {
+        self.local_manager.import_model(source_path)
+    }
+
+    pub async fn remove_local_model(&self, model_id: &str) -> Result<(), String> {
+        self.local_manager.remove_model(model_id).await
     }
 
     pub async fn fetch_provider_models(
@@ -191,14 +274,20 @@ impl GooseService {
                     req = req.header("X-goog-api-key", &raw_key);
                 }
 
-                let resp = req.send().await.map_err(|e| format!("Gemini request failed: {}", e))?;
+                let resp = req
+                    .send()
+                    .await
+                    .map_err(|e| format!("Gemini request failed: {}", e))?;
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let err = resp.text().await.unwrap_or_default();
                     return Err(format!("Gemini error (HTTP {}): {}", status, err));
                 }
 
-                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Gemini JSON: {}", e))?;
+                let json: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| format!("Failed to parse Gemini JSON: {}", e))?;
                 let mut models = Vec::new();
                 if let Some(list) = json.get("models").and_then(|v| v.as_array()) {
                     for m in list {
@@ -235,14 +324,22 @@ impl GooseService {
                     format!("{}/api/tags", base.trim_end_matches('/'))
                 };
 
-                let resp = self.http_client.get(&url).send().await.map_err(|e| format!("Ollama request failed: {}", e))?;
+                let resp = self
+                    .http_client
+                    .get(&url)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Ollama request failed: {}", e))?;
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let err = resp.text().await.unwrap_or_default();
                     return Err(format!("Ollama error (HTTP {}): {}", status, err));
                 }
 
-                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Ollama JSON: {}", e))?;
+                let json: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| format!("Failed to parse Ollama JSON: {}", e))?;
                 let mut models = Vec::new();
                 if let Some(list) = json.get("models").and_then(|v| v.as_array()) {
                     for m in list {
@@ -260,19 +357,28 @@ impl GooseService {
                     format!("{}/models", base.trim_end_matches('/'))
                 };
 
-                let mut req = self.http_client.get(&url).header("anthropic-version", "2023-06-01");
+                let mut req = self
+                    .http_client
+                    .get(&url)
+                    .header("anthropic-version", "2023-06-01");
                 if !raw_key.is_empty() {
                     req = req.header("x-api-key", &raw_key);
                 }
 
-                let resp = req.send().await.map_err(|e| format!("Anthropic request failed: {}", e))?;
+                let resp = req
+                    .send()
+                    .await
+                    .map_err(|e| format!("Anthropic request failed: {}", e))?;
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let err = resp.text().await.unwrap_or_default();
                     return Err(format!("Anthropic error (HTTP {}): {}", status, err));
                 }
 
-                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse Anthropic JSON: {}", e))?;
+                let json: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| format!("Failed to parse Anthropic JSON: {}", e))?;
                 let mut models = Vec::new();
                 if let Some(list) = json.get("data").and_then(|v| v.as_array()) {
                     for m in list {
@@ -305,14 +411,20 @@ impl GooseService {
                     req = req.header("Authorization", format!("Bearer {}", raw_key));
                 }
 
-                let resp = req.send().await.map_err(|e| format!("Models request failed: {}", e))?;
+                let resp = req
+                    .send()
+                    .await
+                    .map_err(|e| format!("Models request failed: {}", e))?;
                 if !resp.status().is_success() {
                     let status = resp.status();
                     let err = resp.text().await.unwrap_or_default();
                     return Err(format!("Provider API error (HTTP {}): {}", status, err));
                 }
 
-                let json: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse JSON: {}", e))?;
+                let json: serde_json::Value = resp
+                    .json()
+                    .await
+                    .map_err(|e| format!("Failed to parse JSON: {}", e))?;
                 let mut models = Vec::new();
                 if let Some(list) = json.get("data").and_then(|v| v.as_array()) {
                     for m in list {
@@ -336,7 +448,44 @@ impl GooseService {
         let message_id = Uuid::new_v4().to_string();
         let cancel_flag = self.register_cancellation(&session_id);
 
-        let cfg = self.get_ai_config();
+        let mut cfg = self.get_ai_config();
+
+        // The managed provider is deliberately routed through TheBerry's own
+        // local server. It never depends on the separately installed Goose or
+        // Ollama daemons configured for the other providers.
+        if cfg.active_provider == "local" {
+            let Some(model_id) = cfg.local_model_id.clone() else {
+                self.clear_cancellation(&session_id);
+                return Err(
+                    "Choose or download a local GGUF model in AI settings first.".to_string(),
+                );
+            };
+            let runtime = match self.start_local_runtime(&app_handle, &model_id).await {
+                Ok(runtime) => runtime,
+                Err(error) => {
+                    self.clear_cancellation(&session_id);
+                    return Err(error);
+                }
+            };
+            cfg.base_url = runtime.base_url.ok_or_else(|| {
+                "The local inference server did not report an endpoint.".to_string()
+            })?;
+            cfg.model = model_id;
+            cfg.api_key.clear();
+            cfg.request_format = "openai".to_string();
+            let result = self
+                .send_local_llm_stream(
+                    app_handle,
+                    payload,
+                    cfg,
+                    session_id.clone(),
+                    message_id,
+                    cancel_flag,
+                )
+                .await;
+            self.clear_cancellation(&session_id);
+            return result;
+        }
         let active_port = self.process_manager.get_active_port().await;
 
         // Mode 1: If Goose daemon is actively running, route through Goose server
@@ -348,7 +497,8 @@ impl GooseService {
                 "provider": payload.provider.as_ref().unwrap_or(&cfg.active_provider),
             });
 
-            match self.http_client
+            match self
+                .http_client
                 .post(&endpoint)
                 .header("Accept", "text/event-stream")
                 .json(&request_body)
@@ -356,7 +506,15 @@ impl GooseService {
                 .await
             {
                 Ok(response) if response.status().is_success() => {
-                    let res = self.consume_sse_stream(app_handle, response, session_id.clone(), message_id, cancel_flag).await;
+                    let res = self
+                        .consume_sse_stream(
+                            app_handle,
+                            response,
+                            session_id.clone(),
+                            message_id,
+                            cancel_flag,
+                        )
+                        .await;
                     self.clear_cancellation(&session_id);
                     return res;
                 }
@@ -367,9 +525,335 @@ impl GooseService {
         }
 
         // Mode 2: Direct Streaming LLM Execution (OpenAI-compatible / Ollama / OpenRouter / DeepSeek / Gemini)
-        let res = self.send_direct_llm_stream(app_handle, payload, cfg, session_id.clone(), message_id, cancel_flag).await;
+        let res = self
+            .send_direct_llm_stream(
+                app_handle,
+                payload,
+                cfg,
+                session_id.clone(),
+                message_id,
+                cancel_flag,
+            )
+            .await;
         self.clear_cancellation(&session_id);
         res
+    }
+
+    async fn send_local_llm_stream(
+        &self,
+        app_handle: AppHandle,
+        _payload: SendGooseMessagePayload,
+        cfg: AIConfig,
+        session_id: String,
+        message_id: String,
+        cancel_flag: Arc<AtomicBool>,
+    ) -> Result<(), String> {
+        let model_id = cfg
+            .local_model_id
+            .clone()
+            .unwrap_or_else(|| cfg.model.clone());
+        let endpoint = format!("{}/chat/completions", cfg.base_url.trim_end_matches('/'));
+        let tool_support = self.local_manager.tool_support(&model_id)?;
+        let tools_enabled = cfg.enable_developer_tools && tool_support == "verified";
+        let tools = serde_json::json!([
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_current_time",
+                    "description": "Return the current local date and time in ISO 8601 format.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": false
+                    }
+                }
+            }
+        ]);
+        let mut messages = vec![
+            serde_json::json!({ "role": "system", "content": cfg.system_prompt }),
+            serde_json::json!({ "role": "user", "content": "" }),
+        ];
+        if let Some(user) = messages.get_mut(1) {
+            user["content"] = serde_json::Value::String(_payload.prompt);
+        }
+
+        for round in 0..=2 {
+            if cancel_flag.load(Ordering::Relaxed) {
+                self.emit_local_finished(
+                    &app_handle,
+                    &session_id,
+                    &message_id,
+                    "",
+                    Some("AI response stopped by user."),
+                );
+                return Ok(());
+            }
+            let mut body = serde_json::json!({
+                "model": model_id,
+                "messages": messages,
+                "temperature": cfg.temperature,
+                "max_tokens": cfg.max_tokens,
+                "stream": true
+            });
+            if tools_enabled {
+                body["tools"] = tools.clone();
+                body["tool_choice"] = serde_json::json!("auto");
+            }
+
+            let response = match self
+                .http_client
+                .post(&endpoint)
+                .header("Accept", "text/event-stream, application/json")
+                .json(&body)
+                .send()
+                .await
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    let message = format!("Could not connect to the managed local model: {error}");
+                    self.emit_local_finished(
+                        &app_handle,
+                        &session_id,
+                        &message_id,
+                        "",
+                        Some(&message),
+                    );
+                    return Err(message);
+                }
+            };
+            if !response.status().is_success() {
+                let status = response.status();
+                let details = response.text().await.unwrap_or_default();
+                let message = format!("Local inference server returned HTTP {status}: {details}");
+                self.emit_local_finished(&app_handle, &session_id, &message_id, "", Some(&message));
+                return Err(message);
+            }
+
+            let (assistant_text, tool_calls) = self
+                .consume_local_openai_stream(
+                    app_handle.clone(),
+                    response,
+                    session_id.clone(),
+                    message_id.clone(),
+                    cancel_flag.clone(),
+                )
+                .await?;
+            if cancel_flag.load(Ordering::Relaxed) {
+                return Ok(());
+            }
+            if tool_calls.is_empty() {
+                self.emit_local_finished(&app_handle, &session_id, &message_id, "", None);
+                return Ok(());
+            }
+            if !tools_enabled || round == 2 {
+                self.emit_local_finished(
+                    &app_handle,
+                    &session_id,
+                    &message_id,
+                    "I reached the local tool-call limit for this response.",
+                    None,
+                );
+                return Ok(());
+            }
+
+            let mut assistant_message = serde_json::json!({
+                "role": "assistant",
+                "content": if assistant_text.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(assistant_text) },
+                "tool_calls": tool_calls
+            });
+            if !assistant_message["tool_calls"].is_array() {
+                assistant_message["tool_calls"] = serde_json::Value::Array(Vec::new());
+            }
+            messages.push(assistant_message.clone());
+            if let Some(calls) = assistant_message["tool_calls"].as_array() {
+                for call in calls {
+                    let call_id = call
+                        .get("id")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("local-tool-call");
+                    let function = call.get("function").cloned().unwrap_or_default();
+                    let tool_name = function
+                        .get("name")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("");
+                    let args_text = function
+                        .get("arguments")
+                        .and_then(|value| value.as_str())
+                        .unwrap_or("{}");
+                    let tool_result = match tool_name {
+                        "get_current_time" => {
+                            serde_json::json!({ "now": chrono::Local::now().to_rfc3339() })
+                        }
+                        _ => {
+                            serde_json::json!({ "error": format!("Tool '{tool_name}' is not available in TheBerry's local provider.") })
+                        }
+                    };
+                    let _ = serde_json::from_str::<serde_json::Value>(args_text);
+                    messages.push(serde_json::json!({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": tool_result.to_string()
+                    }));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    async fn consume_local_openai_stream(
+        &self,
+        app_handle: AppHandle,
+        response: reqwest::Response,
+        session_id: String,
+        message_id: String,
+        cancel_flag: Arc<AtomicBool>,
+    ) -> Result<(String, Vec<serde_json::Value>), String> {
+        let mut stream = response.bytes_stream();
+        let mut bytes = Vec::new();
+        let mut assistant_text = String::new();
+        let mut tool_calls: BTreeMap<usize, LocalToolCallDelta> = BTreeMap::new();
+        loop {
+            if cancel_flag.load(Ordering::Relaxed) {
+                self.emit_local_finished(
+                    &app_handle,
+                    &session_id,
+                    &message_id,
+                    "",
+                    Some("AI response stopped by user."),
+                );
+                return Ok((assistant_text, Vec::new()));
+            }
+            let next = match tokio::time::timeout(Duration::from_secs(60), stream.next()).await {
+                Ok(next) => next,
+                Err(_) => {
+                    let message = "AI generation timed out (no data received for 60 seconds).";
+                    self.emit_local_finished(
+                        &app_handle,
+                        &session_id,
+                        &message_id,
+                        "",
+                        Some(message),
+                    );
+                    return Err(message.to_string());
+                }
+            };
+            let Some(next) = next else { break };
+            let chunk = next.map_err(|error| format!("Local response stream failed: {error}"))?;
+            bytes.extend_from_slice(&chunk);
+            while let Some(newline) = bytes.iter().position(|byte| *byte == b'\n') {
+                let line = String::from_utf8_lossy(&bytes[..newline])
+                    .trim()
+                    .to_string();
+                bytes.drain(..=newline);
+                let data = line.strip_prefix("data:").map(str::trim).unwrap_or(&line);
+                if data.is_empty() || data == "[DONE]" {
+                    if data == "[DONE]" {
+                        let calls = tool_calls
+                            .into_values()
+                            .map(|call| call.as_json())
+                            .collect();
+                        return Ok((assistant_text, calls));
+                    }
+                    continue;
+                }
+                let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else {
+                    continue;
+                };
+                let Some(delta) = json.pointer("/choices/0/delta") else {
+                    continue;
+                };
+                if let Some(text) = delta.get("content").and_then(|value| value.as_str()) {
+                    assistant_text.push_str(text);
+                    if !text.is_empty() {
+                        let _ = app_handle.emit(
+                            "goose://stream-chunk",
+                            GooseStreamChunk {
+                                session_id: session_id.clone(),
+                                message_id: message_id.clone(),
+                                delta: text.to_string(),
+                                is_finished: false,
+                                error: None,
+                            },
+                        );
+                    }
+                }
+                if let Some(deltas) = delta.get("tool_calls").and_then(|value| value.as_array()) {
+                    for call in deltas {
+                        let index = call
+                            .get("index")
+                            .and_then(|value| value.as_u64())
+                            .unwrap_or(0) as usize;
+                        let entry = tool_calls.entry(index).or_default();
+                        if let Some(id) = call.get("id").and_then(|value| value.as_str()) {
+                            entry.id.push_str(id);
+                        }
+                        if let Some(name) = call
+                            .pointer("/function/name")
+                            .and_then(|value| value.as_str())
+                        {
+                            entry.name.push_str(name);
+                        }
+                        if let Some(arguments) = call
+                            .pointer("/function/arguments")
+                            .and_then(|value| value.as_str())
+                        {
+                            entry.arguments.push_str(arguments);
+                        }
+                    }
+                }
+            }
+        }
+        if !bytes.is_empty() {
+            let line = String::from_utf8_lossy(&bytes).trim().to_string();
+            let data = line.strip_prefix("data:").map(str::trim).unwrap_or(&line);
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                if let Some(text) = json
+                    .pointer("/choices/0/delta/content")
+                    .and_then(|value| value.as_str())
+                {
+                    assistant_text.push_str(text);
+                    if !text.is_empty() {
+                        let _ = app_handle.emit(
+                            "goose://stream-chunk",
+                            GooseStreamChunk {
+                                session_id: session_id.clone(),
+                                message_id: message_id.clone(),
+                                delta: text.to_string(),
+                                is_finished: false,
+                                error: None,
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        Ok((
+            assistant_text,
+            tool_calls
+                .into_values()
+                .map(|call| call.as_json())
+                .collect(),
+        ))
+    }
+
+    fn emit_local_finished(
+        &self,
+        app_handle: &AppHandle,
+        session_id: &str,
+        message_id: &str,
+        delta: &str,
+        error: Option<&str>,
+    ) {
+        let _ = app_handle.emit(
+            "goose://stream-chunk",
+            GooseStreamChunk {
+                session_id: session_id.to_string(),
+                message_id: message_id.to_string(),
+                delta: delta.to_string(),
+                is_finished: true,
+                error: error.map(str::to_string),
+            },
+        );
     }
 
     async fn send_direct_llm_stream(
@@ -426,12 +910,18 @@ impl GooseService {
                 let clean_model = model.trim_start_matches("models/").trim();
                 let url = if raw_base.is_empty() {
                     format!("https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent", clean_model)
-                } else if raw_base.contains(":generateContent") || raw_base.contains(":streamGenerateContent") {
+                } else if raw_base.contains(":generateContent")
+                    || raw_base.contains(":streamGenerateContent")
+                {
                     raw_base.to_string()
                 } else if raw_base.contains("/models/") {
                     format!("{}:generateContent", raw_base.trim_end_matches('/'))
                 } else {
-                    format!("{}/models/{}:generateContent", raw_base.trim_end_matches('/'), clean_model)
+                    format!(
+                        "{}/models/{}:generateContent",
+                        raw_base.trim_end_matches('/'),
+                        clean_model
+                    )
                 };
 
                 let body = serde_json::json!({
@@ -453,7 +943,8 @@ impl GooseService {
             "ollama" => {
                 let url = if raw_base.is_empty() {
                     "http://localhost:11434/api/chat".to_string()
-                } else if raw_base.ends_with("/api/chat") || raw_base.ends_with("/chat/completions") {
+                } else if raw_base.ends_with("/api/chat") || raw_base.ends_with("/chat/completions")
+                {
                     raw_base.to_string()
                 } else if raw_base.ends_with("/v1") {
                     format!("{}/chat/completions", raw_base.trim_end_matches('/'))
@@ -521,14 +1012,16 @@ impl GooseService {
         };
 
         // 2. Build Request with proper headers
-        let mut req = self.http_client
+        let mut req = self
+            .http_client
             .post(&endpoint)
             .header("Accept", "text/event-stream, application/json")
             .header("Content-Type", "application/json");
 
         if !cfg.api_key.trim().is_empty() {
             if is_anthropic {
-                req = req.header("x-api-key", cfg.api_key.trim())
+                req = req
+                    .header("x-api-key", cfg.api_key.trim())
                     .header("anthropic-version", "2023-06-01");
             } else if is_gemini {
                 req = req.header("X-goog-api-key", cfg.api_key.trim());
@@ -557,13 +1050,19 @@ impl GooseService {
 
         if !response.status().is_success() {
             let status_code = response.status();
-            let err_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let err_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             let error_chunk = GooseStreamChunk {
                 session_id: session_id.clone(),
                 message_id: message_id.clone(),
                 delta: String::new(),
                 is_finished: true,
-                error: Some(format!("HTTP {} from {}: {}", status_code, endpoint, err_text)),
+                error: Some(format!(
+                    "HTTP {} from {}: {}",
+                    status_code, endpoint, err_text
+                )),
             };
             let _ = app_handle.emit("goose://stream-chunk", error_chunk);
             return Err(format!("HTTP Error {}: {}", status_code, err_text));
@@ -576,7 +1075,10 @@ impl GooseService {
             .unwrap_or("")
             .to_lowercase();
 
-        let is_stream_request = req_body.get("stream").and_then(|v| v.as_bool()).unwrap_or(false);
+        let is_stream_request = req_body
+            .get("stream")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let is_stream_response = content_type.contains("text/event-stream")
             || content_type.contains("application/x-ndjson")
             || content_type.contains("application/jsonl")
@@ -584,7 +1086,8 @@ impl GooseService {
             || is_stream_request;
 
         if is_stream_response {
-            self.consume_sse_stream(app_handle, response, session_id, message_id, cancel_flag).await
+            self.consume_sse_stream(app_handle, response, session_id, message_id, cancel_flag)
+                .await
         } else {
             // Check cancellation before emitting single response
             if cancel_flag.load(Ordering::Relaxed) {
@@ -660,21 +1163,26 @@ impl GooseService {
             }
 
             // 2. Read next chunk with a 60-second idle timeout
-            let chunk_opt = match tokio::time::timeout(std::time::Duration::from_secs(60), stream.next()).await {
-                Ok(Some(chunk)) => chunk,
-                Ok(None) => break, // End of stream
-                Err(_) => {
-                    let timeout_chunk = GooseStreamChunk {
-                        session_id: session_id.clone(),
-                        message_id: message_id.clone(),
-                        delta: String::new(),
-                        is_finished: true,
-                        error: Some("AI generation timed out (no data received for 60 seconds).".to_string()),
-                    };
-                    let _ = app_handle.emit("goose://stream-chunk", timeout_chunk);
-                    return Err("Stream read timed out".to_string());
-                }
-            };
+            let chunk_opt =
+                match tokio::time::timeout(std::time::Duration::from_secs(60), stream.next()).await
+                {
+                    Ok(Some(chunk)) => chunk,
+                    Ok(None) => break, // End of stream
+                    Err(_) => {
+                        let timeout_chunk = GooseStreamChunk {
+                            session_id: session_id.clone(),
+                            message_id: message_id.clone(),
+                            delta: String::new(),
+                            is_finished: true,
+                            error: Some(
+                                "AI generation timed out (no data received for 60 seconds)."
+                                    .to_string(),
+                            ),
+                        };
+                        let _ = app_handle.emit("goose://stream-chunk", timeout_chunk);
+                        return Err("Stream read timed out".to_string());
+                    }
+                };
 
             match chunk_opt {
                 Ok(bytes) => {
@@ -709,7 +1217,8 @@ impl GooseService {
                             }
 
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(data_str) {
-                                let is_done = json.get("done").and_then(|v| v.as_bool()).unwrap_or(false);
+                                let is_done =
+                                    json.get("done").and_then(|v| v.as_bool()).unwrap_or(false);
 
                                 if let Some(delta) = Self::extract_text_from_value(&json) {
                                     if !delta.is_empty() {
@@ -720,7 +1229,8 @@ impl GooseService {
                                             is_finished: false,
                                             error: None,
                                         };
-                                        let _ = app_handle.emit("goose://stream-chunk", stream_chunk);
+                                        let _ =
+                                            app_handle.emit("goose://stream-chunk", stream_chunk);
                                     }
                                 }
 
@@ -807,10 +1317,16 @@ impl GooseService {
         }
 
         // 2. OpenAI / OneAPI / DeepSeek / Groq: choices[0].delta.content or choices[0].message.content
-        if let Some(c) = val.pointer("/choices/0/delta/content").and_then(|v| v.as_str()) {
+        if let Some(c) = val
+            .pointer("/choices/0/delta/content")
+            .and_then(|v| v.as_str())
+        {
             return Some(c.to_string());
         }
-        if let Some(c) = val.pointer("/choices/0/message/content").and_then(|v| v.as_str()) {
+        if let Some(c) = val
+            .pointer("/choices/0/message/content")
+            .and_then(|v| v.as_str())
+        {
             return Some(c.to_string());
         }
 
@@ -858,4 +1374,3 @@ impl GooseService {
         None
     }
 }
-
