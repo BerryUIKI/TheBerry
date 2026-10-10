@@ -53,6 +53,16 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     helpUrl: "https://ollama.com/",
   },
   {
+    id: "local",
+    name: "TheBerry Local (Built-in)",
+    defaultBaseUrl: "",
+    defaultRequestFormat: "openai",
+    defaultModel: "qwen3-1.7b-q4km",
+    models: ["qwen3-1.7b-q4km"],
+    requiresApiKey: false,
+    helpUrl: "https://github.com/BerryUIKI/TheBerry/blob/main/docs/local-models.md",
+  },
+  {
     id: "deepseek",
     name: "DeepSeek",
     defaultBaseUrl: "https://api.deepseek.com/v1",
