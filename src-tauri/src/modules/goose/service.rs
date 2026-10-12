@@ -18,7 +18,7 @@ struct LocalToolCallDelta {
 }
 
 impl LocalToolCallDelta {
-    fn as_json(self) -> serde_json::Value {
+    fn into_json(self) -> serde_json::Value {
         serde_json::json!({
             "id": self.id,
             "type": "function",
@@ -750,7 +750,7 @@ impl GooseService {
                     if data == "[DONE]" {
                         let calls = tool_calls
                             .into_values()
-                            .map(|call| call.as_json())
+                            .map(|call| call.into_json())
                             .collect();
                         return Ok((assistant_text, calls));
                     }
@@ -831,7 +831,7 @@ impl GooseService {
             assistant_text,
             tool_calls
                 .into_values()
-                .map(|call| call.as_json())
+                .map(|call| call.into_json())
                 .collect(),
         ))
     }

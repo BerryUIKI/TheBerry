@@ -37,7 +37,7 @@ pub struct LocalModel {
     pub is_recommended: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct LocalRuntimeStatus {
     pub is_running: bool,
     pub backend: Option<String>,
@@ -45,19 +45,6 @@ pub struct LocalRuntimeStatus {
     pub model_id: Option<String>,
     pub base_url: Option<String>,
     pub error: Option<String>,
-}
-
-impl Default for LocalRuntimeStatus {
-    fn default() -> Self {
-        Self {
-            is_running: false,
-            backend: None,
-            port: None,
-            model_id: None,
-            base_url: None,
-            error: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -113,18 +100,10 @@ const CATALOG: &[CatalogEntry] = &[CatalogEntry {
     sha256: QWEN_SHA256,
 }];
 
+#[derive(Default)]
 struct RuntimeState {
     child: Option<Child>,
     status: LocalRuntimeStatus,
-}
-
-impl Default for RuntimeState {
-    fn default() -> Self {
-        Self {
-            child: None,
-            status: LocalRuntimeStatus::default(),
-        }
-    }
 }
 
 pub struct LocalInferenceManager {
@@ -827,7 +806,7 @@ fn skip_gguf_value(reader: &mut (impl Read + Seek), value_type: u32) -> Result<(
     let byte_length = match value_type {
         0 | 1 | 7 => 1,
         2 | 3 => 2,
-        4 | 5 | 6 => 4,
+        4..=6 => 4,
         8 => {
             let length = read_u64(reader)?;
             if length > 1024 * 1024 * 1024 {
@@ -849,7 +828,7 @@ fn skip_gguf_value(reader: &mut (impl Read + Seek), value_type: u32) -> Result<(
             }
             return Ok(());
         }
-        10 | 11 | 12 => 8,
+        10..=12 => 8,
         other => return Err(format!("Unsupported GGUF metadata type {other}")),
     };
     reader
