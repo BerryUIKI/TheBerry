@@ -76,7 +76,7 @@ pub struct CustomMcpServer {
 pub struct AIConfig {
     pub active_provider: String, // "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom"
     #[serde(default = "default_request_format")]
-    pub request_format: String,  // "openai" | "anthropic" | "gemini" | "ollama" | "custom"
+    pub request_format: String, // "openai" | "anthropic" | "gemini" | "ollama" | "custom"
     pub api_key: String,
     pub base_url: String,
     pub model: String,
@@ -98,6 +98,8 @@ pub struct AIConfig {
     pub auto_start_ollama: bool,
     #[serde(default)]
     pub ollama_binary_path: String,
+    #[serde(default)]
+    pub local_model_id: Option<String>,
 }
 
 fn default_auto_start_ollama() -> bool {
@@ -137,8 +139,7 @@ impl Default for AIConfig {
             auto_start_daemon: false,
             auto_start_ollama: true,
             ollama_binary_path: String::new(),
+            local_model_id: None,
         }
     }
 }
-
-

@@ -30,11 +30,18 @@ pub fn get_app_status(state: State<AppState>) -> AppStatusResponse {
 }
 
 #[tauri::command]
-pub fn initialize_data_dir(custom_data_dir: String, state: State<AppState>) -> Result<AppConfig, String> {
+pub fn initialize_data_dir(
+    custom_data_dir: String,
+    state: State<AppState>,
+) -> Result<AppConfig, String> {
     let path = PathBuf::from(&custom_data_dir);
     if !path.exists() {
-        std::fs::create_dir_all(&path)
-            .map_err(|e| format!("Failed to create data directory at {}: {}", custom_data_dir, e))?;
+        std::fs::create_dir_all(&path).map_err(|e| {
+            format!(
+                "Failed to create data directory at {}: {}",
+                custom_data_dir, e
+            )
+        })?;
     }
 
     // Save bootstrap pointer
@@ -54,6 +61,8 @@ pub fn initialize_data_dir(custom_data_dir: String, state: State<AppState>) -> R
         .db_manager
         .initialize(&path)
         .map_err(|e| format!("Failed to initialize database: {}", e))?;
+
+    state.goose_service.set_local_model_data_dir(path);
 
     Ok(config)
 }
@@ -80,7 +89,10 @@ pub fn update_config(
         .patch_app_config(&data_dir, config)
         .map_err(|e| format!("Failed to save config: {}", e))?;
     if monitor_changed {
-        state.clipboard_monitor_enabled.store(current.clipboard_monitor_enabled, std::sync::atomic::Ordering::Relaxed);
+        state.clipboard_monitor_enabled.store(
+            current.clipboard_monitor_enabled,
+            std::sync::atomic::Ordering::Relaxed,
+        );
     }
     let _ = app.emit("config-changed", &current);
     Ok(current)

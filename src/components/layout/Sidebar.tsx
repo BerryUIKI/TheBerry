@@ -174,12 +174,6 @@ export function Sidebar() {
             language() === "zh" ? "侧边栏导航已重新排列" : "Sidebar navigation reordered"
           );
         }
-      } else {
-        // Quick tap or click
-        const items = visibleItems();
-        if (dragStartIndex >= 0 && dragStartIndex < items.length) {
-          handleItemClick(items[dragStartIndex]);
-        }
       }
     }
 
@@ -373,6 +367,7 @@ export function Sidebar() {
                   data-sidebar-item-index={index()}
                   role="button"
                   tabindex="0"
+                  onClick={() => handleItemClick(item)}
                   onPointerDown={(e) => handlePointerDown(e, index())}
                   onContextMenu={(e) => handleContextMenu(e, item)}
                   onKeyDown={(e) => {
