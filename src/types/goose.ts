@@ -43,7 +43,7 @@ export interface CustomMcpServer {
 export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
 
 export interface AIConfig {
-  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "local" | "deepseek" | "groq" | "openrouter" | "custom";
   request_format: AIRequestFormat;
   api_key: string;
   base_url: string;
@@ -61,6 +61,7 @@ export interface AIConfig {
   auto_start_daemon: boolean;
   auto_start_ollama?: boolean;
   ollama_binary_path?: string;
+  local_model_id?: string | null;
 }
 
 export interface OllamaStatus {
@@ -70,6 +71,40 @@ export interface OllamaStatus {
   port: number;
   models: string[];
   error_message: string | null;
+}
+
+export interface LocalModel {
+  id: string;
+  name: string;
+  size_bytes: number;
+  source: string;
+  revision: string;
+  source_url: string;
+  license: string;
+  hardware_requirements: string;
+  tool_support: "verified" | "unverified" | "unsupported" | string;
+  sha256: string;
+  model_path: string | null;
+  is_installed: boolean;
+  is_recommended: boolean;
+}
+
+export interface LocalRuntimeStatus {
+  is_running: boolean;
+  backend: "cuda" | "vulkan" | "cpu" | null;
+  port: number | null;
+  model_id: string | null;
+  base_url: string | null;
+  error: string | null;
+}
+
+export interface LocalModelDownloadProgress {
+  model_id: string;
+  downloaded_bytes: number;
+  total_bytes: number | null;
+  is_complete: boolean;
+  is_cancelled: boolean;
+  error: string | null;
 }
 
 

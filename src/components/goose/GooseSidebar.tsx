@@ -259,7 +259,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
 
     // Check if provider requires an API key and user hasn't set one
     const activeProv = (aiConfig()?.active_provider || status()?.active_provider || "gemini").toLowerCase();
-    const isLocal = activeProv === "ollama" || (aiConfig()?.base_url || "").includes("11434");
+    const isLocal = activeProv === "ollama" || activeProv === "local" || (aiConfig()?.base_url || "").includes("11434");
     const hasKey = Boolean(aiConfig()?.api_key && aiConfig()!.api_key.trim().length > 0);
 
     if (!isLocal && !hasKey && !status()?.is_running) {

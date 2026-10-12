@@ -2,12 +2,12 @@ pub mod config;
 pub mod database;
 pub mod paths;
 
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
-use config::ConfigManager;
-use database::DatabaseManager;
 use crate::modules::folder_sync::service::FolderSyncService;
 use crate::modules::goose::service::GooseService;
+use config::ConfigManager;
+use database::DatabaseManager;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 pub struct AppState {
     pub config_manager: Arc<ConfigManager>,
@@ -29,7 +29,10 @@ impl AppState {
     pub fn new() -> Self {
         let config_manager = Arc::new(ConfigManager::new());
         let db_manager = Arc::new(DatabaseManager::new());
-        let goose_service = Arc::new(GooseService::new());
+        let model_data_dir = config_manager
+            .get_data_dir()
+            .unwrap_or_else(paths::get_suggested_data_dir);
+        let goose_service = Arc::new(GooseService::new_with_data_dir(model_data_dir));
         let shutdown_flag = Arc::new(AtomicBool::new(false));
         let (shutdown_tx, _) = tokio::sync::watch::channel(false);
 
@@ -60,8 +63,8 @@ impl AppState {
     }
 
     pub fn trigger_shutdown(&self) {
-        self.shutdown_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+        self.shutdown_flag
+            .store(true, std::sync::atomic::Ordering::SeqCst);
         let _ = self.shutdown_tx.send(true);
     }
 }
-

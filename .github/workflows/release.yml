@@ -83,6 +83,11 @@ jobs:
       - name: Run Frontend Tests
         run: pnpm test
 
+      - name: Prepare managed llama.cpp runtimes (Windows x64)
+        if: matrix.platform.os == 'windows'
+        shell: pwsh
+        run: ./scripts/prepare-local-runtime.ps1
+
       - name: Build Tauri Application
         run: pnpm tauri build
 

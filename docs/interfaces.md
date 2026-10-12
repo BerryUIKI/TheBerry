@@ -340,7 +340,7 @@ interface GooseStreamChunk {
 export type AIRequestFormat = "openai" | "anthropic" | "gemini" | "ollama" | "custom";
 
 interface AIConfig {
-  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "deepseek" | "groq" | "openrouter" | "custom";
+  active_provider: "openai" | "anthropic" | "gemini" | "ollama" | "local" | "deepseek" | "groq" | "openrouter" | "custom";
   request_format: AIRequestFormat;
   api_key: string;
   base_url: string;
@@ -362,6 +362,32 @@ interface AIConfig {
   }>;
   goose_binary_path: string;
   auto_start_daemon: boolean;
+  local_model_id?: string | null;
+}
+
+interface LocalModel {
+  id: string;
+  name: string;
+  size_bytes: number;
+  source: string;
+  revision: string;
+  source_url: string;
+  license: string;
+  hardware_requirements: string;
+  tool_support: "verified" | "unverified" | "unsupported";
+  sha256: string;
+  model_path: string | null;
+  is_installed: boolean;
+  is_recommended: boolean;
+}
+
+interface LocalRuntimeStatus {
+  is_running: boolean;
+  backend: "cuda" | "vulkan" | "cpu" | null;
+  port: number | null;
+  model_id: string | null;
+  base_url: string | null;
+  error: string | null;
 }
 ```
 
@@ -374,10 +400,19 @@ interface AIConfig {
 - `get_ai_config()`: `Promise<AIConfig>`
 - `save_ai_config(config: AIConfig)`: `Promise<void>`
 - `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
+- `list_local_models()`: `Promise<LocalModel[]>`
+- `get_local_runtime_status()`: `Promise<LocalRuntimeStatus>`
+- `start_local_runtime(modelId: string)`: `Promise<LocalRuntimeStatus>`
+- `stop_local_runtime()`: `Promise<void>`
+- `download_local_model(modelId: string)`: `Promise<void>`
+- `cancel_local_model_download(modelId: string)`: `Promise<boolean>`
+- `import_local_model(path: string)`: `Promise<LocalModel>`
+- `remove_local_model(modelId: string)`: `Promise<void>`
 
 ### Events
 - `goose-stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
 - `goose-status-change`: Emitted when the Goose daemon state changes.
+- `goose://local-model-download`: Emitted with byte progress, completion, or pause state while a catalog model downloads.
 
 ---
 

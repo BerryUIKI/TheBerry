@@ -11,7 +11,6 @@ import {
 import { useToast } from "../../context/ToastContext";
 import { useI18n } from "../../context/I18nContext";
 import {
-  Settings,
   X,
   Key,
   Sliders,
@@ -33,7 +32,8 @@ import {
   Server,
 } from "lucide-solid";
 
-import { PROVIDER_PRESETS, ProviderPreset } from "./presets";
+import { PROVIDER_PRESETS } from "./presets";
+import { LocalModelManager } from "./LocalModelManager";
 
 export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }) {
   const { success, error } = useToast();
@@ -62,6 +62,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     auto_start_daemon: false,
     auto_start_ollama: true,
     ollama_binary_path: "",
+    local_model_id: null,
   });
 
   // Ollama status state
@@ -92,10 +93,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
     try {
       const st = await startOllamaDaemon();
       setOllamaStatus(st);
-      if (st.running) {
+      if (st.is_running) {
         success("Ollama Started", `Ollama is running on port ${st.port}.`);
       } else {
-        error("Ollama Start Failed", st.error || "Could not launch Ollama daemon.");
+        error("Ollama Start Failed", st.error_message || "Could not launch Ollama daemon.");
       }
     } catch (err: any) {
       error("Ollama Start Error", err.message || String(err));
@@ -129,6 +130,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
           user_avatar: cfg.user_avatar || "",
           auto_start_ollama: cfg.auto_start_ollama !== undefined ? cfg.auto_start_ollama : true,
           ollama_binary_path: cfg.ollama_binary_path || "",
+          local_model_id: cfg.local_model_id || null,
         };
         setConfig(fullCfg);
         setInitialConfig(JSON.parse(JSON.stringify(fullCfg)));
@@ -190,7 +192,8 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
       active_provider: providerId,
       request_format: preset.defaultRequestFormat,
       base_url: preset.defaultBaseUrl,
-      model: preset.defaultModel,
+      model: providerId === "local" ? (prev.local_model_id || preset.defaultModel) : preset.defaultModel,
+      local_model_id: providerId === "local" ? (prev.local_model_id || preset.defaultModel) : prev.local_model_id,
     }));
   };
 
@@ -377,15 +380,17 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 <div class="space-y-1.5">
                   <label class="font-semibold text-foreground flex items-center justify-between">
                     <span>Model Provider</span>
-                    <a
-                      href={currentPreset().helpUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      class="text-[11px] text-primary hover:underline flex items-center space-x-1"
-                    >
-                      <span>Get API Key</span>
-                      <ExternalLink size={11} />
-                    </a>
+                    <Show when={currentPreset().requiresApiKey}>
+                      <a
+                        href={currentPreset().helpUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        class="text-[11px] text-primary hover:underline flex items-center space-x-1"
+                      >
+                        <span>Get API Key</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    </Show>
                   </label>
                   <select
                     value={config().active_provider}
@@ -399,6 +404,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 </div>
 
                 {/* API Request Format / Protocol Selector */}
+                <Show when={config().active_provider !== "local"}>
                 <div class="space-y-1.5">
                   <label class="font-semibold text-foreground flex items-center justify-between">
                     <span>API Protocol / Request Format</span>
@@ -416,9 +422,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     <option value="custom">Custom / Raw Endpoint (Exact URL as entered)</option>
                   </select>
                 </div>
+                </Show>
 
                 {/* API Key */}
-                <Show when={currentPreset().requiresApiKey || config().request_format === "anthropic" || config().request_format === "openai" || config().request_format === "gemini"}>
+                <Show when={config().active_provider !== "local" && (currentPreset().requiresApiKey || config().request_format === "anthropic" || config().request_format === "openai" || config().request_format === "gemini")}>
                   <div class="space-y-1.5">
                     <label class="font-semibold text-foreground flex items-center justify-between">
                       <span>API Key</span>
@@ -444,6 +451,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                 </Show>
 
                 {/* Base URL */}
+                <Show when={config().active_provider !== "local"}>
                 <div class="space-y-1.5">
                   <label class="font-semibold text-foreground flex items-center justify-between">
                     <span>API Base URL / Endpoint</span>
@@ -468,8 +476,10 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     <span class="font-mono text-primary break-all block">{resolvedEndpointPreview()}</span>
                   </div>
                 </div>
+                </Show>
 
                 {/* Model Selector & Presets */}
+                <Show when={config().active_provider !== "local"}>
                 <div class="space-y-2">
                   <div class="flex items-center justify-between">
                     <label class="font-semibold text-foreground">Model Identifier</label>
@@ -527,13 +537,21 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                     </div>
                   </div>
                 </div>
+                </Show>
+
+                <Show when={config().active_provider === "local"}>
+                  <LocalModelManager
+                    selectedModelId={config().local_model_id}
+                    onSelectModel={(id) => setConfig((prev) => ({ ...prev, local_model_id: id || null, model: id || prev.model }))}
+                  />
+                </Show>
 
                 {/* Ollama Local Service Daemon Control (Shown when Ollama is selected) */}
                 <Show when={config().active_provider === "ollama" || config().request_format === "ollama"}>
                   <div class="p-3.5 rounded-xl border border-border bg-card/60 space-y-3 shadow-xs">
                     <div class="flex items-center justify-between">
                       <div class="flex items-center space-x-2">
-                        <div class={`w-2.5 h-2.5 rounded-full ${ollamaStatus()?.running ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
+                        <div class={`w-2.5 h-2.5 rounded-full ${ollamaStatus()?.is_running ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
                         <div>
                           <h4 class="font-semibold text-foreground flex items-center space-x-1.5">
                             <Server size={13} class="text-primary" />
@@ -544,13 +562,13 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                       </div>
                       <div class="flex items-center space-x-2">
                         <span class={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${
-                          ollamaStatus()?.running
+                          ollamaStatus()?.is_running
                             ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                             : "bg-muted text-muted-foreground border-border"
                         }`}>
-                          {ollamaStatus()?.running ? t("ai.ollama_running") : t("ai.ollama_stopped")}
+                          {ollamaStatus()?.is_running ? t("ai.ollama_running") : t("ai.ollama_stopped")}
                         </span>
-                        <Show when={!ollamaStatus()?.running}>
+                        <Show when={!ollamaStatus()?.is_running}>
                           <button
                             type="button"
                             disabled={isOllamaOperating()}
@@ -561,7 +579,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
                             <span>{isOllamaOperating() ? t("ai.ollama_starting") : t("ai.ollama_start_btn")}</span>
                           </button>
                         </Show>
-                        <Show when={ollamaStatus()?.running}>
+                        <Show when={ollamaStatus()?.is_running}>
                           <button
                             type="button"
                             disabled={isOllamaOperating()}

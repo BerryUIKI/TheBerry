@@ -84,6 +84,12 @@
 - Full database & preferences JSON backup export & restore.
 - Interactive keyboard shortcuts cheatsheet modal (`?` / `F1`).
 
+### 11. 🧠 App-Managed Offline Local AI (Windows x64)
+- Built-in `llama.cpp` runtime with CUDA, Vulkan, and CPU fallback; no separate Ollama install or API key is required.
+- Catalog model downloads resume after pausing and are checked against a pinned SHA-256 before use; users can also import GGUF files.
+- Local runtime binds to loopback only. Imported models keep plain chat available and enable tool calls only when support is verified.
+- Model files stay in the selected TheBerry data directory and are not bundled into the installer. See [Managed Local Models](docs/local-models.md) for runtime and model license details.
+
 ---
 
 ## 🏗️ Tech Stack & Architecture
@@ -133,6 +139,7 @@ pnpm tauri build
 
 ## 📖 Architectural Documentation & ADRs
 - [Architecture Overview](docs/architecture.md)
+- [Managed Local Models](docs/local-models.md)
 - [Module IPC Interfaces](docs/interfaces.md)
 - [Milestone 1 Specification](docs/milestone-1.md)
 - [Milestone 2 Specification](docs/milestone-2.md)
