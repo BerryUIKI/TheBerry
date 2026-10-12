@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $version = "b11425"
+$buildNumber = $version.TrimStart('b')
 $resourceRoot = Join-Path $PSScriptRoot "..\src-tauri\resources\llama"
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $resourceFullPath = [System.IO.Path]::GetFullPath($resourceRoot)
@@ -8,7 +9,8 @@ $repositoryPrefix = $repositoryRoot.TrimEnd([System.IO.Path]::DirectorySeparator
 if (-not $resourceFullPath.StartsWith($repositoryPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
   throw "Runtime resource path resolved outside the repository: $resourceFullPath"
 }
-$downloadRoot = Join-Path $env:RUNNER_TEMP "theberry-llama-$version"
+$tempBase = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { [System.IO.Path]::GetTempPath() } else { $env:RUNNER_TEMP }
+$downloadRoot = Join-Path $tempBase "theberry-llama-$version"
 $releaseRoot = "https://github.com/ggml-org/llama.cpp/releases/download/$version"
 
 if (Test-Path -LiteralPath $resourceRoot) {
@@ -59,8 +61,8 @@ foreach ($backend in @("cpu", "vulkan", "cuda")) {
     throw "Prepared $backend runtime is missing llama-server.exe."
   }
   $versionText = (& $serverPath --version 2>&1 | Out-String)
-  if ($LASTEXITCODE -ne 0 -or $versionText -notmatch $version) {
-    throw "Prepared $backend runtime did not report the pinned llama.cpp version $version."
+  if ($LASTEXITCODE -ne 0 -or ($versionText -notmatch [regex]::Escape($version) -and $versionText -notmatch "\b$buildNumber\b")) {
+    throw "Prepared $backend runtime did not report the pinned llama.cpp version $version (output: $versionText)."
   }
 }
 
