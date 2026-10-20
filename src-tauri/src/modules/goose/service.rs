@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 use super::process::GooseProcessManager;
@@ -92,9 +92,14 @@ impl GooseService {
         flag
     }
 
-    fn clear_cancellation(&self, session_id: &str) {
+    fn clear_cancellation(&self, session_id: &str, flag: &Arc<AtomicBool>) {
         let mut map = self.active_cancellations.lock().unwrap();
-        map.remove(session_id);
+        if map
+            .get(session_id)
+            .is_some_and(|current| Arc::ptr_eq(current, flag))
+        {
+            map.remove(session_id);
+        }
     }
 
     fn get_config_path() -> Option<std::path::PathBuf> {
@@ -213,9 +218,19 @@ impl GooseService {
         &self,
         app_handle: &AppHandle,
         model_id: &str,
+        backend: Option<String>,
     ) -> Result<super::local::LocalRuntimeStatus, String> {
-        let resource_dir = app_handle.path().resource_dir().ok();
-        self.local_manager.start(resource_dir, model_id).await
+        self.local_manager
+            .start(app_handle.clone(), model_id, backend)
+            .await
+    }
+
+    pub fn cancel_local_runtime_preparation(&self) -> bool {
+        self.local_manager.runtime.cancel()
+    }
+
+    pub fn shutdown_local_runtime(&self) {
+        self.local_manager.runtime.shutdown();
     }
 
     pub async fn stop_local_runtime(&self) -> Result<(), String> {
@@ -455,18 +470,28 @@ impl GooseService {
         // Ollama daemons configured for the other providers.
         if cfg.active_provider == "local" {
             let Some(model_id) = cfg.local_model_id.clone() else {
-                self.clear_cancellation(&session_id);
+                self.clear_cancellation(&session_id, &cancel_flag);
                 return Err(
                     "Choose or download a local GGUF model in AI settings first.".to_string(),
                 );
             };
-            let runtime = match self.start_local_runtime(&app_handle, &model_id).await {
+            let preparation = self.start_local_runtime(&app_handle, &model_id, None);
+            let result = tokio::select! {
+                biased;
+                _ = super::runtime::wait_cancel(cancel_flag.clone()) => Err("Message cancelled.".to_string()),
+                result = preparation => result,
+            };
+            let runtime = match result {
                 Ok(runtime) => runtime,
                 Err(error) => {
-                    self.clear_cancellation(&session_id);
+                    self.clear_cancellation(&session_id, &cancel_flag);
                     return Err(error);
                 }
             };
+            if cancel_flag.load(Ordering::SeqCst) {
+                self.clear_cancellation(&session_id, &cancel_flag);
+                return Err("Message cancelled.".to_string());
+            }
             cfg.base_url = runtime.base_url.ok_or_else(|| {
                 "The local inference server did not report an endpoint.".to_string()
             })?;
@@ -480,10 +505,10 @@ impl GooseService {
                     cfg,
                     session_id.clone(),
                     message_id,
-                    cancel_flag,
+                    cancel_flag.clone(),
                 )
                 .await;
-            self.clear_cancellation(&session_id);
+            self.clear_cancellation(&session_id, &cancel_flag);
             return result;
         }
         let active_port = self.process_manager.get_active_port().await;
@@ -512,10 +537,10 @@ impl GooseService {
                             response,
                             session_id.clone(),
                             message_id,
-                            cancel_flag,
+                            cancel_flag.clone(),
                         )
                         .await;
-                    self.clear_cancellation(&session_id);
+                    self.clear_cancellation(&session_id, &cancel_flag);
                     return res;
                 }
                 _ => {
@@ -532,10 +557,10 @@ impl GooseService {
                 cfg,
                 session_id.clone(),
                 message_id,
-                cancel_flag,
+                cancel_flag.clone(),
             )
             .await;
-        self.clear_cancellation(&session_id);
+        self.clear_cancellation(&session_id, &cancel_flag);
         res
     }
 

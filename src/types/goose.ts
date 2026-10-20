@@ -89,13 +89,26 @@ export interface LocalModel {
   is_recommended: boolean;
 }
 
+export type LocalRuntimeBackend = "cuda" | "vulkan" | "cpu";
+export type LocalRuntimePhase = "idle" | "detecting" | "downloading" | "verifying" | "installing" | "starting" | "running" | "failed" | "cancelled";
+
+export interface LocalRuntimeBackendOption {
+  backend: LocalRuntimeBackend;
+  download_bytes: number;
+  is_cached: boolean;
+}
+
 export interface LocalRuntimeStatus {
   is_running: boolean;
-  backend: "cuda" | "vulkan" | "cpu" | null;
+  backend: LocalRuntimeBackend | null;
   port: number | null;
   model_id: string | null;
   base_url: string | null;
   error: string | null;
+  phase: LocalRuntimePhase;
+  downloaded_bytes: number;
+  total_bytes: number;
+  available_backends: LocalRuntimeBackendOption[];
 }
 
 export interface LocalModelDownloadProgress {

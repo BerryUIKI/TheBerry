@@ -116,12 +116,18 @@ pub async fn get_local_runtime_status(
 pub async fn start_local_runtime(
     app: AppHandle,
     model_id: String,
+    backend: Option<String>,
     app_state: State<'_, AppState>,
 ) -> Result<super::local::LocalRuntimeStatus, String> {
     app_state
         .goose_service
-        .start_local_runtime(&app, &model_id)
+        .start_local_runtime(&app, &model_id, backend)
         .await
+}
+
+#[tauri::command]
+pub fn cancel_local_runtime_preparation(app_state: State<'_, AppState>) -> bool {
+    app_state.goose_service.cancel_local_runtime_preparation()
 }
 
 #[tauri::command]
