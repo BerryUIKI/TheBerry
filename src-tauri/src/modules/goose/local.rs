@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -11,8 +10,6 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{AppHandle, Emitter};
-use tokio::process::{Child, Command};
-use tokio::sync::Mutex as AsyncMutex;
 use uuid::Uuid;
 
 const QWEN_REVISION: &str = "7fb011e9aee6e4dc7adf8430df9ea8de6a466aa3";
@@ -37,15 +34,8 @@ pub struct LocalModel {
     pub is_recommended: bool,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct LocalRuntimeStatus {
-    pub is_running: bool,
-    pub backend: Option<String>,
-    pub port: Option<u16>,
-    pub model_id: Option<String>,
-    pub base_url: Option<String>,
-    pub error: Option<String>,
-}
+pub use super::runtime::LocalRuntimeStatus;
+use super::runtime::RuntimeManager;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LocalModelDownloadProgress {
@@ -100,15 +90,9 @@ const CATALOG: &[CatalogEntry] = &[CatalogEntry {
     sha256: QWEN_SHA256,
 }];
 
-#[derive(Default)]
-struct RuntimeState {
-    child: Option<Child>,
-    status: LocalRuntimeStatus,
-}
-
 pub struct LocalInferenceManager {
     data_dir: parking_lot::RwLock<PathBuf>,
-    runtime: AsyncMutex<RuntimeState>,
+    pub runtime: Arc<RuntimeManager>,
     downloads: Mutex<HashMap<String, Arc<AtomicBool>>>,
     http_client: reqwest::Client,
 }
@@ -116,8 +100,8 @@ pub struct LocalInferenceManager {
 impl LocalInferenceManager {
     pub fn new(data_dir: PathBuf) -> Self {
         Self {
-            data_dir: parking_lot::RwLock::new(data_dir),
-            runtime: AsyncMutex::new(RuntimeState::default()),
+            data_dir: parking_lot::RwLock::new(data_dir.clone()),
+            runtime: RuntimeManager::new(data_dir.clone()),
             downloads: Mutex::new(HashMap::new()),
             http_client: reqwest::Client::builder()
                 .connect_timeout(Duration::from_secs(30))
@@ -127,6 +111,7 @@ impl LocalInferenceManager {
     }
 
     pub fn set_data_dir(&self, data_dir: PathBuf) {
+        self.runtime.set_data_dir(data_dir.clone());
         *self.data_dir.write() = data_dir;
     }
 
@@ -488,14 +473,9 @@ impl LocalInferenceManager {
     }
 
     pub async fn remove_model(&self, model_id: &str) -> Result<(), String> {
-        let mut runtime = self.runtime.lock().await;
-        if runtime.status.model_id.as_deref() == Some(model_id) {
-            if let Some(mut child) = runtime.child.take() {
-                let _ = child.kill().await;
-            }
-            runtime.status = LocalRuntimeStatus::default();
+        if self.runtime.status().model_id.as_deref() == Some(model_id) {
+            self.runtime.stop().await?;
         }
-        drop(runtime);
 
         let mut records = self.read_records()?;
         let record = records
@@ -516,8 +496,9 @@ impl LocalInferenceManager {
 
     pub async fn start(
         &self,
-        resource_dir: Option<PathBuf>,
+        app: AppHandle,
         model_id: &str,
+        backend: Option<String>,
     ) -> Result<LocalRuntimeStatus, String> {
         if !cfg!(all(target_os = "windows", target_arch = "x86_64")) {
             return Err(
@@ -531,166 +512,26 @@ impl LocalInferenceManager {
                 "The selected GGUF file is missing. Import or download it again.".to_string(),
             );
         }
-        let expected_hash = record.sha256.clone();
-        let checked_path = model_path.clone();
-        let actual_hash = tokio::task::spawn_blocking(move || sha256_file(&checked_path))
-            .await
-            .map_err(|e| format!("Model verification worker failed: {e}"))??;
-        if actual_hash != expected_hash {
-            return Err("The selected model failed SHA-256 verification. Remove it and import or download it again.".to_string());
-        }
         verify_gguf_header(&model_path)?;
 
-        let mut runtime = self.runtime.lock().await;
-        if runtime.status.is_running && runtime.status.model_id.as_deref() == Some(model_id) {
-            if let Some(child) = runtime.child.as_mut() {
-                if child.try_wait().ok().flatten().is_none() {
-                    return Ok(runtime.status.clone());
-                }
-            }
-        }
-        if let Some(mut child) = runtime.child.take() {
-            let _ = child.kill().await;
-        }
-        runtime.status = LocalRuntimeStatus::default();
-
-        let root = locate_runtime_root(resource_dir.as_deref());
-        let Some(root) = root else {
-            return Err("The bundled llama.cpp runtime is missing. Reinstall TheBerry or build with the managed runtime resources.".to_string());
-        };
-        let port =
-            crate::modules::goose::process::GooseProcessManager::find_available_port(8000, 8999)
-                .ok_or_else(|| "No available local inference port could be found.".to_string())?;
-        let mut failures = Vec::new();
-
-        for backend in ["cuda", "vulkan", "cpu"] {
-            let backend_dir = root.join(backend);
-            let binary = backend_dir.join("llama-server.exe");
-            if !binary.is_file() {
-                failures.push(format!("{backend}: binary not bundled"));
-                continue;
-            }
-            let mut command = Command::new(&binary);
-            command
-                .current_dir(&backend_dir)
-                .arg("--model")
-                .arg(&model_path)
-                .arg("--host")
-                .arg("127.0.0.1")
-                .arg("--port")
-                .arg(port.to_string())
-                .arg("--ctx-size")
-                .arg("4096")
-                .arg("--jinja")
-                .arg("--alias")
-                .arg(&record.id)
-                .arg("--n-gpu-layers")
-                .arg(if backend == "cpu" { "0" } else { "999" })
-                .stdout(Stdio::null())
-                .stderr(Stdio::null());
-            #[cfg(target_os = "windows")]
-            command.creation_flags(0x08000000);
-
-            let mut child = match command.spawn() {
-                Ok(child) => child,
-                Err(error) => {
-                    failures.push(format!("{backend}: {error}"));
-                    continue;
-                }
-            };
-            let health_url = format!("http://127.0.0.1:{port}/health");
-            let health_client = reqwest::Client::new();
-            let started_at = tokio::time::Instant::now();
-            let mut healthy = false;
-            while started_at.elapsed() < Duration::from_secs(75) {
-                if child.try_wait().ok().flatten().is_some() {
-                    break;
-                }
-                if health_client
-                    .get(&health_url)
-                    .send()
-                    .await
-                    .is_ok_and(|response| response.status().is_success())
-                {
-                    healthy = true;
-                    break;
-                }
-                tokio::time::sleep(Duration::from_millis(350)).await;
-            }
-            if healthy {
-                runtime.status = LocalRuntimeStatus {
-                    is_running: true,
-                    backend: Some(backend.to_string()),
-                    port: Some(port),
-                    model_id: Some(record.id.clone()),
-                    base_url: Some(format!("http://127.0.0.1:{port}/v1")),
-                    error: None,
-                };
-                runtime.child = Some(child);
-                return Ok(runtime.status.clone());
-            }
-            let _ = child.kill().await;
-            failures.push(format!("{backend}: server did not become healthy"));
-        }
-        let error = format!(
-            "Could not start llama.cpp with any backend. {}",
-            failures.join("; ")
-        );
-        runtime.status.error = Some(error.clone());
-        Err(error)
+        self.runtime
+            .start(
+                app,
+                model_id.to_string(),
+                model_path,
+                record.sha256,
+                backend,
+            )
+            .await
     }
 
     pub async fn status(&self) -> LocalRuntimeStatus {
-        let mut runtime = self.runtime.lock().await;
-        let running = runtime
-            .child
-            .as_mut()
-            .is_some_and(|child| child.try_wait().ok().flatten().is_none());
-        if !running {
-            runtime.child = None;
-            runtime.status = LocalRuntimeStatus::default();
-        }
-        runtime.status.clone()
+        self.runtime.status()
     }
 
     pub async fn stop(&self) -> Result<(), String> {
-        let mut runtime = self.runtime.lock().await;
-        if let Some(mut child) = runtime.child.take() {
-            child
-                .kill()
-                .await
-                .map_err(|e| format!("Could not stop llama.cpp: {e}"))?;
-        }
-        runtime.status = LocalRuntimeStatus::default();
-        Ok(())
+        self.runtime.stop().await
     }
-}
-
-impl Drop for LocalInferenceManager {
-    fn drop(&mut self) {
-        if let Ok(mut runtime) = self.runtime.try_lock() {
-            if let Some(child) = runtime.child.as_mut() {
-                let _ = child.start_kill();
-            }
-        }
-    }
-}
-
-fn locate_runtime_root(resource_dir: Option<&Path>) -> Option<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Some(resource_dir) = resource_dir {
-        candidates.push(resource_dir.join("resources").join("llama"));
-        candidates.push(resource_dir.join("llama"));
-    }
-    if let Ok(current_dir) = std::env::current_dir() {
-        candidates.push(
-            current_dir
-                .join("src-tauri")
-                .join("resources")
-                .join("llama"),
-        );
-    }
-    candidates.into_iter().find(|path| path.is_dir())
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {

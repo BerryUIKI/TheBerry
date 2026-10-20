@@ -63,6 +63,7 @@ impl AppState {
     }
 
     pub fn trigger_shutdown(&self) {
+        self.goose_service.shutdown_local_runtime();
         self.shutdown_flag
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let _ = self.shutdown_tx.send(true);

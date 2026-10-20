@@ -1,3 +1,4 @@
+import { LocalRuntimePanel } from "./LocalRuntimePanel";
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
@@ -5,16 +6,13 @@ import { useToast } from "../../context/ToastContext";
 import {
   cancelLocalModelDownload,
   downloadLocalModel,
-  getLocalRuntimeStatus,
   importLocalModel,
   listLocalModels,
   onLocalModelDownloadProgress,
   removeLocalModel,
-  startLocalRuntime,
-  stopLocalRuntime,
 } from "../../services/goose";
-import { LocalModel, LocalModelDownloadProgress, LocalRuntimeStatus } from "../../types/goose";
-import { Check, Download, ExternalLink, FileUp, Play, RefreshCw, Server, Square, Trash2 } from "lucide-solid";
+import { LocalModel, LocalModelDownloadProgress } from "../../types/goose";
+import { Check, Download, ExternalLink, FileUp, RefreshCw, Server, Trash2 } from "lucide-solid";
 
 interface Props {
   selectedModelId?: string | null;
@@ -36,11 +34,9 @@ export function LocalModelManager(props: Props) {
   const { t } = useI18n();
   const { success, error } = useToast();
   const [models, setModels] = createSignal<LocalModel[]>([]);
-  const [runtime, setRuntime] = createSignal<LocalRuntimeStatus | null>(null);
   const [downloadProgress, setDownloadProgress] = createSignal<LocalModelDownloadProgress | null>(null);
   const [downloadBusy, setDownloadBusy] = createSignal(false);
   const [cancelRequested, setCancelRequested] = createSignal(false);
-  const [runtimeBusy, setRuntimeBusy] = createSignal(false);
   const [importBusy, setImportBusy] = createSignal(false);
   const [loadError, setLoadError] = createSignal("");
   let unlisten: (() => void) | undefined;
@@ -48,10 +44,9 @@ export function LocalModelManager(props: Props) {
 
   const refresh = async () => {
     try {
-      const [nextModels, nextRuntime] = await Promise.all([listLocalModels(), getLocalRuntimeStatus()]);
+      const nextModels = await listLocalModels();
       if (!disposed) {
         setModels(nextModels);
-        setRuntime(nextRuntime);
         setLoadError("");
       }
     } catch (e: any) {
@@ -129,36 +124,6 @@ export function LocalModelManager(props: Props) {
       error(t("ai.local_import_failed"), e?.message || String(e));
     } finally {
       setImportBusy(false);
-    }
-  };
-
-  const handleStart = async () => {
-    const model = models().find((candidate) => candidate.id === props.selectedModelId && candidate.is_installed);
-    if (!model) {
-      error(t("ai.local_model_not_installed"), t("ai.local_select_installed"));
-      return;
-    }
-    setRuntimeBusy(true);
-    try {
-      const next = await startLocalRuntime(model.id);
-      setRuntime(next);
-      success(t("ai.local_runtime_started"), `${model.name} · ${next.backend?.toUpperCase() || ""}`);
-    } catch (e: any) {
-      error(t("ai.local_runtime_failed"), e?.message || String(e));
-    } finally {
-      setRuntimeBusy(false);
-    }
-  };
-
-  const handleStop = async () => {
-    setRuntimeBusy(true);
-    try {
-      await stopLocalRuntime();
-      await refresh();
-    } catch (e: any) {
-      error(t("ai.local_runtime_failed"), e?.message || String(e));
-    } finally {
-      setRuntimeBusy(false);
     }
   };
 
@@ -285,28 +250,7 @@ export function LocalModelManager(props: Props) {
         </For>
       </div>
 
-      <div class="rounded-lg border border-border p-2.5 flex items-center justify-between gap-3">
-        <div>
-          <p class="text-[10px] font-semibold text-foreground">{t("ai.local_runtime_status")}</p>
-          <p class="text-[9px] text-muted-foreground">
-            {runtime()?.is_running
-              ? `${t("ai.local_running")}: ${runtime()?.backend?.toUpperCase()} · 127.0.0.1:${runtime()?.port}`
-              : t("ai.local_stopped")}
-          </p>
-        </div>
-        <Show when={runtime()?.is_running} fallback={
-          <button type="button" onClick={handleStart} disabled={runtimeBusy()} class="px-2.5 py-1 rounded-md bg-primary text-primary-foreground text-[10px] flex items-center gap-1 disabled:opacity-50">
-            <Play size={10} />{runtimeBusy() ? t("ai.local_starting") : t("ai.local_start")}
-          </button>
-        }>
-          <button type="button" onClick={handleStop} disabled={runtimeBusy()} class="px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-destructive text-[10px] flex items-center gap-1 disabled:opacity-50">
-            <Square size={10} />{runtimeBusy() ? t("ai.local_stopping") : t("ai.local_stop")}
-          </button>
-        </Show>
-      </div>
-      <Show when={runtime()?.error}>
-        <p class="text-[9px] text-destructive">{runtime()?.error}</p>
-      </Show>
+      <LocalRuntimePanel modelId={props.selectedModelId} />
       <p class="text-[9px] text-muted-foreground">{t("ai.local_resume_info")}</p>
     </section>
   );
