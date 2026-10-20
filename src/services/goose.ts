@@ -1,5 +1,5 @@
 import { safeInvoke } from "./tauri";
-import { GooseStatus, GooseStreamChunk, SendGooseMessagePayload, LocalModel, LocalRuntimeStatus, LocalModelDownloadProgress } from "../types/goose";
+import { GooseStatus, GooseStreamChunk, SendGooseMessagePayload, LocalModel, LocalRuntimeStatus, LocalModelDownloadProgress, LocalRuntimeBackend } from "../types/goose";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 
 export async function getGooseStatus(): Promise<GooseStatus> {
@@ -74,8 +74,8 @@ export async function getLocalRuntimeStatus(): Promise<LocalRuntimeStatus> {
   return safeInvoke<LocalRuntimeStatus>("get_local_runtime_status");
 }
 
-export async function startLocalRuntime(modelId: string): Promise<LocalRuntimeStatus> {
-  return safeInvoke<LocalRuntimeStatus>("start_local_runtime", { modelId });
+export async function startLocalRuntime(modelId: string, backend?: LocalRuntimeBackend): Promise<LocalRuntimeStatus> {
+  return safeInvoke<LocalRuntimeStatus>("start_local_runtime", { modelId, backend: backend ?? null });
 }
 
 export async function stopLocalRuntime(): Promise<void> {
@@ -105,3 +105,11 @@ export async function onLocalModelDownloadProgress(
 }
 
 
+
+export async function cancelLocalRuntimePreparation(): Promise<boolean> {
+  return safeInvoke<boolean>("cancel_local_runtime_preparation");
+}
+
+export async function onLocalRuntimeProgress(callback: (status: LocalRuntimeStatus) => void): Promise<UnlistenFn> {
+  return listen<LocalRuntimeStatus>("goose://local-runtime-progress", (event) => callback(event.payload));
+}

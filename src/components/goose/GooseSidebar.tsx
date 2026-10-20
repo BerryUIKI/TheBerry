@@ -1,3 +1,5 @@
+import { LocalRuntimePanel } from "./LocalRuntimePanel";
+import { isRuntimePreparing, createGenerationWatchdog } from "../../services/localRuntime";
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 import { 
   Sparkles, 
@@ -62,6 +64,8 @@ export function GooseSidebar(props: GooseSidebarProps) {
   });
   const [inputValue, setInputValue] = createSignal("");
   const [isGenerating, setIsGenerating] = createSignal(false);
+  const [runtimePreparing, setRuntimePreparing] = createSignal(false);
+  let requestEpoch = 0;
   const [status, setStatus] = createSignal<GooseStatus | null>(null);
   const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
   const [sessionId, setSessionId] = createSignal("sess_" + Math.random().toString(36).substring(2, 9));
@@ -170,41 +174,29 @@ export function GooseSidebar(props: GooseSidebarProps) {
     messagesEndRef?.scrollIntoView({ behavior: "smooth" });
   };
 
-  let timeoutTimer: any = null;
-  const resetTimeoutWatchdog = () => {
-    clearTimeout(timeoutTimer);
-    if (isGenerating()) {
-      timeoutTimer = setTimeout(async () => {
-        if (isGenerating()) {
-          await abortGooseMessage(sessionId()).catch(() => {});
-          setIsGenerating(false);
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastIdx = updated.length - 1;
-            if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
-              updated[lastIdx] = {
-                ...updated[lastIdx],
-                isStreaming: false,
-                error: t("ai.timeout_error"),
-              };
-            }
-            return updated;
-          });
+  const watchdog = createGenerationWatchdog(
+    () => isGenerating() && !runtimePreparing(),
+    async () => {
+      await abortGooseMessage(sessionId()).catch(() => {});
+      setIsGenerating(false);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const lastIdx = updated.length - 1;
+        if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
+          updated[lastIdx] = { ...updated[lastIdx], isStreaming: false, error: t("ai.timeout_error") };
         }
-      }, 60000);
-    }
-  };
-
-  const clearTimeoutWatchdog = () => {
-    if (timeoutTimer) {
-      clearTimeout(timeoutTimer);
-      timeoutTimer = null;
-    }
-  };
+        return updated;
+      });
+    },
+  );
+  const resetTimeoutWatchdog = watchdog.reset;
+  const clearTimeoutWatchdog = watchdog.clear;
 
   const handleAbort = async () => {
+    requestEpoch++;
     clearTimeoutWatchdog();
     setIsGenerating(false);
+    setMessages(prev => prev.map(message => message.isStreaming ? { ...message, isStreaming: false } : message));
     try {
       await abortGooseMessage(sessionId());
     } catch (err) {
@@ -229,6 +221,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       return;
     }
 
+    const epoch = ++requestEpoch;
     const userMessageId = Date.now().toString();
     const userMessage: GooseChatMessage = {
       id: userMessageId,
@@ -281,6 +274,10 @@ export function GooseSidebar(props: GooseSidebarProps) {
     }
 
     try {
+      if (activeProv === "local") {
+        setRuntimePreparing(true);
+        clearTimeoutWatchdog();
+      }
       await sendGooseMessage({
         session_id: sessionId(),
         prompt,
@@ -288,7 +285,9 @@ export function GooseSidebar(props: GooseSidebarProps) {
         provider: aiConfig()?.active_provider || status()?.active_provider || undefined,
       });
     } catch (err: any) {
+      if (epoch !== requestEpoch) return;
       clearTimeoutWatchdog();
+      setRuntimePreparing(false);
       console.error("Failed to send prompt to AI engine:", err);
       setIsGenerating(false);
       setMessages((prev) => {
@@ -411,6 +410,17 @@ export function GooseSidebar(props: GooseSidebarProps) {
             </button>
           </div>
         </div>
+
+        <Show when={aiConfig()?.active_provider === "local"}>
+          <div class="px-3.5 pt-2 shrink-0">
+            <LocalRuntimePanel modelId={aiConfig()?.local_model_id} onChange={(runtime) => {
+              const wasPreparing = runtimePreparing();
+              setRuntimePreparing(isRuntimePreparing(runtime.phase));
+              if (runtimePreparing()) clearTimeoutWatchdog();
+              else if (wasPreparing) resetTimeoutWatchdog();
+            }} />
+          </div>
+        </Show>
 
         {/* Message List */}
         <div class="flex-1 overflow-y-auto p-3.5 space-y-4">

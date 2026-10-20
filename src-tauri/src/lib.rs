@@ -198,6 +198,7 @@ pub fn run() {
             modules::goose::commands::get_local_runtime_status,
             modules::goose::commands::start_local_runtime,
             modules::goose::commands::stop_local_runtime,
+            modules::goose::commands::cancel_local_runtime_preparation,
             modules::goose::commands::download_local_model,
             modules::goose::commands::cancel_local_model_download,
             modules::goose::commands::import_local_model,

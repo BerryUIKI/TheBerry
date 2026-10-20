@@ -388,6 +388,14 @@ interface LocalRuntimeStatus {
   model_id: string | null;
   base_url: string | null;
   error: string | null;
+  phase: "idle" | "detecting" | "downloading" | "verifying" | "installing" | "starting" | "running" | "failed" | "cancelled";
+  downloaded_bytes: number;
+  total_bytes: number;
+  available_backends: Array<{
+    backend: "cuda" | "vulkan" | "cpu";
+    download_bytes: number;
+    is_cached: boolean;
+  }>;
 }
 ```
 
@@ -402,8 +410,9 @@ interface LocalRuntimeStatus {
 - `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
 - `list_local_models()`: `Promise<LocalModel[]>`
 - `get_local_runtime_status()`: `Promise<LocalRuntimeStatus>`
-- `start_local_runtime(modelId: string)`: `Promise<LocalRuntimeStatus>`
+- `start_local_runtime(modelId: string, backend?: "cuda" | "vulkan" | "cpu")`: `Promise<LocalRuntimeStatus>`; omitted backend uses hardware detection and any successful saved choice.
 - `stop_local_runtime()`: `Promise<void>`
+- `cancel_local_runtime_preparation()`: `Promise<boolean>`; cancels the shared preparation task and retains resumable downloads.
 - `download_local_model(modelId: string)`: `Promise<void>`
 - `cancel_local_model_download(modelId: string)`: `Promise<boolean>`
 - `import_local_model(path: string)`: `Promise<LocalModel>`
@@ -413,6 +422,7 @@ interface LocalRuntimeStatus {
 - `goose-stream-chunk`: Emitted continuously as new tokens arrive from the local Goose SSE stream.
 - `goose-status-change`: Emitted when the Goose daemon state changes.
 - `goose://local-model-download`: Emitted with byte progress, completion, or pause state while a catalog model downloads.
+- `goose://local-runtime-progress`: Emitted with `LocalRuntimeStatus` during runtime detection, download, verification, installation, startup, and completion/failure. Status reads restore the latest state without starting downloads. Failed GPU startup requires an explicit retry or backend choice.
 
 ---
 

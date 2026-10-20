@@ -1,6 +1,6 @@
 [package]
 name = "the-berry"
-version = "0.1.15"
+version = "0.1.16"
 description = "TheBerry - Personal Desktop Utilities Suite"
 authors = ["BerryUIKI"]
 edition = "2021"
@@ -47,12 +47,17 @@ sha2 = "0.10"
 trash = "5.2"
 notify = "6.1"
 filetime = "0.2"
+zip = { version = "2.6.1", default-features = false, features = ["deflate-flate2", "flate2"] }
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 
 [dev-dependencies]
 tempfile = "3.17"
+tokio = { version = "1", features = ["test-util"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2.5.2"
 
 [target."cfg(windows)".dependencies]
+libloading = "0.7.4"
+ash = { version = "0.38", default-features = false, features = ["loaded", "std"] }
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_Com", "Win32_UI_Shell"] }

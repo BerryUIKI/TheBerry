@@ -89,6 +89,7 @@
 - Catalog model downloads resume after pausing and are checked against a pinned SHA-256 before use; users can also import GGUF files.
 - Local runtime binds to loopback only. Imported models keep plain chat available and enable tool calls only when support is verified.
 - Model files stay in the selected TheBerry data directory and are not bundled into the installer. See [Managed Local Models](docs/local-models.md) for runtime and model license details.
+- Inference runtimes download on first use for the detected hardware. Installers include no llama.cpp binaries; GPU failures offer an explicit backend choice.
 
 ---
 
