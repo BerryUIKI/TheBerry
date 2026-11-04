@@ -2,12 +2,14 @@
 
 ## Windows installer size
 
-Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14) and [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15).
+Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14), [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15), and [0.1.16 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.16).
 
-| Installer | Published 0.1.14 | Published 0.1.15 | Updated local build (before release version bump) |
+| Installer | Published 0.1.14 | Published 0.1.15 | Published 0.1.16 |
 | --- | ---: | ---: | ---: |
-| Windows EXE | 80.68 MB | 438.48 MB | 80.98 MB |
-| Windows MSI | 110.02 MB | 789.51 MB | 110.51 MB |
+| Windows EXE | 80.68 MB | 438.48 MB | 80.88 MB |
+| Windows MSI | 110.02 MB | 789.51 MB | 110.31 MB |
+
+The pre-release local build (80.98 MB EXE, 110.51 MB MSI) matched the published artifacts. The 0.1.16 release also published the Linux and macOS installers: 90.40 MB AppImage, 10.92 MB deb, and 11.51 MB macOS arm64 dmg.
 
 The MSI database contains 1,324 payload files, including `QuickLook.exe`, and no llama.cpp, ggml, cuBLAS, or CUDA runtime files. The generated NSIS file list also excludes AI runtimes. Shared configuration has no resource bundle; the Windows override contains only QuickLook. An automated configuration test protects these platform boundaries.
 
@@ -41,4 +43,4 @@ Set `THEBERRY_TEST_RUNTIME_BACKEND` to `cuda` or `vulkan` to test those backends
 
 TypeScript checking reports 132 existing diagnostics in both unchanged HEAD and the modified sources. Comparing diagnostic locations and codes found no new errors; expanded translation-key union lengths were normalized during comparison. The temporary baseline source copy was removed after checking.
 
-macOS and Linux installers were not built on this Windows host. Platform resource configuration is covered by automated tests; native package verification remains available through the existing release matrix. The implementation was validated at version 0.1.15 before preparing the 0.1.16 release. Published package sizes must be measured from the release artifacts after the release workflow completes.
+macOS and Linux installers were not built on this Windows host. Platform resource configuration is covered by automated tests; native package verification remains available through the existing release matrix. The implementation was validated at version 0.1.15 before preparing the 0.1.16 release. Published 0.1.16 installer sizes were measured from the release artifacts after the release workflow completed.
