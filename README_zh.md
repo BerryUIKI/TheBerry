@@ -84,6 +84,13 @@
 - 完整数据库与配置项 JSON 备份导出与导入恢复。
 - 交互式快捷键速查备忘单（`?` / `F1`）。
 
+### 11. 🧠 应用托管的离线本地 AI（Windows / macOS / Linux）
+- 内置 `llama.cpp` 运行时，Windows x64 支持 CUDA/Vulkan/CPU，macOS Apple Silicon 支持 Metal/CPU，Linux x64 支持 Vulkan/CPU；无需另装 Ollama 或 API Key。
+- 目录模型下载支持断点续传，并在使用前校验固定的 SHA-256；用户也可导入 GGUF 文件。
+- 本地运行时仅绑定回环地址。导入模型默认提供纯聊天，仅在确认支持时启用工具调用。
+- 模型文件保存在所选 TheBerry 数据目录中，不会打包进安装包。运行时与模型许可详见 [托管本地模型](docs/local-models.md)（英文）。
+- 推理运行时在首次使用时按检测到的硬件下载；安装包不包含 llama.cpp 二进制；GPU 启动失败时提供显式后端选择。
+
 ---
 
 ## 🏗️ 技术架构

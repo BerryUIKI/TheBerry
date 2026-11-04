@@ -114,7 +114,7 @@ export const zh = {
   "ai.ollama_custom_path": "Ollama 可执行文件路径 (留空将自动探测)",
   "ai.local_title": "内置本地模型",
   "ai.local_desc": "使用按需下载的 llama.cpp 服务运行 GGUF 模型。模型文件保存在所选数据目录中。",
-  "ai.local_runtime_notice": "仅支持 Windows x64。首次启动会下载兼容的最佳后端：CUDA、Vulkan 或 CPU。启动失败后由你选择重试或切换。CUDA 官方包下载量可能超过 650 MB。",
+  "ai.local_runtime_notice": "支持 Windows x64、macOS（Apple Silicon）与 Linux x64。首次启动会下载兼容的最佳后端：Windows/Linux 为 CUDA 或 Vulkan，macOS 为 Metal，并支持 CPU 回退。启动失败后由你选择重试或切换。CUDA 官方包下载量可能超过 650 MB。",
   "ai.local_models": "模型",
   "ai.local_refresh": "刷新本地模型状态",
   "ai.local_recommended": "目录",

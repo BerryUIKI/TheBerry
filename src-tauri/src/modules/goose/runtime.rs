@@ -22,6 +22,29 @@ const EVENT: &str = "goose://local-runtime-progress";
 const CANCELLED: &str = "Runtime preparation cancelled. Select Start to resume.";
 const RELEASE: &str = "https://github.com/ggml-org/llama.cpp/releases/download/b11425";
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+const PLATFORM_KEY: &str = "windows-x64";
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const PLATFORM_KEY: &str = "macos-arm64";
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const PLATFORM_KEY: &str = "linux-x64";
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "linux", target_arch = "x86_64")
+)))]
+const PLATFORM_KEY: &str = "unsupported";
+
+pub(super) const SUPPORTED_PLATFORMS: &str = "Windows x64, macOS Apple Silicon, and Linux x64";
+
+pub(super) fn is_supported() -> bool {
+    cfg!(any(
+        all(windows, target_arch = "x86_64"),
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "linux", target_arch = "x86_64")
+    ))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendOption {
     pub backend: String,
@@ -43,39 +66,129 @@ pub struct LocalRuntimeStatus {
     pub available_backends: Vec<BackendOption>,
 }
 
+#[allow(dead_code)]
+#[derive(Clone, Copy)]
+enum Format {
+    Zip,
+    TarGz,
+}
+
 #[derive(Clone, Copy)]
 struct Archive {
     name: &'static str,
     bytes: u64,
     sha256: &'static str,
+    format: Format,
 }
 
+#[cfg(all(windows, target_arch = "x86_64"))]
 const CPU: Archive = Archive {
     name: "llama-b11425-bin-win-cpu-x64.zip",
     bytes: 19_395_596,
     sha256: "61ad965cd5e17f5026a05b7258d346cb309e7752490c7e11fbedf332e2040db5",
+    format: Format::Zip,
 };
+#[cfg(all(windows, target_arch = "x86_64"))]
 const VULKAN: Archive = Archive {
     name: "llama-b11425-bin-win-vulkan-x64.zip",
     bytes: 33_331_682,
     sha256: "a3287ac487ab5d128aefddc507db31c087f2a41c6e03b01f37fbe0bc45e8717d",
+    format: Format::Zip,
 };
+#[cfg(all(windows, target_arch = "x86_64"))]
 const CUDA: Archive = Archive {
     name: "llama-b11425-bin-win-cuda-12.4-x64.zip",
     bytes: 264_468_885,
     sha256: "0d2984647bb9864d8f5a28495605c68f27824e5faf8ad99768fc8b7597745698",
+    format: Format::Zip,
 };
+#[cfg(all(windows, target_arch = "x86_64"))]
 const CUDART: Archive = Archive {
     name: "cudart-llama-bin-win-cuda-12.4-x64.zip",
     bytes: 391_443_627,
     sha256: "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6",
+    format: Format::Zip,
 };
 
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+const MACOS_ARM64: Archive = Archive {
+    name: "llama-b11425-bin-macos-arm64.tar.gz",
+    bytes: 11_966_456,
+    sha256: "14811f683abf2f32c62df48fcc36dbe4f0da307094080095eebb2b3906e705e4",
+    format: Format::TarGz,
+};
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const LINUX_CPU: Archive = Archive {
+    name: "llama-b11425-bin-ubuntu-x64.tar.gz",
+    bytes: 17_682_320,
+    sha256: "6a47856d08ecc4030b2fa8b8bf761c96d142d689567f69a0f75e42de430dc34c",
+    format: Format::TarGz,
+};
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+const LINUX_VULKAN: Archive = Archive {
+    name: "llama-b11425-bin-ubuntu-vulkan-x64.tar.gz",
+    bytes: 31_625_057,
+    sha256: "5507e7e8b111874a72c3906bb662227a1735ef60c6a5b20e2ffd5287304fb9ea",
+    format: Format::TarGz,
+};
+
+#[cfg(all(windows, target_arch = "x86_64"))]
 fn archives(backend: &str) -> &'static [Archive] {
     match backend {
         "cuda" => &[CUDA, CUDART],
         "vulkan" => &[VULKAN],
         _ => &[CPU],
+    }
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn archives(backend: &str) -> &'static [Archive] {
+    match backend {
+        "metal" | "cpu" => &[MACOS_ARM64],
+        _ => &[],
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn archives(backend: &str) -> &'static [Archive] {
+    match backend {
+        "vulkan" => &[LINUX_VULKAN],
+        "cpu" => &[LINUX_CPU],
+        _ => &[],
+    }
+}
+
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "linux", target_arch = "x86_64")
+)))]
+fn archives(_backend: &str) -> &'static [Archive] {
+    &[]
+}
+
+/// macOS runs Metal and CPU from the same archive, so both backends share one cache.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn install_key(backend: &str) -> &str {
+    if backend == "metal" || backend == "cpu" {
+        "metal"
+    } else {
+        backend
+    }
+}
+
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn install_key(backend: &str) -> &str {
+    backend
+}
+
+fn mark_cached(options: &mut [BackendOption], backend: &str) {
+    let key = install_key(backend);
+    for option in options {
+        if install_key(&option.backend) == key {
+            option.is_cached = true;
+        }
     }
 }
 
@@ -144,7 +257,7 @@ impl RuntimeManager {
             .read()
             .join("local-runtimes/llama")
             .join(VERSION)
-            .join("windows-x64")
+            .join(PLATFORM_KEY)
     }
 
     fn update(&self, change: impl FnOnce(&mut LocalRuntimeStatus)) {
@@ -236,8 +349,10 @@ impl RuntimeManager {
         model_hash: String,
         backend: Option<String>,
     ) -> StartResult {
-        if !cfg!(all(windows, target_arch = "x86_64")) {
-            return Err("The managed local provider is currently supported on Windows x64.".into());
+        if !is_supported() {
+            return Err(format!(
+                "The managed local provider is supported on {SUPPORTED_PLATFORMS}."
+            ));
         }
         let requested_model = model_id.clone();
         let requested_backend = backend.clone();
@@ -361,7 +476,7 @@ impl RuntimeManager {
             .map(|b| BackendOption {
                 backend: (*b).into(),
                 download_bytes: archives(b).iter().map(|a| a.bytes).sum(),
-                is_cached: installed(&root.join(b), b),
+                is_cached: installed(&root.join(install_key(b)), install_key(b)),
             })
             .collect();
         self.update(|s| s.available_backends = options);
@@ -385,13 +500,7 @@ impl RuntimeManager {
         check_cancel(&cancel)?;
         self.update(|s| {
             s.phase = "starting".into();
-            if let Some(option) = s
-                .available_backends
-                .iter_mut()
-                .find(|o| o.backend == backend)
-            {
-                option.is_cached = true;
-            }
+            mark_cached(&mut s.available_backends, &backend);
         });
         let port = super::process::GooseProcessManager::find_available_port(8000, 8999)
             .ok_or("No available local inference port could be found.")?;
@@ -456,13 +565,7 @@ impl RuntimeManager {
                     s.port = Some(port);
                     s.base_url = Some(format!("http://127.0.0.1:{port}/v1"));
                     s.error = None;
-                    if let Some(option) = s
-                        .available_backends
-                        .iter_mut()
-                        .find(|o| o.backend == backend)
-                    {
-                        option.is_cached = true;
-                    }
+                    mark_cached(&mut s.available_backends, &backend);
                 });
                 return Ok(self.status());
             }
@@ -478,14 +581,15 @@ impl RuntimeManager {
         backend: &str,
         cancel: Arc<AtomicBool>,
     ) -> Result<PathBuf, String> {
-        let destination = root.join(backend);
-        if installed(&destination, backend) {
+        let key = install_key(backend);
+        let destination = root.join(key);
+        if installed(&destination, key) {
             return Ok(destination);
         }
         let downloads = root.join("downloads");
         fs::create_dir_all(&downloads)
             .map_err(|e| format!("Could not create runtime cache: {e}"))?;
-        let stage = root.join(format!(".{backend}-staging"));
+        let stage = root.join(format!(".{key}-staging"));
         if stage.exists() {
             fs::remove_dir_all(&stage).map_err(|e| e.to_string())?;
         }
@@ -511,7 +615,7 @@ impl RuntimeManager {
             }
             fs::write(stage.join("LICENSE.llama.cpp"), include_str!("runtime_license.txt")).map_err(|e| e.to_string())?;
             let files = fs::read_dir(&stage).map_err(|e| e.to_string())?.map(|entry| entry.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
-            let marker = Installed { version: VERSION.into(), backend: backend.into(), files };
+            let marker = Installed { version: VERSION.into(), backend: key.into(), files };
             fs::write(stage.join("installed.json"), serde_json::to_vec(&marker).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
             check_cancel(&cancel)?;
             self.update(|s| s.phase = "installing".into());
@@ -556,15 +660,19 @@ impl RuntimeManager {
             self.update(|s| s.phase = "installing".into());
             let stage = stage.to_owned();
             let extract_cancel = cancel.clone();
+            #[cfg(all(windows, target_arch = "x86_64"))]
             let dependency = archive.name == CUDART.name;
+            #[cfg(not(all(windows, target_arch = "x86_64")))]
+            let dependency = false;
+            let format = archive.format;
             tokio::task::spawn_blocking(move || {
-                extract_runtime(&path, &stage, dependency, &extract_cancel)
+                extract_runtime(&path, format, &stage, dependency, &extract_cancel)
             })
             .await
             .map_err(|e| e.to_string())??;
             completed += archive.bytes;
         }
-        check_required_files(stage, backend)
+        check_required_files(stage, install_key(backend))
     }
 }
 
@@ -676,6 +784,21 @@ fn installed(directory: &Path, backend: &str) -> bool {
 }
 
 fn check_required_files(directory: &Path, backend: &str) -> Result<(), String> {
+    for file in required_files(backend) {
+        if !directory.join(file).is_file() {
+            return Err(format!(
+                "Runtime is missing required file {file}. Retry the runtime installation."
+            ));
+        }
+    }
+    if !has_cpu_library(directory) {
+        return Err("Runtime is missing its CPU library. Retry the runtime installation.".into());
+    }
+    Ok(())
+}
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn required_files(backend: &str) -> Vec<&'static str> {
     let mut required = vec![
         "llama-server.exe",
         "llama-server-impl.dll",
@@ -683,7 +806,6 @@ fn check_required_files(directory: &Path, backend: &str) -> Result<(), String> {
         "llama.dll",
         "ggml.dll",
         "ggml-base.dll",
-        "ggml-cpu.dll",
     ];
     if backend == "cuda" {
         required.extend([
@@ -696,28 +818,100 @@ fn check_required_files(directory: &Path, backend: &str) -> Result<(), String> {
     if backend == "vulkan" {
         required.push("ggml-vulkan.dll");
     }
-    // CPU distributions may use multiple architecture-specific ggml-cpu DLLs.
-    let cpu = fs::read_dir(directory).ok().is_some_and(|entries| {
+    required
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn required_files(backend: &str) -> Vec<&'static str> {
+    let mut required = vec![
+        "llama-server",
+        "libllama-server-impl.dylib",
+        "libllama.dylib",
+        "libllama-common.dylib",
+        "libggml.dylib",
+        "libggml-base.dylib",
+        "libggml-cpu.dylib",
+    ];
+    if backend == "metal" {
+        required.push("libggml-metal.dylib");
+    }
+    required
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn required_files(backend: &str) -> Vec<&'static str> {
+    let mut required = vec![
+        "llama-server",
+        "libllama-server-impl.so",
+        "libllama.so",
+        "libllama-common.so",
+        "libggml.so",
+        "libggml-base.so",
+    ];
+    if backend == "vulkan" {
+        required.push("libggml-vulkan.so");
+    }
+    required
+}
+
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "linux", target_arch = "x86_64")
+)))]
+fn required_files(_backend: &str) -> Vec<&'static str> {
+    Vec::new()
+}
+
+// CPU distributions ship architecture-specific library variants instead of one
+// canonical file, so the check accepts any matching variant.
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn has_cpu_library(directory: &Path) -> bool {
+    fs::read_dir(directory).ok().is_some_and(|entries| {
         entries.filter_map(Result::ok).any(|e| {
             let name = e.file_name().to_string_lossy().to_ascii_lowercase();
             name.starts_with("ggml-cpu") && name.ends_with(".dll")
         })
-    });
-    for file in required {
-        if file == "ggml-cpu.dll" && cpu {
-            continue;
-        }
-        if !directory.join(file).is_file() {
-            return Err(format!(
-                "Runtime is missing required file {file}. Retry the runtime installation."
-            ));
-        }
+    })
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn has_cpu_library(directory: &Path) -> bool {
+    directory.join("libggml-cpu.dylib").is_file()
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn has_cpu_library(directory: &Path) -> bool {
+    fs::read_dir(directory).ok().is_some_and(|entries| {
+        entries.filter_map(Result::ok).any(|e| {
+            let name = e.file_name().to_string_lossy().to_ascii_lowercase();
+            name.starts_with("libggml-cpu-") && name.ends_with(".so")
+        })
+    })
+}
+
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "linux", target_arch = "x86_64")
+)))]
+fn has_cpu_library(_directory: &Path) -> bool {
+    false
+}
+
+fn server_binary() -> &'static str {
+    #[cfg(windows)]
+    {
+        "llama-server.exe"
     }
-    Ok(())
+    #[cfg(not(windows))]
+    {
+        "llama-server"
+    }
 }
 
 fn server_command(directory: &Path) -> Command {
-    let mut command = Command::new(directory.join("llama-server.exe"));
+    let mut command = Command::new(directory.join(server_binary()));
     command.current_dir(directory).kill_on_drop(true);
     #[cfg(windows)]
     command.creation_flags(0x08000000);
@@ -880,6 +1074,47 @@ async fn download_archive(
 
 fn extract_runtime(
     archive: &Path,
+    format: Format,
+    stage: &Path,
+    dependency: bool,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
+    match format {
+        Format::Zip => extract_zip(archive, stage, dependency, cancel),
+        Format::TarGz => extract_tar_gz(archive, stage, dependency, cancel),
+    }
+}
+
+fn is_notice_name(lower: &str) -> bool {
+    lower.starts_with("license")
+        || lower.starts_with("notice")
+        || lower.starts_with("copying")
+        || lower.starts_with("copyright")
+}
+
+fn is_runtime_file(lower: &str) -> bool {
+    lower == "llama-server"
+        || lower == "llama-server.exe"
+        || lower.ends_with(".dll")
+        || lower.ends_with(".dylib")
+        || lower.ends_with(".so")
+        || lower.contains(".so.")
+        || is_notice_name(lower)
+}
+
+fn notice_target(name: &str, index: usize, dependency: bool) -> String {
+    format!(
+        "{}-{index}-{name}",
+        if dependency {
+            "cuda-notice"
+        } else {
+            "llama-notice"
+        }
+    )
+}
+
+fn extract_zip(
+    archive: &Path,
     stage: &Path,
     dependency: bool,
     cancel: &AtomicBool,
@@ -906,22 +1141,11 @@ fn extract_runtime(
             .and_then(|n| n.to_str())
             .ok_or("Invalid runtime file name.")?;
         let lower = name.to_ascii_lowercase();
-        let notice = lower.starts_with("license")
-            || lower.starts_with("notice")
-            || lower.starts_with("copying")
-            || lower.starts_with("copyright");
-        if lower != "llama-server.exe" && !lower.ends_with(".dll") && !notice {
+        if !is_runtime_file(&lower) {
             continue;
         }
-        let target_name = if notice {
-            format!(
-                "{}-{index}-{name}",
-                if dependency {
-                    "cuda-notice"
-                } else {
-                    "llama-notice"
-                }
-            )
+        let target_name = if is_notice_name(&lower) {
+            notice_target(name, index, dependency)
         } else {
             name.to_owned()
         };
@@ -946,6 +1170,130 @@ fn extract_runtime(
     Ok(())
 }
 
+fn extract_tar_gz(
+    archive: &Path,
+    stage: &Path,
+    dependency: bool,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
+    let file = File::open(archive).map_err(|e| e.to_string())?;
+    let decoder = flate2::read::GzDecoder::new(file);
+    let mut tar = tar::Archive::new(decoder);
+    let mut seen = std::collections::HashSet::new();
+    let entries = tar
+        .entries()
+        .map_err(|e| format!("Invalid runtime archive: {e}"))?;
+    for (index, entry) in entries.enumerate() {
+        check_cancel(cancel)?;
+        let mut entry = entry.map_err(|e| format!("Invalid runtime archive: {e}"))?;
+        let path = entry
+            .path()
+            .map_err(|e| format!("Invalid runtime path: {e}"))?
+            .into_owned();
+        validate_flat_name(&path)?;
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .ok_or("Invalid runtime file name.")?
+            .to_owned();
+        let lower = name.to_ascii_lowercase();
+        let kind = entry.header().entry_type();
+        if kind.is_dir() {
+            continue;
+        }
+        if !is_runtime_file(&lower) {
+            continue;
+        }
+        if kind.is_symlink() {
+            let target = entry
+                .link_name()
+                .map_err(|e| e.to_string())?
+                .ok_or("Invalid runtime symlink.")?
+                .into_owned();
+            validate_symlink_target(&target)?;
+            if !seen.insert(name.clone()) {
+                return Err(format!("Duplicate runtime archived file: {name}"));
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::symlink;
+                let link = stage.join(&name);
+                if link.exists() {
+                    return Err(format!("Duplicate runtime archived file: {name}"));
+                }
+                symlink(&target, &link)
+                    .map_err(|e| format!("Could not install runtime symlink: {e}"))?;
+                continue;
+            }
+            #[cfg(not(unix))]
+            {
+                return Err("Runtime symlinks are not supported on this platform.".into());
+            }
+        }
+        if !kind.is_file() {
+            return Err("Runtime archive contains an unsupported entry type.".into());
+        }
+        let target_name = if is_notice_name(&lower) {
+            notice_target(&name, index, dependency)
+        } else {
+            name.clone()
+        };
+        if !seen.insert(target_name.clone()) {
+            return Err(format!("Duplicate runtime archived file: {name}"));
+        }
+        let target = stage.join(&target_name);
+        let mut output = File::create(&target)
+            .map_err(|e| format!("Could not install runtime file (check disk space): {e}"))?;
+        let mut buffer = vec![0u8; 1024 * 1024];
+        loop {
+            check_cancel(cancel)?;
+            let read = entry.read(&mut buffer).map_err(|e| e.to_string())?;
+            if read == 0 {
+                break;
+            }
+            output
+                .write_all(&buffer[..read])
+                .map_err(|e| format!("Could not install runtime file (check disk space): {e}"))?;
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = entry.header().mode().unwrap_or(0o644) & 0o777;
+            let mode = if mode == 0 { 0o644 } else { mode };
+            fs::set_permissions(&target, fs::Permissions::from_mode(mode))
+                .map_err(|e| format!("Could not set runtime file permissions: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_flat_name(path: &Path) -> Result<(), String> {
+    let text = path.to_string_lossy();
+    if path.is_absolute()
+        || text.contains('\\')
+        || text.contains(':')
+        || path
+            .components()
+            .any(|c| !matches!(c, std::path::Component::Normal(_)))
+    {
+        return Err("Runtime archive contains an unsafe path.".into());
+    }
+    Ok(())
+}
+
+fn validate_symlink_target(target: &Path) -> Result<(), String> {
+    let text = target.to_string_lossy();
+    let mut components = target.components();
+    if !matches!(components.next(), Some(std::path::Component::Normal(_)))
+        || components.next().is_some()
+        || text.contains('\\')
+        || text.contains(':')
+    {
+        return Err("Runtime archive contains an unsafe symlink.".into());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -958,8 +1306,18 @@ mod tests {
         Hardware {
             cuda,
             vulkan,
+            metal: false,
             fingerprint: "test-device-driver".into(),
         }
+    }
+
+    #[test]
+    fn orders_metal_after_discrete_backends_and_before_cpu() {
+        let hw = Hardware {
+            metal: true,
+            ..hardware(false, false)
+        };
+        assert_eq!(hw.backends(), vec!["metal", "cpu"]);
     }
 
     #[test]
@@ -1034,7 +1392,7 @@ mod tests {
                 ("example.cpp", b"source"),
             ],
         );
-        extract_runtime(&zip, &stage, false, &AtomicBool::new(false)).unwrap();
+        extract_runtime(&zip, Format::Zip, &stage, false, &AtomicBool::new(false)).unwrap();
         let names: Vec<_> = fs::read_dir(&stage)
             .unwrap()
             .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
@@ -1060,27 +1418,196 @@ mod tests {
             fs::create_dir(&stage).unwrap();
             write_zip(&zip, &[(names[0], b"bad"), (names[1], b"bad")]);
             assert!(
-                extract_runtime(&zip, &stage, false, &AtomicBool::new(false)).is_err(),
+                extract_runtime(&zip, Format::Zip, &stage, false, &AtomicBool::new(false)).is_err(),
                 "accepted {names:?}"
             );
             assert!(!root.path().join("escape.dll").exists());
         }
     }
 
+    fn write_tar_gz(path: &Path, files: &[(&str, &[u8], u32)], symlinks: &[(&str, &str)]) {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use tar::{Builder, EntryType, Header};
+        let encoder = GzEncoder::new(File::create(path).unwrap(), Compression::default());
+        let mut builder = Builder::new(encoder);
+        for &(name, data, mode) in files {
+            let mut header = Header::new_gnu();
+            header.set_size(data.len() as u64);
+            header.set_mode(mode);
+            header.set_entry_type(EntryType::Regular);
+            builder.append_data(&mut header, name, data).unwrap();
+        }
+        for &(name, target) in symlinks {
+            let mut header = Header::new_gnu();
+            header.set_size(0);
+            header.set_mode(0o777);
+            header.set_entry_type(EntryType::Symlink);
+            header.set_link_name(target).unwrap();
+            builder
+                .append_data(&mut header, name, std::io::empty())
+                .unwrap();
+        }
+        builder.into_inner().unwrap().finish().unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn tar_gz_extraction_keeps_runtime_libraries_symlinks_and_notices() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempdir().unwrap();
+        let tar = root.path().join("runtime.tar.gz");
+        let stage = root.path().join("stage");
+        fs::create_dir(&stage).unwrap();
+        write_tar_gz(
+            &tar,
+            &[
+                ("llama-b11425/llama-server", b"server", 0o755),
+                ("llama-b11425/libllama-server-impl.so", b"impl", 0o755),
+                ("llama-b11425/libllama.so.0.5.0", b"lib", 0o755),
+                ("llama-b11425/libggml-cpu-x64.so", b"cpu", 0o755),
+                ("llama-b11425/LICENSE", b"license", 0o644),
+                ("llama-b11425/llama-bench", b"tool", 0o755),
+                ("llama-b11425/example.cpp", b"source", 0o644),
+            ],
+            &[
+                ("llama-b11425/libllama.so", "libllama.so.0.5.0"),
+                ("llama-b11425/libllama.so.0", "libllama.so.0.5.0"),
+            ],
+        );
+        extract_runtime(&tar, Format::TarGz, &stage, false, &AtomicBool::new(false)).unwrap();
+        assert!(stage.join("llama-server").is_file());
+        assert!(stage.join("libllama-server-impl.so").is_file());
+        assert!(stage.join("libggml-cpu-x64.so").is_file());
+        assert!(!stage.join("llama-bench").exists());
+        assert!(!stage.join("example.cpp").exists());
+        assert_eq!(
+            fs::read_link(stage.join("libllama.so")).unwrap(),
+            PathBuf::from("libllama.so.0.5.0")
+        );
+        let notices = fs::read_dir(&stage)
+            .unwrap()
+            .filter_map(Result::ok)
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.starts_with("llama-notice-"))
+            .count();
+        assert_eq!(notices, 1);
+        assert_ne!(
+            fs::metadata(stage.join("llama-server"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o111,
+            0
+        );
+    }
+
+    #[test]
+    fn rejects_unsafe_archive_paths() {
+        for path in [
+            "../escape.so",
+            "/absolute.so",
+            "a/../../escape.so",
+            "folder\\escape.so",
+            "C:/escape.so",
+        ] {
+            assert!(
+                validate_flat_name(Path::new(path)).is_err(),
+                "accepted {path}"
+            );
+        }
+        for target in [
+            "../escape.so",
+            "/absolute.so",
+            "nested/lib.so",
+            "folder\\lib.so",
+            "C:/lib.so",
+        ] {
+            assert!(
+                validate_symlink_target(Path::new(target)).is_err(),
+                "accepted {target}"
+            );
+        }
+        assert!(validate_flat_name(Path::new("llama-b11425/libllama.so")).is_ok());
+        assert!(validate_symlink_target(Path::new("libllama.so.0.5.0")).is_ok());
+    }
+
+    #[test]
+    fn rejects_duplicate_flattened_tar_names() {
+        let root = tempdir().unwrap();
+        let tar = root.path().join("runtime.tar.gz");
+        let stage = root.path().join("stage");
+        fs::create_dir(&stage).unwrap();
+        write_tar_gz(
+            &tar,
+            &[
+                ("a/library.so", b"bad", 0o644),
+                ("b/library.so", b"bad", 0o644),
+            ],
+            &[],
+        );
+        assert!(
+            extract_runtime(&tar, Format::TarGz, &stage, false, &AtomicBool::new(false)).is_err()
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rejects_tar_symlinks_that_escape_the_stage() {
+        for target in ["../escape.so", "/absolute.so", "nested/lib.so"] {
+            let root = tempdir().unwrap();
+            let tar = root.path().join("runtime.tar.gz");
+            let stage = root.path().join("stage");
+            fs::create_dir(&stage).unwrap();
+            write_tar_gz(
+                &tar,
+                &[("libgood.so", b"lib", 0o755)],
+                &[("libbad.so", target)],
+            );
+            assert!(
+                extract_runtime(&tar, Format::TarGz, &stage, false, &AtomicBool::new(false))
+                    .is_err(),
+                "accepted {target}"
+            );
+            assert!(!root.path().join("escape.so").exists());
+        }
+    }
+
+    #[test]
+    fn rejects_tar_hardlinks() {
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use tar::{Builder, EntryType, Header};
+        let root = tempdir().unwrap();
+        let tar = root.path().join("runtime.tar.gz");
+        let stage = root.path().join("stage");
+        fs::create_dir(&stage).unwrap();
+        let encoder = GzEncoder::new(File::create(&tar).unwrap(), Compression::default());
+        let mut builder = Builder::new(encoder);
+        let mut header = Header::new_gnu();
+        header.set_entry_type(EntryType::Link);
+        header.set_size(0);
+        header.set_link_name("libgood.so").unwrap();
+        builder
+            .append_data(&mut header, "liblink.so", std::io::empty())
+            .unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+        assert!(
+            extract_runtime(&tar, Format::TarGz, &stage, false, &AtomicBool::new(false)).is_err()
+        );
+    }
+
     #[test]
     fn incomplete_or_wrong_version_cache_is_never_ready() {
         let root = tempdir().unwrap();
-        let files = [
-            "llama-server.exe",
-            "llama-server-impl.dll",
-            "llama-common.dll",
-            "llama.dll",
-            "ggml.dll",
-            "ggml-base.dll",
-            "ggml-cpu-x64.dll",
-        ];
-        for name in files {
-            fs::write(root.path().join(name), b"binary").unwrap();
+        #[allow(unused_mut)]
+        let mut files = required_files("cpu");
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        files.push("ggml-cpu-x64.dll");
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        files.push("libggml-cpu-x64.so");
+        for name in &files {
+            fs::write(root.path().join(*name), b"binary").unwrap();
         }
         assert!(!installed(root.path(), "cpu"));
         let mut marker = Installed {
@@ -1094,9 +1621,10 @@ mod tests {
         )
         .unwrap();
         assert!(installed(root.path(), "cpu"));
-        fs::remove_file(root.path().join("llama-server-impl.dll")).unwrap();
+        let missing = required_files("cpu")[1];
+        fs::remove_file(root.path().join(missing)).unwrap();
         assert!(!installed(root.path(), "cpu"));
-        fs::write(root.path().join("llama-server-impl.dll"), b"binary").unwrap();
+        fs::write(root.path().join(missing), b"binary").unwrap();
         marker.version = "other".into();
         fs::write(
             root.path().join("installed.json"),
@@ -1104,8 +1632,15 @@ mod tests {
         )
         .unwrap();
         assert!(!installed(root.path(), "cpu"));
-        assert!(check_required_files(root.path(), "cuda").is_err());
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        {
+            assert!(check_required_files(root.path(), "cuda").is_err());
+            assert!(check_required_files(root.path(), "vulkan").is_err());
+        }
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
         assert!(check_required_files(root.path(), "vulkan").is_err());
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        assert!(check_required_files(root.path(), "metal").is_err());
     }
 
     #[cfg(windows)]
@@ -1146,7 +1681,7 @@ mod tests {
         fs::write(&path, b"corrupt").unwrap();
         assert!(verify_archive(
             path.clone(),
-            CPU.sha256.into(),
+            archives("cpu")[0].sha256.into(),
             Arc::new(AtomicBool::new(false))
         )
         .await
@@ -1156,7 +1691,7 @@ mod tests {
         fs::write(&path, b"partial").unwrap();
         assert!(verify_archive(
             path.clone(),
-            CPU.sha256.into(),
+            archives("cpu")[0].sha256.into(),
             Arc::new(AtomicBool::new(true))
         )
         .await
@@ -1201,6 +1736,7 @@ mod tests {
         name: "small.zip",
         bytes: 6,
         sha256: "unused",
+        format: Format::Zip,
     };
 
     #[tokio::test]
@@ -1517,13 +2053,13 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "requires official cpu.zip and stories260K.gguf in target/runtime-verification"]
+    #[ignore = "requires official cpu fixture and stories260K.gguf in target/runtime-verification"]
     async fn official_runtime_installs_and_runs_inference() {
         let fixtures =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/runtime-verification");
         let backend =
             std::env::var("THEBERRY_TEST_RUNTIME_BACKEND").unwrap_or_else(|_| "cpu".into());
-        assert!(["cpu", "cuda", "vulkan"].contains(&backend.as_str()));
+        assert!(["cpu", "cuda", "vulkan", "metal"].contains(&backend.as_str()));
         let model = fixtures.join("stories260K.gguf");
         let model_hash = "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d";
         assert_eq!(
@@ -1534,9 +2070,14 @@ mod tests {
         let manager = RuntimeManager::new(data.path().into());
         let root = manager.root();
         fs::create_dir_all(root.join("downloads")).unwrap();
+        let cpu_archive = archives("cpu")[0];
+        #[cfg(windows)]
+        let cpu_fixture = "cpu.zip";
+        #[cfg(not(windows))]
+        let cpu_fixture = "cpu.tar.gz";
         for archive in archives(&backend) {
-            let fixture = if archive.name == CPU.name {
-                fixtures.join("cpu.zip")
+            let fixture = if archive.name == cpu_archive.name {
+                fixtures.join(cpu_fixture)
             } else {
                 fixtures.join(archive.name)
             };
@@ -1557,13 +2098,18 @@ mod tests {
             .unwrap();
         assert!(status.is_running);
         assert_eq!(status.backend.as_deref(), Some(backend.as_str()));
-        assert!(installed(&root.join(&backend), &backend));
-        assert!(root.join(&backend).join("LICENSE.llama.cpp").is_file());
+        let key = install_key(&backend);
+        assert!(installed(&root.join(key), key));
+        assert!(root.join(key).join("LICENSE.llama.cpp").is_file());
         for archive in archives(&backend) {
             assert!(!root.join("downloads").join(archive.name).exists());
         }
-        assert!(!root.join(format!(".{backend}-staging")).exists());
-        assert!(!root.join(&backend).join("llama-bench.exe").exists());
+        assert!(!root.join(format!(".{key}-staging")).exists());
+        #[cfg(windows)]
+        let tool = "llama-bench.exe";
+        #[cfg(not(windows))]
+        let tool = "llama-bench";
+        assert!(!root.join(key).join(tool).exists());
         // With the source archive gone, a second install must use the committed cache.
         manager
             .ensure_installed(&root, &backend, Arc::new(AtomicBool::new(false)))

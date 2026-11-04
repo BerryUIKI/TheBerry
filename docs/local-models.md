@@ -1,30 +1,35 @@
 # Managed local models
 
-The built-in local provider runs the OpenAI-compatible `llama-server` from llama.cpp as a child process owned by TheBerry. Managed inference currently supports Windows x64. The server binds only to `127.0.0.1`. Model weights remain under `local-models/` in the selected data directory and are never included in the installer.
+The built-in local provider runs the OpenAI-compatible `llama-server` from llama.cpp as a child process owned by TheBerry. Managed inference supports Windows x64, macOS Apple Silicon (arm64), and Linux x64. The server binds only to `127.0.0.1`. Model weights remain under `local-models/` in the selected data directory and are never included in the installer.
 
 ## On-demand runtime
 
 No installer includes llama.cpp binaries. Starting a local model from settings or sending its first message prepares the runtime automatically. Opening the application or settings, importing a model, and downloading model weights do not download runtimes.
 
-TheBerry detects devices through the installed CUDA and Vulkan drivers. It prefers CUDA 12.4 on compatible NVIDIA devices, then a physical Vulkan GPU, then CPU. The driver probe does not require a CUDA Toolkit, `nvidia-smi`, or Vulkan diagnostic tools. Detection selects a candidate; successful startup determines whether the backend can actually run the selected model.
+On Windows, TheBerry detects devices through the installed CUDA and Vulkan drivers. It prefers CUDA 12.4 on compatible NVIDIA devices, then a physical Vulkan GPU, then CPU. On Linux it offers a physical Vulkan GPU or CPU; on Apple Silicon it uses Metal with a CPU fallback. Driver probes do not require a CUDA Toolkit, `nvidia-smi`, or Vulkan diagnostic tools. Detection selects a candidate; successful startup determines whether the backend can actually run the selected model.
 
 Downloads come directly from the fixed [llama.cpp b11425 release](https://github.com/ggml-org/llama.cpp/releases/tag/b11425). Archive names, byte sizes, and SHA-256 hashes are embedded in the application; runtime downloads never follow a mutable latest-release URL.
 
-| Backend | Official download size |
-| --- | ---: |
-| CPU | 19.4 MB |
-| Vulkan | 33.3 MB |
-| CUDA 12.4, including dependencies | 655.9 MB |
+| Platform | Backend | Official download size |
+| --- | --- | ---: |
+| Windows x64 | CPU | 19.4 MB |
+| Windows x64 | Vulkan | 33.3 MB |
+| Windows x64 | CUDA 12.4, including dependencies | 655.9 MB |
+| macOS arm64 | Metal or CPU (shared archive) | 12.0 MB |
+| Linux x64 | CPU | 17.7 MB |
+| Linux x64 | Vulkan | 31.6 MB |
 
-These are upstream archive sizes. Local trimming reduces disk usage, not download traffic. Installation retains `llama-server.exe`, the bundled DLLs (including architecture-specific CPU implementations), and license/notice files. Other executables, debugging files, development files, and examples are excluded. The pinned upstream [MIT license](https://github.com/ggml-org/llama.cpp/blob/b11425/LICENSE) is installed alongside the retained notices.
+These are upstream archive sizes. Local trimming reduces disk usage, not download traffic. Installation retains `llama-server` (`llama-server.exe` on Windows), the bundled shared libraries (including architecture-specific CPU implementations), relative library symlinks on macOS and Linux, executable permissions, and license/notice files. Other executables, debugging files, development files, and examples are excluded. The pinned upstream [MIT license](https://github.com/ggml-org/llama.cpp/blob/b11425/LICENSE) is installed alongside the retained notices.
 
-Runtimes are cached at `<data_dir>/local-runtimes/llama/b11425/windows-x64/<backend>`, separately from model weights. Downloads support cancellation and HTTP range resumption. When a server ignores a range request, the download restarts. SHA-256 checks precede safe extraction into a staging directory; the server must report the pinned version before the installation is committed. Completed archives and temporary files are removed. Incomplete installations cannot be launched.
+Windows uses the upstream ZIP archives; macOS and Linux use `.tar.gz` archives. Extraction flattens the upstream top-level directory, preserves same-directory library symlinks and executable permissions, and rejects unsafe paths, hardlinks, and symlinks that escape the staging directory. The Linux Vulkan backend requires a Vulkan 1.2 loader and driver; systems that lack one fall back to CPU. Linux builds come from the upstream Ubuntu x64 release, so distributions with an older glibc than the upstream build may not be able to launch the runtime.
+
+Runtimes are cached at `<data_dir>/local-runtimes/llama/b11425/<platform>/<backend>`, where `<platform>` is `windows-x64`, `macos-arm64`, or `linux-x64`. On macOS the Metal and CPU backends share the `metal` directory because they come from the same archive. Downloads support cancellation and HTTP range resumption. When a server ignores a range request, the download restarts. SHA-256 checks precede safe extraction into a staging directory; the server must report the pinned version before the installation is committed. Completed archives and temporary files are removed. Incomplete installations cannot be launched.
 
 Settings and the chat sidebar display preparation progress and cancellation controls. Chat preparation does not consume the normal 60-second generation timeout; stalled network requests have their own timeouts. Concurrent requests share preparation. Cancelling a chat stops that caller from waiting or sending its prompt; cancelling runtime preparation stops the shared operation.
 
 If preparation or GPU startup fails, TheBerry displays the error and lets the user retry or explicitly select CPU or another detected backend. It never downloads another backend automatically. Backend buttons show the full download size or that the runtime is already installed. A successful explicit selection is remembered while the detected hardware and drivers remain unchanged. Existing backend caches are retained and work offline.
 
-The launcher owns startup and shutdown, selects a free loopback port, and waits for the health endpoint. No API key or separately installed Ollama service is needed. Runtime changes do not move or delete existing models. macOS and Linux installers exclude both Windows QuickLook resources and local inference binaries.
+The launcher owns startup and shutdown, selects a free loopback port, and waits for the health endpoint. No API key or separately installed Ollama service is needed. Runtime changes do not move or delete existing models. No installer bundles llama.cpp binaries on any platform; macOS and Linux installers also exclude Windows QuickLook resources.
 
 ## Recommended catalog model
 
