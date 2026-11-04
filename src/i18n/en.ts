@@ -114,7 +114,7 @@ export const en = {
   "ai.ollama_custom_path": "Ollama Binary Path Override (leave blank for auto-discovery)",
   "ai.local_title": "Built-in Local Models",
   "ai.local_desc": "Run GGUF models with an on-demand llama.cpp server. Model weights stay in your selected data folder.",
-  "ai.local_runtime_notice": "Windows x64 only. The first start downloads the best compatible backend: CUDA, Vulkan, or CPU. If startup fails, you choose whether to retry or switch. Official CUDA downloads can exceed 650 MB.",
+  "ai.local_runtime_notice": "Windows x64, macOS (Apple Silicon), and Linux x64. The first start downloads the best compatible backend: CUDA or Vulkan on Windows/Linux, Metal on macOS, with CPU fallback. If startup fails, you choose whether to retry or switch. Official CUDA downloads can exceed 650 MB.",
   "ai.local_models": "Models",
   "ai.local_refresh": "Refresh local model status",
   "ai.local_recommended": "Catalog",

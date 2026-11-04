@@ -383,7 +383,7 @@ interface LocalModel {
 
 interface LocalRuntimeStatus {
   is_running: boolean;
-  backend: "cuda" | "vulkan" | "cpu" | null;
+  backend: "cuda" | "vulkan" | "metal" | "cpu" | null;
   port: number | null;
   model_id: string | null;
   base_url: string | null;
@@ -392,7 +392,7 @@ interface LocalRuntimeStatus {
   downloaded_bytes: number;
   total_bytes: number;
   available_backends: Array<{
-    backend: "cuda" | "vulkan" | "cpu";
+    backend: "cuda" | "vulkan" | "metal" | "cpu";
     download_bytes: number;
     is_cached: boolean;
   }>;
@@ -410,7 +410,7 @@ interface LocalRuntimeStatus {
 - `fetch_provider_models(provider: string, baseUrl?: string, apiKey?: string, requestFormat?: string)`: `Promise<string[]>`
 - `list_local_models()`: `Promise<LocalModel[]>`
 - `get_local_runtime_status()`: `Promise<LocalRuntimeStatus>`
-- `start_local_runtime(modelId: string, backend?: "cuda" | "vulkan" | "cpu")`: `Promise<LocalRuntimeStatus>`; omitted backend uses hardware detection and any successful saved choice.
+- `start_local_runtime(modelId: string, backend?: "cuda" | "vulkan" | "metal" | "cpu")`: `Promise<LocalRuntimeStatus>`; omitted backend uses hardware detection and any successful saved choice.
 - `stop_local_runtime()`: `Promise<void>`
 - `cancel_local_runtime_preparation()`: `Promise<boolean>`; cancels the shared preparation task and retains resumable downloads.
 - `download_local_model(modelId: string)`: `Promise<void>`

@@ -500,10 +500,11 @@ impl LocalInferenceManager {
         model_id: &str,
         backend: Option<String>,
     ) -> Result<LocalRuntimeStatus, String> {
-        if !cfg!(all(target_os = "windows", target_arch = "x86_64")) {
-            return Err(
-                "The managed local provider is currently supported on Windows x64.".to_string(),
-            );
+        if !super::runtime::is_supported() {
+            return Err(format!(
+                "The managed local provider is supported on {}.",
+                super::runtime::SUPPORTED_PLATFORMS
+            ));
         }
         let record = self.model_record(model_id)?;
         let model_path = PathBuf::from(&record.model_path);

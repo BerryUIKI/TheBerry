@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub(super) struct Hardware {
     pub cuda: bool,
     pub vulkan: bool,
+    pub metal: bool,
     pub fingerprint: String,
 }
 
@@ -16,12 +17,19 @@ impl Hardware {
         if self.vulkan {
             result.push("vulkan");
         }
+        if self.metal {
+            result.push("metal");
+        }
         result.push("cpu");
         result
     }
 }
 
-#[cfg(not(all(windows, target_arch = "x86_64")))]
+#[cfg(not(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "aarch64"),
+    all(target_os = "linux", target_arch = "x86_64")
+)))]
 pub(super) fn detect() -> Hardware {
     Hardware::default()
 }
@@ -34,10 +42,34 @@ pub(super) fn detect() -> Hardware {
     Hardware {
         cuda,
         vulkan,
+        metal: false,
         fingerprint: format!(
             "{:x}",
             Sha256::digest(format!("{cuda_identity}|{vulkan_identity}"))
         ),
+    }
+}
+
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub(super) fn detect() -> Hardware {
+    // Every Apple Silicon Mac supports Metal; CPU remains an explicit fallback.
+    Hardware {
+        cuda: false,
+        vulkan: false,
+        metal: true,
+        fingerprint: "macos-arm64".into(),
+    }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+pub(super) fn detect() -> Hardware {
+    use sha2::{Digest, Sha256};
+    let (vulkan, vulkan_identity) = vulkan_devices();
+    Hardware {
+        cuda: false,
+        vulkan,
+        metal: false,
+        fingerprint: format!("{:x}", Sha256::digest(vulkan_identity)),
     }
 }
 
@@ -86,46 +118,60 @@ fn cuda_devices() -> (bool, String) {
 
 #[cfg(all(windows, target_arch = "x86_64"))]
 fn vulkan_devices() -> (bool, String) {
-    use ash::vk;
     let system = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
     let path = std::path::PathBuf::from(system).join("System32/vulkan-1.dll");
-    // No window, surface, device, or queue is created during capability detection.
     unsafe {
         let Ok(entry) = ash::Entry::load_from(path) else {
             return (false, "no-vulkan-driver".into());
         };
-        let app = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_2);
-        let info = vk::InstanceCreateInfo::default().application_info(&app);
-        let Ok(instance) = entry.create_instance(&info, None) else {
-            return (false, "vulkan-instance-failed".into());
-        };
-        let mut identity = String::from("vulkan:");
-        let mut supported = false;
-        if let Ok(devices) = instance.enumerate_physical_devices() {
-            for device in devices {
-                let p = instance.get_physical_device_properties(device);
-                identity.push_str(&format!(
-                    "{}:{}:{}:{}:{:?};",
-                    p.vendor_id,
-                    p.device_id,
-                    p.api_version,
-                    p.driver_version,
-                    p.pipeline_cache_uuid
-                ));
-                let physical = matches!(
-                    p.device_type,
-                    vk::PhysicalDeviceType::DISCRETE_GPU
-                        | vk::PhysicalDeviceType::INTEGRATED_GPU
-                        | vk::PhysicalDeviceType::VIRTUAL_GPU
-                );
-                let compute = instance
-                    .get_physical_device_queue_family_properties(device)
-                    .iter()
-                    .any(|q| q.queue_count > 0 && q.queue_flags.contains(vk::QueueFlags::COMPUTE));
-                supported |= physical && compute && p.api_version >= vk::API_VERSION_1_2;
-            }
-        }
-        instance.destroy_instance(None);
-        (supported, identity)
+        vulkan_probe(&entry)
     }
+}
+
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn vulkan_devices() -> (bool, String) {
+    unsafe {
+        let Ok(entry) = ash::Entry::load() else {
+            return (false, "no-vulkan-loader".into());
+        };
+        vulkan_probe(&entry)
+    }
+}
+
+#[cfg(any(
+    all(windows, target_arch = "x86_64"),
+    all(target_os = "linux", target_arch = "x86_64")
+))]
+unsafe fn vulkan_probe(entry: &ash::Entry) -> (bool, String) {
+    use ash::vk;
+    // No window, surface, device, or queue is created during capability detection.
+    let app = vk::ApplicationInfo::default().api_version(vk::API_VERSION_1_2);
+    let info = vk::InstanceCreateInfo::default().application_info(&app);
+    let Ok(instance) = entry.create_instance(&info, None) else {
+        return (false, "vulkan-instance-failed".into());
+    };
+    let mut identity = String::from("vulkan:");
+    let mut supported = false;
+    if let Ok(devices) = instance.enumerate_physical_devices() {
+        for device in devices {
+            let p = instance.get_physical_device_properties(device);
+            identity.push_str(&format!(
+                "{}:{}:{}:{}:{:?};",
+                p.vendor_id, p.device_id, p.api_version, p.driver_version, p.pipeline_cache_uuid
+            ));
+            let physical = matches!(
+                p.device_type,
+                vk::PhysicalDeviceType::DISCRETE_GPU
+                    | vk::PhysicalDeviceType::INTEGRATED_GPU
+                    | vk::PhysicalDeviceType::VIRTUAL_GPU
+            );
+            let compute = instance
+                .get_physical_device_queue_family_properties(device)
+                .iter()
+                .any(|q| q.queue_count > 0 && q.queue_flags.contains(vk::QueueFlags::COMPUTE));
+            supported |= physical && compute && p.api_version >= vk::API_VERSION_1_2;
+        }
+    }
+    instance.destroy_instance(None);
+    (supported, identity)
 }
