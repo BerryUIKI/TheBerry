@@ -89,7 +89,7 @@ export interface LocalModel {
   is_recommended: boolean;
 }
 
-export type LocalRuntimeBackend = "cuda" | "vulkan" | "cpu";
+export type LocalRuntimeBackend = "cuda" | "vulkan" | "metal" | "cpu";
 export type LocalRuntimePhase = "idle" | "detecting" | "downloading" | "verifying" | "installing" | "starting" | "running" | "failed" | "cancelled";
 
 export interface LocalRuntimeBackendOption {
