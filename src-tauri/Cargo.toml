@@ -1,6 +1,6 @@
 [package]
 name = "the-berry"
-version = "0.1.16"
+version = "0.1.17"
 description = "TheBerry - Personal Desktop Utilities Suite"
 authors = ["BerryUIKI"]
 edition = "2021"
