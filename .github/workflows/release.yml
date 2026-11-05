@@ -25,6 +25,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-build
+  cancel-in-progress: true
+
 jobs:
   build-and-release:
     name: Build (${{ matrix.platform.os }} - ${{ matrix.platform.arch }})
