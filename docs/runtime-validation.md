@@ -2,14 +2,14 @@
 
 ## Windows installer size
 
-Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14), [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15), and [0.1.16 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.16).
+Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14), [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15), [0.1.16 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.16), and [0.1.17 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.17).
 
-| Installer | Published 0.1.14 | Published 0.1.15 | Published 0.1.16 |
-| --- | ---: | ---: | ---: |
-| Windows EXE | 80.68 MB | 438.48 MB | 80.88 MB |
-| Windows MSI | 110.02 MB | 789.51 MB | 110.31 MB |
+| Installer | Published 0.1.14 | Published 0.1.15 | Published 0.1.16 | Published 0.1.17 |
+| --- | ---: | ---: | ---: | ---: |
+| Windows EXE | 80.68 MB | 438.48 MB | 80.88 MB | 80.92 MB |
+| Windows MSI | 110.02 MB | 789.51 MB | 110.31 MB | 110.33 MB |
 
-The pre-release local build (80.98 MB EXE, 110.51 MB MSI) matched the published artifacts. The 0.1.16 release also published the Linux and macOS installers: 90.40 MB AppImage, 10.92 MB deb, and 11.51 MB macOS arm64 dmg.
+The 0.1.17 pre-release local build (80.99 MB EXE, 110.51 MB MSI) matched the published artifacts. The 0.1.17 release published the Linux and macOS installers: 90.44 MB AppImage, 10.97 MB deb, and 11.58 MB macOS arm64 dmg.
 
 The MSI database contains 1,324 payload files, including `QuickLook.exe`, and no llama.cpp, ggml, cuBLAS, or CUDA runtime files. The generated NSIS file list also excludes AI runtimes. Shared configuration has no resource bundle; the Windows override contains only QuickLook. An automated configuration test protects these platform boundaries.
 
@@ -49,4 +49,4 @@ Real-hardware inference has been exercised on Windows x64 for CPU, CUDA 12.4, an
 
 TypeScript checking reports 132 existing diagnostics in both unchanged HEAD and the modified sources. Comparing diagnostic locations and codes found no new errors; expanded translation-key union lengths were normalized during comparison. The temporary baseline source copy was removed after checking.
 
-macOS and Linux installers were not built on this Windows host. Platform resource configuration is covered by automated tests; native package verification remains available through the existing release matrix. The implementation was validated at version 0.1.15 before preparing the 0.1.16 release. Published 0.1.16 installer sizes were measured from the release artifacts after the release workflow completed. The cross-platform runtime was validated through CI compilation and unit tests on macOS and Linux; native inference on those platforms remains pending.
+macOS and Linux installers were not built on this Windows host. Platform resource configuration is covered by automated tests; native package verification remains available through the existing release matrix. The implementation was validated at version 0.1.15 before preparing the 0.1.16 release. Published 0.1.16 and 0.1.17 installer sizes were measured from the release artifacts after the release workflow completed. The cross-platform runtime was validated through CI compilation and unit tests on macOS and Linux; native inference on those platforms remains pending.
