@@ -12,6 +12,10 @@ describe("Frontend Type Model Contracts", () => {
       content_type: "text",
       content: "const a = 1;",
       preview: "const a = 1;",
+      media_path: null,
+      media_data_url: null,
+      image_width: null,
+      image_height: null,
       is_pinned: false,
       char_count: 12,
       created_at: new Date().toISOString(),
@@ -95,6 +99,8 @@ describe("Frontend Type Model Contracts", () => {
       global_shortcuts_enabled: true,
       hud_shortcut: "Alt+Space",
       clipboard_history_limit: 200,
+      clipboard_monitor_enabled: false,
+      quicklook_enabled: true,
       custom_data_dir: "C:\\data",
     };
 

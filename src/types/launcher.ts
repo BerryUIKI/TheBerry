@@ -6,7 +6,6 @@ export interface LauncherItem {
   arguments: string[];
   working_dir?: string;
   category: string;
-  icon_path?: string;
   is_favorite: boolean;
   launch_count: number;
   is_batch: boolean;
