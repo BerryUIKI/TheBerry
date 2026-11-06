@@ -1,4 +1,4 @@
-import { createContext, createSignal, JSX, useContext, onMount, onCleanup, createEffect } from "solid-js";
+import { createContext, createSignal, JSX, useContext, onMount, onCleanup } from "solid-js";
 import { getConfig, updateConfig } from "../services/system";
 import { listen } from "@tauri-apps/api/event";
 
@@ -15,15 +15,10 @@ interface I18nContextType {
 const I18nContext = createContext<I18nContextType>();
 
 export function I18nProvider(props: { children: JSX.Element }) {
-  const [language, setLanguageState] = createSignal<AppLanguage>(() => {
-    try {
-      const saved = typeof window !== "undefined" ? (localStorage.getItem("berry_language") as AppLanguage | null) : null;
-      if (saved === "en" || saved === "zh") return saved;
-    } catch {
-      // ignore
-    }
-    return "en";
-  });
+  const storedLanguage = localStorage.getItem("berry_language");
+  const [language, setLanguageState] = createSignal<AppLanguage>(
+    storedLanguage === "en" || storedLanguage === "zh" ? storedLanguage : "en"
+  );
 
   onMount(async () => {
     // Sync from backend config if exists
@@ -42,11 +37,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
       const newLang = event.payload;
       if (newLang === "en" || newLang === "zh") {
         setLanguageState(newLang);
-        try {
-          localStorage.setItem("berry_language", newLang);
-        } catch {
-          // ignore
-        }
+        localStorage.setItem("berry_language", newLang);
       }
     }).then((unlisten) => {
       unlistenLang = unlisten;
@@ -59,11 +50,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
 
   const setLanguage = async (lang: AppLanguage) => {
     setLanguageState(lang);
-    try {
-      localStorage.setItem("berry_language", lang);
-    } catch {
-      // ignore
-    }
+    localStorage.setItem("berry_language", lang);
     try {
       await updateConfig({ language: lang });
     } catch (e) {
@@ -72,9 +59,7 @@ export function I18nProvider(props: { children: JSX.Element }) {
   };
 
   const t = (key: TranslationKey, params?: Record<string, string>): string => {
-    const lang = language();
-    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
-    let text = (dict as any)[key] || (TRANSLATIONS.en as any)[key] || key;
+    let text: string = TRANSLATIONS[language()][key];
     if (params) {
       Object.entries(params).forEach(([k, v]) => {
         text = text.replace(new RegExp(`\\{${k}\\}`, "g"), v);
