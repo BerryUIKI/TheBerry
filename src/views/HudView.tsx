@@ -1,10 +1,7 @@
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { LogicalSize } from "@tauri-apps/api/dpi";
 import {
   Search,
   Sparkles,
-  Send,
   X,
   File,
   Folder,
@@ -17,27 +14,21 @@ import {
   Check,
   RefreshCw,
   Eye,
-  MessageSquare,
   Square,
-  StopCircle,
 } from "lucide-solid";
 import { useI18n } from "../context/I18nContext";
-import { useTheme } from "../context/ThemeContext";
 import { MarkdownContent } from "../components/common/MarkdownContent";
-import { sendGooseMessage, abortGooseMessage, onGooseStreamChunk, getAIConfig } from "../services/goose";
+import { sendGooseMessage, abortGooseMessage, onGooseStreamChunk } from "../services/goose";
 import { searchFiles, openFilePath } from "../services/fileSearch";
 import { getLauncherItems, launchItem } from "../services/launcher";
 import { previewWithQuickLook } from "../services/quicklook";
 import { resizeHudWindow, toggleHudWindow } from "../services/shortcuts";
 import { SearchResultItem } from "../types/fileSearch";
 import { LauncherItem } from "../types/launcher";
-import { AIConfig } from "../types/goose";
 
 export function HudView() {
   const { t, language, assistantName } = useI18n();
-  const { theme } = useTheme();
   const [query, setQuery] = createSignal("");
-  const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
 
   // AI Mode State
   const [lastPrompt, setLastPrompt] = createSignal("");
@@ -92,8 +83,6 @@ export function HudView() {
     const targetHeight = expanded ? 480 : 96;
     try {
       await resizeHudWindow(targetHeight);
-      const win = getCurrentWebviewWindow();
-      await win.setSize(new LogicalSize(640, targetHeight));
     } catch (e) {
       console.warn("HUD window resize error:", e);
     }
@@ -101,8 +90,6 @@ export function HudView() {
 
   onMount(async () => {
     try {
-      const cfg = await getAIConfig();
-      if (cfg) setAiConfig(cfg);
       const launchers = await getLauncherItems();
       setAllLaunchers(launchers);
     } catch (e) {
@@ -157,11 +144,11 @@ export function HudView() {
   });
 
   // Watchdog timer (60s) for AI streaming timeout
-  let aiTimeoutTimer: any = null;
+  let aiTimeoutTimer: number | null = null;
   const resetAiTimeoutWatchdog = () => {
-    clearTimeout(aiTimeoutTimer);
+    if (aiTimeoutTimer !== null) window.clearTimeout(aiTimeoutTimer);
     if (isGenerating()) {
-      aiTimeoutTimer = setTimeout(async () => {
+      aiTimeoutTimer = window.setTimeout(async () => {
         if (isGenerating()) {
           await abortGooseMessage("hud-session").catch(() => {});
           setIsGenerating(false);
@@ -172,8 +159,8 @@ export function HudView() {
   };
 
   const clearAiTimeoutWatchdog = () => {
-    if (aiTimeoutTimer) {
-      clearTimeout(aiTimeoutTimer);
+    if (aiTimeoutTimer !== null) {
+      window.clearTimeout(aiTimeoutTimer);
       aiTimeoutTimer = null;
     }
   };
@@ -224,8 +211,6 @@ export function HudView() {
     }
     try {
       await toggleHudWindow(false);
-      const win = getCurrentWebviewWindow();
-      await win.hide();
       handleResetAndClear();
     } catch (e) {
       console.warn("Failed to hide HUD window:", e);

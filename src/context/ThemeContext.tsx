@@ -27,43 +27,31 @@ export function ThemeProvider(props: { children: JSX.Element }) {
     }
   };
 
+  const initialTheme = (): Theme => {
+    const saved = localStorage.getItem("berry_theme");
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+
   onMount(async () => {
-    // 1. Check AppConfig or localStorage
+    // 1. Check AppConfig, then the locally stored/system preference
+    let initial = initialTheme();
     try {
       const cfg = await safeInvoke<AppConfig>("get_config");
-      if (cfg && (cfg.theme === "dark" || cfg.theme === "light")) {
-        setThemeState(cfg.theme);
-        applyThemeToDOM(cfg.theme);
-      } else {
-        const saved = localStorage.getItem("berry_theme") as Theme | null;
-        if (saved === "light" || saved === "dark") {
-          setThemeState(saved);
-          applyThemeToDOM(saved);
-        } else {
-          const prefersDark =
-            typeof window !== "undefined" && typeof window.matchMedia === "function"
-              ? window.matchMedia("(prefers-color-scheme: dark)").matches
-              : true;
-          const initial = prefersDark ? "dark" : "light";
-          setThemeState(initial);
-          applyThemeToDOM(initial);
-        }
+      if (cfg.theme === "dark" || cfg.theme === "light") {
+        initial = cfg.theme;
       }
     } catch {
-      const saved = localStorage.getItem("berry_theme") as Theme | null;
-      if (saved === "light" || saved === "dark") {
-        setThemeState(saved);
-        applyThemeToDOM(saved);
-      }
+      // keep the locally stored/system preference
     }
+    setThemeState(initial);
+    applyThemeToDOM(initial);
 
     // 2. Listen for cross-window theme change events from any window
     let unlisten: (() => void) | null = null;
     listen<{ theme: Theme }>("theme-changed", (event) => {
-      if (event.payload?.theme) {
-        setThemeState(event.payload.theme);
-        applyThemeToDOM(event.payload.theme);
-      }
+      setThemeState(event.payload.theme);
+      applyThemeToDOM(event.payload.theme);
     }).then((fn) => {
       unlisten = fn;
     });
@@ -90,8 +78,6 @@ export function ThemeProvider(props: { children: JSX.Element }) {
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
-    applyThemeToDOM(t);
-    localStorage.setItem("berry_theme", t);
     emit("theme-changed", { theme: t }).catch(() => {});
   };
 

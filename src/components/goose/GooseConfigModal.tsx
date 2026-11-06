@@ -121,20 +121,8 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
   const loadConfig = async () => {
     try {
       const cfg = await getAIConfig();
-      if (cfg) {
-        const fullCfg: AIConfig = {
-          ...cfg,
-          request_format: cfg.request_format || "openai",
-          language: cfg.language || "en",
-          user_name: cfg.user_name || "You",
-          user_avatar: cfg.user_avatar || "",
-          auto_start_ollama: cfg.auto_start_ollama !== undefined ? cfg.auto_start_ollama : true,
-          ollama_binary_path: cfg.ollama_binary_path || "",
-          local_model_id: cfg.local_model_id || null,
-        };
-        setConfig(fullCfg);
-        setInitialConfig(JSON.parse(JSON.stringify(fullCfg)));
-      }
+      setConfig(cfg);
+      setInitialConfig(structuredClone(cfg));
     } catch (e) {
       console.warn("Failed to load AI configuration:", e);
     }
@@ -153,7 +141,7 @@ export function GooseConfigModal(props: { isOpen: boolean; onClose: () => void }
 
   const handleClose = () => {
     if (hasUnsavedChanges()) {
-      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved AI configuration changes. Discard changes?")) {
+      if (!window.confirm("You have unsaved AI configuration changes. Discard changes?")) {
         return;
       }
     }
