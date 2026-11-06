@@ -7,9 +7,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Trash2,
-  Sliders,
-  Sparkles,
-  ArrowDown,
   RefreshCw,
 } from "lucide-solid";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -30,7 +27,7 @@ interface SelectedFile {
 
 export function ImageCompressorModal(props: Props) {
   const { language } = useI18n();
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [files, setFiles] = createSignal<SelectedFile[]>([]);
   const [quality, setQuality] = createSignal(75);

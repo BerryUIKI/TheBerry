@@ -5,8 +5,6 @@ import {
   Upload,
   Copy,
   Check,
-  Sparkles,
-  Clipboard,
   RefreshCw,
   Image as ImageIcon,
   Bot,
@@ -15,7 +13,7 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
-import { useApp } from "../../context/AppContext";
+import { toggleHudWindow } from "../../services/shortcuts";
 import { recognizeImageOcr, OcrResult } from "../../services/toolbox";
 
 interface Props {
@@ -26,7 +24,6 @@ interface Props {
 export function OcrModal(props: Props) {
   const { language } = useI18n();
   const { success, error: toastError, info } = useToast();
-  const { setActiveView } = useApp();
 
   const [imagePath, setImagePath] = createSignal<string>("");
   const [imagePreviewUrl, setImagePreviewUrl] = createSignal<string>("");
@@ -75,28 +72,15 @@ export function OcrModal(props: Props) {
     try {
       // Convert blob to base64 or temporary file for native OCR
       const reader = new FileReader();
-      reader.onload = async () => {
+      reader.onload = () => {
         const base64 = reader.result as string;
         setImagePreviewUrl(base64);
-
-        // Call backend or Windows OCR
-        // In Windows, let's write to temp file or invoke OCR
-        const tempPath = await window.__TAURI__?.core.invoke<string>("save_temp_image_for_ocr", {
-          base64Data: base64.split(",")[1] || base64,
-        }).catch(() => null);
-
-        if (tempPath) {
-          const res = await recognizeImageOcr(tempPath, langHint());
-          setOcrResult(res);
-        } else {
-          // Fallback text if mock/fallback
-          setOcrResult({
-            text: language() === "zh" ? "已捕获剪贴板图片。请点击「选择图片文件」进行高精度识别。" : "Clipboard image captured. Select local file for high-precision OCR.",
-            lines: [],
-            language: "zh-Hans",
-            success: true,
-          });
-        }
+        setOcrResult({
+          text: language() === "zh" ? "已捕获剪贴板图片。请点击「选择图片文件」进行高精度识别。" : "Clipboard image captured. Select local file for high-precision OCR.",
+          lines: [],
+          language: "zh-Hans",
+          success: true,
+        });
         setLoading(false);
       };
       reader.readAsDataURL(blob);
@@ -169,7 +153,7 @@ export function OcrModal(props: Props) {
     const res = ocrResult();
     if (!res || !res.text) return;
     props.onClose();
-    setActiveView("hud");
+    void toggleHudWindow(true);
   };
 
   return (

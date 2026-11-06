@@ -245,6 +245,7 @@ export const zh = {
   "settings.changelog": "更新日志",
   "settings.storage_title": "本地持久化与数据存储 (redb + TOML)",
   "settings.storage_dir_label": "当前配置的数据存储根目录：",
+  "settings.open_explorer": "打开文件夹",
   "settings.storage_desc": "包含 the_berry.redb 嵌入式数据库与 config.toml 配置文件。所有数据均安全保存在本地。",
   "settings.backup_title": "数据备份与迁移恢复",
   "settings.backup_subtitle": "将所有数据库记录与配置导出为 JSON 文件或一键恢复",

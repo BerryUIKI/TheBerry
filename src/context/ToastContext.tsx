@@ -1,5 +1,5 @@
 import { createContext, useContext, createSignal, JSX } from "solid-js";
-import { ToastItem, ToastType } from "../types/toast";
+import { ToastItem } from "../types/toast";
 
 interface ToastContextValue {
   toasts: () => ToastItem[];

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   getDefaultNavigationState,
   loadNavigationConfig,
-  saveNavigationConfig,
   reorderSidebarItems,
   toggleSidebarItemHidden,
   setSidebarItemCustomName,

@@ -29,7 +29,6 @@ import {
   Code2,
   CheckSquare,
   Square,
-  X,
   Sparkles,
   Bot,
   Languages,
@@ -179,7 +178,7 @@ export function ClipboardView() {
   const handleSelectAll = () => {
     const filtered = filteredItems();
     if (selectedIds().size === filtered.length) {
-      setSelectedIds(new Set());
+      setSelectedIds(new Set<string>());
     } else {
       setSelectedIds(new Set(filtered.map((i) => i.id)));
     }
@@ -193,7 +192,7 @@ export function ClipboardView() {
       for (const id of ids) {
         await deleteClipboardItem(id);
       }
-      setSelectedIds(new Set());
+      setSelectedIds(new Set<string>());
       setBatchMode(false);
       success(t("clipboard.delete_selected", { count: String(ids.length) }));
       await loadHistory();
@@ -344,7 +343,7 @@ export function ClipboardView() {
           <button
             onClick={() => {
               setBatchMode(!batchMode());
-              if (batchMode()) setSelectedIds(new Set());
+              if (batchMode()) setSelectedIds(new Set<string>());
             }}
             class={`px-2.5 py-1.5 text-xs font-medium rounded-lg transition-all border ${
               batchMode()

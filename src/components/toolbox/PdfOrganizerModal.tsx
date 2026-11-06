@@ -10,7 +10,6 @@ import {
   Scissors,
   Download,
   FileText,
-  CheckCircle2,
   RefreshCw,
 } from "lucide-solid";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -34,13 +33,12 @@ interface PdfItem {
 
 export function PdfOrganizerModal(props: Props) {
   const { language } = useI18n();
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [activeTab, setActiveTab] = createSignal<"merge" | "split">("merge");
   const [mergeItems, setMergeItems] = createSignal<PdfItem[]>([]);
   const [splitFile, setSplitFile] = createSignal<PdfItem | null>(null);
   const [splitRanges, setSplitRanges] = createSignal("1-2");
-  const [splitMode, setSplitMode] = createSignal<"range" | "single_pages">("range");
   const [processing, setProcessing] = createSignal(false);
 
   const readFileBytes = async (filePath: string): Promise<Uint8Array> => {

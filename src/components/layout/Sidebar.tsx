@@ -8,8 +8,6 @@ import {
   Image as ImageIcon,
   Search,
   Boxes,
-  Settings,
-  FolderDot,
   FolderSync,
   Tags,
   Fingerprint,
@@ -23,13 +21,10 @@ import {
   Type,
   GripVertical,
   Sliders,
-  ChevronDown,
   EyeOff,
   Edit2,
   RotateCcw,
-  Check,
   X,
-  Plus,
 } from "lucide-solid";
 import {
   loadNavigationConfig,
@@ -503,7 +498,7 @@ export function Sidebar() {
               }}
               placeholder={language() === "zh" ? "输入自定义名称..." : "Enter custom name..."}
               class="w-full h-8 px-3 text-xs bg-background border border-input rounded-lg text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              autoFocus
+              autofocus
             />
 
             <div class="flex items-center justify-end space-x-2 pt-1">

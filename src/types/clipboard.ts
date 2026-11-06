@@ -3,10 +3,10 @@ export interface ClipboardItem {
   content_type: string; // "text" | "image" | "file"
   content: string;
   preview: string;
-  media_path?: string;
-  media_data_url?: string;
-  image_width?: number;
-  image_height?: number;
+  media_path: string | null;
+  media_data_url: string | null;
+  image_width: number | null;
+  image_height: number | null;
   is_pinned: boolean;
   char_count: number;
   created_at: string;

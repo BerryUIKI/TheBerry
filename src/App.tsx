@@ -148,7 +148,7 @@ export function App() {
 
         {/* Dynamic View Canvas with smooth view-transition */}
         <main class="flex-1 overflow-hidden relative">
-          <div class="h-full w-full view-transition" key={activeView()}>
+          <div class="h-full w-full view-transition">
             <Switch>
               <Match when={activeView() === "clipboard"}>
                 <ClipboardView />

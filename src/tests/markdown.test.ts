@@ -29,7 +29,7 @@ describe("Markdown Rendering Tests", () => {
   });
 
   it("sanitizes malicious script tags and inline handlers via DOMPurify", () => {
-    const dompurify = createDOMPurify(new JSDOM("").window as unknown as Window);
+    const dompurify = createDOMPurify(new JSDOM("").window as unknown as Parameters<typeof createDOMPurify>[0]);
     const malicious = `<script>alert('xss')</script>\n\n**Safe Text**\n\n<img src="x" onerror="alert(1)">`;
     const parsed = marked.parse(malicious, { async: false }) as string;
     const sanitized = dompurify.sanitize(parsed);

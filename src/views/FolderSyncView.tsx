@@ -1,18 +1,12 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, onCleanup, onMount } from "solid-js";
 import {
-  ArrowLeftRight,
   GitCompare,
   Play,
-  RotateCw,
-  SlidersHorizontal,
   FolderSync as FolderSyncIcon,
-  Sparkles,
-  HelpCircle,
 } from "lucide-solid";
 import { listen } from "@tauri-apps/api/event";
 import {
   CompareVariant,
-  ComparisonItem,
   ComparisonManifest,
   DeletionVariant,
   PathFilter,

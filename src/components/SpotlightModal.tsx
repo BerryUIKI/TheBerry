@@ -15,8 +15,6 @@ import {
   ArrowRight,
   Sparkles,
   Command,
-  Copy,
-  FolderOpen,
   Eye,
 } from "lucide-solid";
 

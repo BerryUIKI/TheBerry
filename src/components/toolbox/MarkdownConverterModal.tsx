@@ -8,9 +8,7 @@ import {
   Download,
   Eye,
   Code2,
-  FileText,
   Sparkles,
-  RotateCcw,
 } from "lucide-solid";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -28,7 +26,7 @@ type ConvertDirection = "md-to-html" | "html-to-md" | "md-to-text";
 
 export function MarkdownConverterModal(props: Props) {
   const { language } = useI18n();
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [direction, setDirection] = createSignal<ConvertDirection>("md-to-html");
   const [viewTab, setViewTab] = createSignal<"rendered" | "raw">("rendered");
