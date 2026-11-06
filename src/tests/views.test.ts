@@ -164,11 +164,11 @@ describe("View Integration Tests", () => {
 
     it("fetches system drives and searches files", async () => {
       vi.mocked(invoke).mockResolvedValueOnce([
-        { mount_point: "C:\\", name: "Local Disk (C:)", total_space_bytes: 512000000, available_space_bytes: 256000000 },
+        { path: "C:\\", name: "Local Disk (C:)" },
       ]);
       const drives = await getSystemDrives();
       expect(drives).toHaveLength(1);
-      expect(drives[0].mount_point).toBe("C:\\");
+      expect(drives[0].path).toBe("C:\\");
 
       vi.mocked(invoke).mockResolvedValueOnce(mockFiles);
       const files = await searchFiles({

@@ -107,10 +107,10 @@ describe("Frontend Type Model Contracts", () => {
   it("validates SystemDrive schema structure", () => {
     const drive: SystemDrive = {
       name: "Local Disk (C:)",
-      mount_point: "C:\\",
+      path: "C:\\",
     };
 
     expect(drive.name).toBe("Local Disk (C:)");
-    expect(drive.mount_point).toBe("C:\\");
+    expect(drive.path).toBe("C:\\");
   });
 });
