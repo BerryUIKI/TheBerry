@@ -1,5 +1,5 @@
 import { createSignal, createMemo, Show, For } from "solid-js";
-import { X, Tags, FolderOpen, Play, CheckCircle2, AlertTriangle, Trash2, ArrowRight } from "lucide-solid";
+import { X, Tags, FolderOpen, Play, Trash2, ArrowRight } from "lucide-solid";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
@@ -28,7 +28,7 @@ export function BatchRenameModal(props: Props) {
   const [prefix, setPrefix] = createSignal("");
   const [suffix, setSuffix] = createSignal("");
   const [numberingStart, setNumberingStart] = createSignal<number | null>(null);
-  const [numberingDigits, setNumberingDigits] = createSignal(2);
+  const [numberingDigits] = createSignal(2);
   const [caseMode, setCaseMode] = createSignal<"none" | "lowercase" | "uppercase" | "titlecase">("none");
   const [loading, setLoading] = createSignal(false);
 
