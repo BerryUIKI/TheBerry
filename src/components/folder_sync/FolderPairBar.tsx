@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Folder, FolderOpen, RefreshCw } from "lucide-solid";
+import { ArrowLeftRight, FolderOpen } from "lucide-solid";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
 
@@ -12,7 +12,7 @@ interface FolderPairBarProps {
 }
 
 export function FolderPairBar(props: FolderPairBarProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   const handlePickFolder = async (side: "left" | "right") => {
     try {
