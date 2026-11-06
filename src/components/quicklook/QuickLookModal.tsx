@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, Show, Switch, Match, createEffect } from "solid-js";
+import { createSignal, onMount, onCleanup, Show, Switch, Match } from "solid-js";
 import { 
   X, 
   ExternalLink, 
@@ -15,12 +15,9 @@ import {
   RotateCcw, 
   Copy, 
   Check, 
-  Sun, 
-  Moon, 
+  Sun,
+  Moon,
   Grid,
-  Play,
-  Volume2,
-  Maximize2
 } from "lucide-solid";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
@@ -118,7 +115,7 @@ export function QuickLookModal() {
   };
 
   // Video viewer shortcut & click handler (BerryUIKI feat/video-viewer-shortcuts-and-click)
-  const handleVideoContainerClick = (e: MouseEvent) => {
+  const handleVideoContainerClick = () => {
     // If target is not native video controls bar itself
     if (videoElement) {
       if (videoElement.paused) {
@@ -460,7 +457,7 @@ export function QuickLookModal() {
                       ref={videoElement}
                       src={previewInfo()?.base64_data || ""}
                       controls
-                      autoPlay
+                      autoplay
                       class="max-w-full max-h-[62vh] rounded-xl shadow-lg bg-black cursor-pointer"
                       onClick={(e) => e.stopPropagation()} // Let custom wrapper or native controls handle click
                     />
@@ -504,7 +501,7 @@ export function QuickLookModal() {
                     <audio
                       src={previewInfo()?.base64_data || ""}
                       controls
-                      autoPlay
+                      autoplay
                       class="w-80 shadow-md rounded-lg"
                     />
                   </div>
