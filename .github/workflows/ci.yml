@@ -56,6 +56,9 @@ jobs:
       - name: Run Frontend Tests (Vitest)
         run: pnpm test
 
+      - name: Run Frontend Typecheck (TypeScript)
+        run: pnpm typecheck
+
       - name: Run Frontend Production Build (Vite)
         run: pnpm build
 
