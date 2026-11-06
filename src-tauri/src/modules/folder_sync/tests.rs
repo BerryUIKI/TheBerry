@@ -182,3 +182,91 @@ fn test_synchronizer_mirror_execution_with_versioning() {
     }
     assert!(found_version_files, "Old files should be archived in versioning folder");
 }
+
+#[test]
+fn test_mirror_creates_left_only_directory_tree() {
+    let left_dir = tempdir().unwrap();
+    let right_dir = tempdir().unwrap();
+
+    fs::create_dir_all(left_dir.path().join("nested")).unwrap();
+    fs::write(left_dir.path().join("nested/file.txt"), b"content").unwrap();
+
+    let filter = PathFilter {
+        include_patterns: vec!["*".to_string()],
+        exclude_patterns: vec![],
+        min_size_bytes: None,
+        max_size_bytes: None,
+    };
+
+    let left_files = Scanner::scan_directory(left_dir.path(), &filter, false).unwrap();
+    let right_files = Scanner::scan_directory(right_dir.path(), &filter, false).unwrap();
+    let manifest = Comparator::compare(
+        &left_files,
+        &right_files,
+        CompareVariant::TimeAndSize,
+        SyncVariant::Mirror,
+    );
+
+    let result = Synchronizer::execute_sync(
+        "job_dir_copy",
+        left_dir.path(),
+        right_dir.path(),
+        &manifest.items,
+        DeletionVariant::RecycleBin,
+        None,
+        Arc::new(AtomicBool::new(false)),
+        |_| {},
+    );
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert_eq!(result.files_copied, 1);
+    assert!(right_dir.path().join("nested/file.txt").is_file());
+}
+
+#[test]
+fn test_mirror_versioning_archives_right_only_directory_tree() {
+    let left_dir = tempdir().unwrap();
+    let right_dir = tempdir().unwrap();
+    let version_dir = tempdir().unwrap();
+
+    fs::create_dir_all(right_dir.path().join("old/nested")).unwrap();
+    fs::write(right_dir.path().join("old/nested/file.txt"), b"keep me").unwrap();
+
+    let filter = PathFilter {
+        include_patterns: vec!["*".to_string()],
+        exclude_patterns: vec![],
+        min_size_bytes: None,
+        max_size_bytes: None,
+    };
+
+    let left_files = Scanner::scan_directory(left_dir.path(), &filter, false).unwrap();
+    let right_files = Scanner::scan_directory(right_dir.path(), &filter, false).unwrap();
+    let manifest = Comparator::compare(
+        &left_files,
+        &right_files,
+        CompareVariant::TimeAndSize,
+        SyncVariant::Mirror,
+    );
+
+    let result = Synchronizer::execute_sync(
+        "job_dir_versioning",
+        left_dir.path(),
+        right_dir.path(),
+        &manifest.items,
+        DeletionVariant::Versioning,
+        Some(version_dir.path()),
+        Arc::new(AtomicBool::new(false)),
+        |_| {},
+    );
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(!right_dir.path().join("old").exists());
+
+    let archived = walkdir::WalkDir::new(version_dir.path())
+        .into_iter()
+        .flatten()
+        .find(|entry| entry.file_name() == "file.txt")
+        .map(|entry| entry.into_path())
+        .expect("archived file should exist in versioning storage");
+    assert_eq!(fs::read_to_string(archived).unwrap(), "keep me");
+}

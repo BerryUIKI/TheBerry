@@ -18,5 +18,5 @@ export interface SearchQuery {
 
 export interface SystemDrive {
   name: string;
-  mount_point: string;
+  path: string;
 }

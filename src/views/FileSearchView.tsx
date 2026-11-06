@@ -56,7 +56,7 @@ export function FileSearchView() {
       const list = await getSystemDrives();
       setDrives(list);
       if (list.length > 0 && !selectedRoot()) {
-        setSelectedRoot(list[0].mount_point);
+        setSelectedRoot(list[0].path);
       }
     } catch (e) {
       console.warn("Failed to load system drives:", e);
@@ -246,11 +246,11 @@ export function FileSearchView() {
             {(d) => (
               <button
                 onClick={() => {
-                  setSelectedRoot(d.mount_point);
+                  setSelectedRoot(d.path);
                   handleSearch();
                 }}
                 class={`px-2.5 py-1 text-xs rounded-lg flex items-center space-x-1.5 transition-all border active:scale-95 ${
-                  selectedRoot() === d.mount_point
+                  selectedRoot() === d.path
                     ? "bg-primary text-primary-foreground border-primary font-semibold shadow-xs"
                     : "bg-card text-muted-foreground hover:text-foreground border-border hover:bg-secondary/70"
                 }`}

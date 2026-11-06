@@ -91,44 +91,64 @@ impl Synchronizer {
                     let src = left_root.join(&item.relative_path);
                     let dst = right_root.join(&item.relative_path);
 
-                    // If destination exists, archive or delete first
-                    if dst.exists() {
-                        if let Err(e) = Self::handle_deletion(
-                            &dst,
-                            &item.relative_path,
-                            deletion_variant,
-                            version_subfolder.as_deref(),
-                        ) {
-                            let msg = format!("Failed to remove/archive destination {}: {}", dst.display(), e);
-                            tracing::error!("{}", msg);
-                            errors.push(msg.clone());
-                            logs.push(SyncLogEntry {
-                                timestamp: Utc::now().timestamp(),
-                                level: "error".to_string(),
-                                message: msg,
-                            });
-                        }
-                    }
-
-                    match Self::copy_file_with_metadata(&src, &dst) {
-                        Ok(copied) => {
-                            files_copied += 1;
-                            bytes_transferred += copied;
-                            logs.push(SyncLogEntry {
+                    if item.is_dir {
+                        match fs::create_dir_all(&dst) {
+                            Ok(()) => logs.push(SyncLogEntry {
                                 timestamp: Utc::now().timestamp(),
                                 level: "info".to_string(),
-                                message: format!("Copied (L -> R): {}", item.relative_path),
-                            });
+                                message: format!("Created directory (L -> R): {}", item.relative_path),
+                            }),
+                            Err(e) => {
+                                let msg = format!("Failed to create directory {}: {}", dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
                         }
-                        Err(e) => {
-                            let msg = format!("Failed to copy {} -> {}: {}", src.display(), dst.display(), e);
-                            tracing::error!("{}", msg);
-                            errors.push(msg.clone());
-                            logs.push(SyncLogEntry {
-                                timestamp: Utc::now().timestamp(),
-                                level: "error".to_string(),
-                                message: msg,
-                            });
+                    } else {
+                        // If destination exists, archive or delete first
+                        if dst.exists() {
+                            if let Err(e) = Self::handle_deletion(
+                                &dst,
+                                &item.relative_path,
+                                deletion_variant,
+                                version_subfolder.as_deref(),
+                            ) {
+                                let msg = format!("Failed to remove/archive destination {}: {}", dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
+                        }
+
+                        match Self::copy_file_with_metadata(&src, &dst) {
+                            Ok(copied) => {
+                                files_copied += 1;
+                                bytes_transferred += copied;
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "info".to_string(),
+                                    message: format!("Copied (L -> R): {}", item.relative_path),
+                                });
+                            }
+                            Err(e) => {
+                                let msg = format!("Failed to copy {} -> {}: {}", src.display(), dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
                         }
                     }
                     items_processed += 1;
@@ -137,43 +157,63 @@ impl Synchronizer {
                     let src = right_root.join(&item.relative_path);
                     let dst = left_root.join(&item.relative_path);
 
-                    if dst.exists() {
-                        if let Err(e) = Self::handle_deletion(
-                            &dst,
-                            &item.relative_path,
-                            deletion_variant,
-                            version_subfolder.as_deref(),
-                        ) {
-                            let msg = format!("Failed to remove/archive destination {}: {}", dst.display(), e);
-                            tracing::error!("{}", msg);
-                            errors.push(msg.clone());
-                            logs.push(SyncLogEntry {
-                                timestamp: Utc::now().timestamp(),
-                                level: "error".to_string(),
-                                message: msg,
-                            });
-                        }
-                    }
-
-                    match Self::copy_file_with_metadata(&src, &dst) {
-                        Ok(copied) => {
-                            files_copied += 1;
-                            bytes_transferred += copied;
-                            logs.push(SyncLogEntry {
+                    if item.is_dir {
+                        match fs::create_dir_all(&dst) {
+                            Ok(()) => logs.push(SyncLogEntry {
                                 timestamp: Utc::now().timestamp(),
                                 level: "info".to_string(),
-                                message: format!("Copied (R -> L): {}", item.relative_path),
-                            });
+                                message: format!("Created directory (R -> L): {}", item.relative_path),
+                            }),
+                            Err(e) => {
+                                let msg = format!("Failed to create directory {}: {}", dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
                         }
-                        Err(e) => {
-                            let msg = format!("Failed to copy {} -> {}: {}", src.display(), dst.display(), e);
-                            tracing::error!("{}", msg);
-                            errors.push(msg.clone());
-                            logs.push(SyncLogEntry {
-                                timestamp: Utc::now().timestamp(),
-                                level: "error".to_string(),
-                                message: msg,
-                            });
+                    } else {
+                        if dst.exists() {
+                            if let Err(e) = Self::handle_deletion(
+                                &dst,
+                                &item.relative_path,
+                                deletion_variant,
+                                version_subfolder.as_deref(),
+                            ) {
+                                let msg = format!("Failed to remove/archive destination {}: {}", dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
+                        }
+
+                        match Self::copy_file_with_metadata(&src, &dst) {
+                            Ok(copied) => {
+                                files_copied += 1;
+                                bytes_transferred += copied;
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "info".to_string(),
+                                    message: format!("Copied (R -> L): {}", item.relative_path),
+                                });
+                            }
+                            Err(e) => {
+                                let msg = format!("Failed to copy {} -> {}: {}", src.display(), dst.display(), e);
+                                tracing::error!("{}", msg);
+                                errors.push(msg.clone());
+                                logs.push(SyncLogEntry {
+                                    timestamp: Utc::now().timestamp(),
+                                    level: "error".to_string(),
+                                    message: msg,
+                                });
+                            }
                         }
                     }
                     items_processed += 1;
@@ -369,11 +409,14 @@ impl Synchronizer {
                 if let Some(v_root) = versioning_subfolder {
                     let backup_dst = v_root.join(rel_path);
                     if let Some(parent) = backup_dst.parent() {
-                        let _ = fs::create_dir_all(parent);
+                        fs::create_dir_all(parent)
+                            .map_err(|e| format!("Failed to create versioning directory: {}", e))?;
                     }
                     if path.is_dir() {
-                        let _ = fs::create_dir_all(&backup_dst);
-                        fs::remove_dir_all(path).map_err(|e| format!("Failed to remove directory: {}", e))
+                        // Move the whole tree so nested contents are archived with it.
+                        fs::rename(path, &backup_dst).map_err(|e| {
+                            format!("Failed to archive directory {}: {}", path.display(), e)
+                        })
                     } else {
                         // Move file to versioning destination
                         if fs::rename(path, &backup_dst).is_err() {
