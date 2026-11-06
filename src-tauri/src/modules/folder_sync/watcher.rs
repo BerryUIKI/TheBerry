@@ -25,21 +25,10 @@ impl WatcherManager {
         }
     }
 
-    pub fn is_watching(&self, profile_id: &str) -> bool {
-        self.watchers.lock().contains_key(profile_id)
-    }
-
     pub fn stop_watcher(&self, profile_id: &str) {
         if let Some(stop_flag) = self.watchers.lock().remove(profile_id) {
             stop_flag.store(true, Ordering::Relaxed);
             tracing::info!("RealTimeSync stopped for profile {}", profile_id);
-        }
-    }
-
-    pub fn stop_all(&self) {
-        let mut map = self.watchers.lock();
-        for (_, stop_flag) in map.drain() {
-            stop_flag.store(true, Ordering::Relaxed);
         }
     }
 
