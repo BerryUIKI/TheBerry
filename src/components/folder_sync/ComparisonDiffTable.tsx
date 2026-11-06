@@ -1,19 +1,11 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import {
-  ArrowLeft,
-  ArrowRight,
-  Check,
   CheckCircle2,
-  ChevronDown,
-  Equal,
   File,
   Folder,
-  Minus,
   Sparkles,
-  Trash2,
-  XCircle,
 } from "lucide-solid";
-import { ComparisonItem, ComparisonManifest, CompareResult, SyncAction } from "../../types/folder_sync";
+import { ComparisonManifest, CompareResult, SyncAction } from "../../types/folder_sync";
 import { useI18n } from "../../context/I18nContext";
 
 interface ComparisonDiffTableProps {
