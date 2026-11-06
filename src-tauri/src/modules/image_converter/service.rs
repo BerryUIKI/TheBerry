@@ -19,7 +19,7 @@ pub struct ConvertTask {
     pub preserve_aspect_ratio: Option<bool>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ConvertResult {
     pub source_path: String,
     pub target_path: String,
@@ -120,13 +120,8 @@ impl ImageConverterService {
         if !source_path.exists() {
             return ConvertResult {
                 source_path: task.source_path,
-                target_path: String::new(),
-                original_size_bytes: 0,
-                converted_size_bytes: 0,
-                success: false,
                 error_message: Some("Source file not found".to_string()),
-                width: 0,
-                height: 0,
+                ..Default::default()
             };
         }
 
@@ -134,16 +129,12 @@ impl ImageConverterService {
         if original_size > MAX_IMAGE_FILE_SIZE {
             return ConvertResult {
                 source_path: task.source_path,
-                target_path: String::new(),
                 original_size_bytes: original_size,
-                converted_size_bytes: 0,
-                success: false,
                 error_message: Some(format!(
                     "Image file size ({} MB) exceeds maximum allowed limit of 100 MB",
                     original_size / (1024 * 1024)
                 )),
-                width: 0,
-                height: 0,
+                ..Default::default()
             };
         }
 
@@ -152,13 +143,9 @@ impl ImageConverterService {
             Err(e) => {
                 return ConvertResult {
                     source_path: task.source_path,
-                    target_path: String::new(),
                     original_size_bytes: original_size,
-                    converted_size_bytes: 0,
-                    success: false,
                     error_message: Some(e),
-                    width: 0,
-                    height: 0,
+                    ..Default::default()
                 };
             }
         };
@@ -167,16 +154,14 @@ impl ImageConverterService {
         if orig_w > MAX_IMAGE_DIMENSION || orig_h > MAX_IMAGE_DIMENSION || (orig_w as u64 * orig_h as u64) > MAX_TOTAL_PIXELS {
             return ConvertResult {
                 source_path: task.source_path,
-                target_path: String::new(),
                 original_size_bytes: original_size,
-                converted_size_bytes: 0,
-                success: false,
+                width: orig_w,
+                height: orig_h,
                 error_message: Some(format!(
                     "Image dimensions ({}x{}) exceed maximum safety limits",
                     orig_w, orig_h
                 )),
-                width: orig_w,
-                height: orig_h,
+                ..Default::default()
             };
         }
 
@@ -191,6 +176,8 @@ impl ImageConverterService {
                 };
                 if let Ok(resized) = Self::fast_resize(&dynamic_img, target_w, target_h) {
                     dynamic_img = resized;
+                } else {
+                    tracing::warn!("Failed to resize {} to {}x{}", task.source_path, target_w, target_h);
                 }
             }
         } else if let Some(w) = task.resize_width {
@@ -199,6 +186,8 @@ impl ImageConverterService {
                 let target_h = (orig_h as f32 * scale).round().max(1.0) as u32;
                 if let Ok(resized) = Self::fast_resize(&dynamic_img, w, target_h) {
                     dynamic_img = resized;
+                } else {
+                    tracing::warn!("Failed to resize {} to {}x{}", task.source_path, w, target_h);
                 }
             }
         } else if let Some(h) = task.resize_height {
@@ -207,6 +196,8 @@ impl ImageConverterService {
                 let target_w = (orig_w as f32 * scale).round().max(1.0) as u32;
                 if let Ok(resized) = Self::fast_resize(&dynamic_img, target_w, h) {
                     dynamic_img = resized;
+                } else {
+                    tracing::warn!("Failed to resize {} to {}x{}", task.source_path, target_w, h);
                 }
             }
         }
@@ -229,7 +220,17 @@ impl ImageConverterService {
             "ico" => ("ico", ImageFormat::Ico),
             "tga" => ("tga", ImageFormat::Tga),
             "qoi" => ("qoi", ImageFormat::Qoi),
-            _ => ("jpg", ImageFormat::Jpeg),
+            _ => {
+                return ConvertResult {
+                    source_path: task.source_path,
+                    original_size_bytes: original_size,
+                    error_message: Some(format!(
+                        "Unsupported output format: {}",
+                        task.target_format
+                    )),
+                    ..Default::default()
+                };
+            }
         };
 
         // For ICO output, clamp dimensions to 256x256 max to satisfy ICO specification
@@ -240,6 +241,8 @@ impl ImageConverterService {
             let ico_h = ((orig_h as f32 * scale).round() as u32).clamp(1, 256);
             if let Ok(resized) = Self::fast_resize(&dynamic_img, ico_w, ico_h) {
                 dynamic_img = resized;
+            } else {
+                tracing::warn!("Failed to resize {} to {}x{} for ICO output", task.source_path, ico_w, ico_h);
             }
         }
 
@@ -256,13 +259,9 @@ impl ImageConverterService {
         if let Err(e) = fs::create_dir_all(&target_dir) {
             return ConvertResult {
                 source_path: task.source_path,
-                target_path: String::new(),
                 original_size_bytes: original_size,
-                converted_size_bytes: 0,
-                success: false,
                 error_message: Some(format!("Failed to create output directory: {}", e)),
-                width: 0,
-                height: 0,
+                ..Default::default()
             };
         }
 
@@ -272,16 +271,17 @@ impl ImageConverterService {
             ImageFormat::Jpeg => {
                 let file = match fs::File::create(&target_path) {
                     Ok(f) => f,
-                    Err(e) => return ConvertResult {
-                        source_path: task.source_path,
-                        target_path: target_path.to_string_lossy().to_string(),
-                        original_size_bytes: original_size,
-                        converted_size_bytes: 0,
-                        success: false,
-                        error_message: Some(format!("Failed to create destination file: {}", e)),
-                        width: final_w,
-                        height: final_h,
-                    },
+                    Err(e) => {
+                        return ConvertResult {
+                            source_path: task.source_path,
+                            target_path: target_path.to_string_lossy().to_string(),
+                            original_size_bytes: original_size,
+                            width: final_w,
+                            height: final_h,
+                            error_message: Some(format!("Failed to create destination file: {}", e)),
+                            ..Default::default()
+                        };
+                    }
                 };
                 let mut writer = BufWriter::with_capacity(128 * 1024, file);
                 let mut encoder = JpegEncoder::new(&mut writer, task.quality.clamp(1, 100));
@@ -303,16 +303,17 @@ impl ImageConverterService {
                 let rgba = dynamic_img.to_rgba8();
                 let file = match fs::File::create(&target_path) {
                     Ok(f) => f,
-                    Err(e) => return ConvertResult {
-                        source_path: task.source_path,
-                        target_path: target_path.to_string_lossy().to_string(),
-                        original_size_bytes: original_size,
-                        converted_size_bytes: 0,
-                        success: false,
-                        error_message: Some(format!("Failed to create destination file: {}", e)),
-                        width: final_w,
-                        height: final_h,
-                    },
+                    Err(e) => {
+                        return ConvertResult {
+                            source_path: task.source_path,
+                            target_path: target_path.to_string_lossy().to_string(),
+                            original_size_bytes: original_size,
+                            width: final_w,
+                            height: final_h,
+                            error_message: Some(format!("Failed to create destination file: {}", e)),
+                            ..Default::default()
+                        };
+                    }
                 };
                 let mut writer = BufWriter::with_capacity(128 * 1024, file);
                 let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut writer);
@@ -326,16 +327,17 @@ impl ImageConverterService {
             _ => {
                 let file = match fs::File::create(&target_path) {
                     Ok(f) => f,
-                    Err(e) => return ConvertResult {
-                        source_path: task.source_path,
-                        target_path: target_path.to_string_lossy().to_string(),
-                        original_size_bytes: original_size,
-                        converted_size_bytes: 0,
-                        success: false,
-                        error_message: Some(format!("Failed to create destination file: {}", e)),
-                        width: final_w,
-                        height: final_h,
-                    },
+                    Err(e) => {
+                        return ConvertResult {
+                            source_path: task.source_path,
+                            target_path: target_path.to_string_lossy().to_string(),
+                            original_size_bytes: original_size,
+                            width: final_w,
+                            height: final_h,
+                            error_message: Some(format!("Failed to create destination file: {}", e)),
+                            ..Default::default()
+                        };
+                    }
                 };
                 let mut writer = BufWriter::with_capacity(128 * 1024, file);
                 dynamic_img.write_to(&mut writer, format).map_err(|e| e.to_string())
@@ -364,11 +366,10 @@ impl ImageConverterService {
                 source_path: task.source_path,
                 target_path: target_path.to_string_lossy().to_string(),
                 original_size_bytes: original_size,
-                converted_size_bytes: 0,
-                success: false,
-                error_message: Some(e),
                 width: final_w,
                 height: final_h,
+                error_message: Some(e),
+                ..Default::default()
             },
         }
     }
