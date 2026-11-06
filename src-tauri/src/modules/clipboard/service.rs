@@ -32,6 +32,16 @@ pub struct ClipboardService {
     db_manager: Arc<DatabaseManager>,
 }
 
+fn preview_for(content: &str) -> String {
+    let mut chars = content.chars();
+    let preview: String = chars.by_ref().take(140).collect();
+    if chars.next().is_some() {
+        format!("{preview}...")
+    } else {
+        preview
+    }
+}
+
 impl ClipboardService {
     pub fn new(db_manager: Arc<DatabaseManager>) -> Self {
         Self { db_manager }
@@ -105,11 +115,7 @@ impl ClipboardService {
         }
 
         let db = self.db_manager.get_db()?;
-        let preview = if trimmed.len() > 140 {
-            format!("{}...", &trimmed[..140])
-        } else {
-            trimmed.clone()
-        };
+        let preview = preview_for(&trimmed);
 
         let item = ClipboardItem {
             id: Uuid::new_v4().to_string(),
@@ -517,5 +523,24 @@ mod win32 {
     extern "system" {
         pub fn GetClipboardSequenceNumber() -> u32;
         pub fn IsClipboardFormatAvailable(format: u32) -> i32;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::preview_for;
+
+    #[test]
+    fn preview_truncates_multibyte_text_on_a_char_boundary() {
+        let preview = preview_for(&"中".repeat(180));
+        assert_eq!(preview.chars().count(), 143);
+        assert!(preview.starts_with("中中中"));
+        assert!(preview.ends_with("..."));
+    }
+
+    #[test]
+    fn preview_keeps_short_text_intact() {
+        let text = "短文本";
+        assert_eq!(preview_for(text), text);
     }
 }
