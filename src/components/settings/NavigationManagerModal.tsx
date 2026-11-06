@@ -18,12 +18,10 @@ import {
   resetNavigationToDefault,
   setSidebarItemCustomName,
   toggleSidebarItemHidden,
-  pinToSidebar,
 } from "../../services/navigation";
 import {
   KNOWN_NAV_ITEMS,
   NavItemConfig,
-  DEFAULT_SIDEBAR_ORDER,
 } from "../../types/navigation";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
@@ -32,7 +30,7 @@ export function NavigationManagerModal(props: {
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
   const { success } = useToast();
 
   const [items, setItems] = createSignal<NavItemConfig[]>([]);
@@ -441,7 +439,7 @@ export function NavigationManagerModal(props: {
                               if (e.key === "Escape") setEditingId(null);
                             }}
                             class="h-7 px-2 text-xs bg-background border border-primary rounded text-foreground focus:outline-none flex-1"
-                            autoFocus
+                            autofocus
                           />
                           <button
                             onClick={() => handleSaveEdit(item.id)}

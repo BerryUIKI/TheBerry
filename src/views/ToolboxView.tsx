@@ -28,7 +28,6 @@ import {
   Code2,
   LayoutGrid,
   Layers,
-  Filter,
 } from "lucide-solid";
 import { ContextMenu, ContextMenuItem } from "../components/common/ContextMenu";
 import { useApp } from "../context/AppContext";

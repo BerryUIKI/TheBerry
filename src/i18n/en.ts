@@ -245,6 +245,7 @@ export const en = {
   "settings.changelog": "Changelog",
   "settings.storage_title": "Storage & Persistence (redb + TOML)",
   "settings.storage_dir_label": "Configured Root Storage Directory:",
+  "settings.open_explorer": "Open Folder",
   "settings.storage_desc": "Contains the_berry.redb embedded database and config.toml. All tool tables and data remain local and offline.",
   "settings.backup_title": "Data Backup & Portability",
   "settings.backup_subtitle": "Export or restore all database records and preferences as JSON",

@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { SettingsCategory, SettingsCategoryItem } from "../../types/settings";
+import { SettingsCategory } from "../../types/settings";
 import { useI18n } from "../../context/I18nContext";
 import {
   Settings,

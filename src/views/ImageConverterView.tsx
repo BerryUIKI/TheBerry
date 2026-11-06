@@ -25,7 +25,7 @@ import {
 } from "lucide-solid";
 
 export function ImageConverterView() {
-  const { success, error, info, warning } = useToast();
+  const { success, info, warning } = useToast();
   const { t } = useI18n();
   const [fileList, setFileList] = createSignal<string[]>([]);
   const OTHER_FORMATS: { value: SupportedOutputFormat; label: string }[] = [
