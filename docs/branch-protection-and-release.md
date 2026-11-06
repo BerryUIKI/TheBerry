@@ -22,7 +22,8 @@ gitGraph
 - **`main` (Production Release Branch)**:
   - Protected against direct commits, force pushes (`allow_force_pushes: false`), and branch deletion (`allow_deletions: false`).
   - Code lands in `main` **only** by merging `dev` via approved pull requests when a release is cut.
-  - Pushing or merging to `main`, publishing version tags (`v*`), or manual execution via `workflow_dispatch` triggers the automated multi-platform CI/CD release workflow (`release.yml`).
+  - Pushing or merging to `main`, publishing version tags (`v*`), or manual execution via `workflow_dispatch` triggers the automated multi-platform CI/CD release workflow (`release.yml`). Documentation-only pushes (Markdown files and `docs/**`) are skipped by path filters.
+  - Release builds share a single concurrency group: a `v*` tag build cancels an in-flight `main` push build, so a release produces one multi-platform packaging run. If no tag follows, the `main` push run still completes and refreshes the rolling `latest` release.
 - **`dev` (Integration & Development Branch)**:
   - Daily feature branches (`codex/*`) merge into `dev` via focused, reviewable PRs after all test suites pass.
 

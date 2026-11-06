@@ -39,20 +39,7 @@ pub struct GooseService {
     active_cancellations: Arc<Mutex<HashMap<String, Arc<AtomicBool>>>>,
 }
 
-impl Default for GooseService {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl GooseService {
-    pub fn new() -> Self {
-        let data_dir = dirs::document_dir()
-            .unwrap_or_else(|| PathBuf::from("Documents"))
-            .join("BerryAppData");
-        Self::new_with_data_dir(data_dir)
-    }
-
     pub fn new_with_data_dir(data_dir: PathBuf) -> Self {
         let default_cfg = AIConfig::default();
         let loaded_cfg = Self::load_persisted_config().unwrap_or(default_cfg);
@@ -681,14 +668,11 @@ impl GooseService {
                 return Ok(());
             }
 
-            let mut assistant_message = serde_json::json!({
+            let assistant_message = serde_json::json!({
                 "role": "assistant",
                 "content": if assistant_text.is_empty() { serde_json::Value::Null } else { serde_json::Value::String(assistant_text) },
                 "tool_calls": tool_calls
             });
-            if !assistant_message["tool_calls"].is_array() {
-                assistant_message["tool_calls"] = serde_json::Value::Array(Vec::new());
-            }
             messages.push(assistant_message.clone());
             if let Some(calls) = assistant_message["tool_calls"].as_array() {
                 for call in calls {
@@ -701,10 +685,6 @@ impl GooseService {
                         .get("name")
                         .and_then(|value| value.as_str())
                         .unwrap_or("");
-                    let args_text = function
-                        .get("arguments")
-                        .and_then(|value| value.as_str())
-                        .unwrap_or("{}");
                     let tool_result = match tool_name {
                         "get_current_time" => {
                             serde_json::json!({ "now": chrono::Local::now().to_rfc3339() })
@@ -713,7 +693,6 @@ impl GooseService {
                             serde_json::json!({ "error": format!("Tool '{tool_name}' is not available in TheBerry's local provider.") })
                         }
                     };
-                    let _ = serde_json::from_str::<serde_json::Value>(args_text);
                     messages.push(serde_json::json!({
                         "role": "tool",
                         "tool_call_id": call_id,

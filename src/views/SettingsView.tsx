@@ -44,6 +44,10 @@ interface SettingsViewProps {
   isStandalone?: boolean;
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function SettingsView(props: SettingsViewProps) {
   const { success, error, info } = useToast();
   const { dataDir, returnToPreviousView } = useApp();
@@ -53,7 +57,7 @@ export function SettingsView(props: SettingsViewProps) {
   const [searchQuery, setSearchQuery] = createSignal("");
 
   const [config, setConfigState] = createSignal<AppConfig>({
-    version: "0.1.17",
+    version: "",
     theme: "dark",
     language: "en",
     close_to_tray: true,
@@ -72,7 +76,7 @@ export function SettingsView(props: SettingsViewProps) {
   const [isExporting, setIsExporting] = createSignal(false);
 
   // Updater State
-  const [currentVersion, setCurrentVersion] = createSignal("0.1.17");
+  const [currentVersion, setCurrentVersion] = createSignal("");
   const [checkingUpdate, setCheckingUpdate] = createSignal(false);
   const [updateInfo, setUpdateInfo] = createSignal<UpdateInfo | null>(null);
   const [updateError, setUpdateError] = createSignal<string | null>(null);
@@ -169,7 +173,7 @@ export function SettingsView(props: SettingsViewProps) {
         info("Autostart Disabled", "Removed from system startup");
       }
     } catch (err: any) {
-      error("Autostart Failed", err.message || String(err));
+      error("Autostart Failed", errorMessage(err));
     }
   };
 
@@ -180,7 +184,7 @@ export function SettingsView(props: SettingsViewProps) {
       await copyToSystemClipboard(json);
       success("Backup JSON Copied", "Full backup data copied to clipboard!");
     } catch (err: any) {
-      error("Export Failed", err.message || String(err));
+      error("Export Failed", errorMessage(err));
     } finally {
       setIsExporting(false);
     }
@@ -197,7 +201,7 @@ export function SettingsView(props: SettingsViewProps) {
       setImportJsonText("");
       success("Backup Restored", `Restored ${summary.clipboard_count} clips, ${summary.snippets_count} snippets, and ${summary.launcher_count} launcher items.`);
     } catch (err: any) {
-      error("Restore Failed", err.message || String(err));
+      error("Restore Failed", errorMessage(err));
     }
   };
 
@@ -219,7 +223,7 @@ export function SettingsView(props: SettingsViewProps) {
         );
       }
     } catch (err: any) {
-      const msg = err?.message || String(err);
+      const msg = errorMessage(err);
       setUpdateError(msg);
       error(t("titlebar.check_failed_title"), msg);
     } finally {
@@ -238,7 +242,7 @@ export function SettingsView(props: SettingsViewProps) {
       setDownloadedFilePath(path);
       success("Download Completed", "Update package is ready to install.");
     } catch (err: any) {
-      const msg = err?.message || String(err);
+      const msg = errorMessage(err);
       setUpdateError(msg);
       error("Download Failed", msg);
     } finally {
@@ -251,7 +255,7 @@ export function SettingsView(props: SettingsViewProps) {
     try {
       await installAndRestart(downloadedFilePath() || undefined, true);
     } catch (err: any) {
-      const msg = err?.message || String(err);
+      const msg = errorMessage(err);
       setUpdateError(msg);
       error("Install Failed", msg);
       setIsInstalling(false);
@@ -269,7 +273,7 @@ export function SettingsView(props: SettingsViewProps) {
         info(t("settings.quicklook"), t("settings.quicklook_disabled"));
       }
     } catch (err: any) {
-      error("QuickLook Error", err.message || String(err));
+      error("QuickLook Error", errorMessage(err));
     }
   };
 
@@ -280,7 +284,7 @@ export function SettingsView(props: SettingsViewProps) {
       setQlStatus(status);
       success(t("settings.quicklook"), t("settings.quicklook_running"));
     } catch (err: any) {
-      error("QuickLook Start Failed", err.message || String(err));
+      error("QuickLook Start Failed", errorMessage(err));
     } finally {
       setIsStartingQl(false);
     }
@@ -293,7 +297,7 @@ export function SettingsView(props: SettingsViewProps) {
       setQlStatus(status);
       info(t("settings.quicklook"), t("settings.quicklook_stopped"));
     } catch (err: any) {
-      error("QuickLook Stop Failed", err.message || String(err));
+      error("QuickLook Stop Failed", errorMessage(err));
     } finally {
       setIsStartingQl(false);
     }
@@ -304,7 +308,7 @@ export function SettingsView(props: SettingsViewProps) {
       const path = await open({ title: "Select a file to preview", multiple: false, directory: false });
       if (typeof path === "string") await previewWithQuickLook(path);
     } catch (err: any) {
-      error("Test Preview Failed", err.message || String(err));
+      error("Test Preview Failed", errorMessage(err));
     }
   };
 
@@ -319,7 +323,7 @@ export function SettingsView(props: SettingsViewProps) {
         returnToPreviousView();
       }
     } catch (err: any) {
-      error("Failed to open standalone settings window", err?.message || String(err));
+      error("Failed to open standalone settings window", errorMessage(err));
     }
   };
 

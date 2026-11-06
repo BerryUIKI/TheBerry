@@ -5197,7 +5197,7 @@ dependencies = [
 
 [[package]]
 name = "the-berry"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "arboard",
  "ash",

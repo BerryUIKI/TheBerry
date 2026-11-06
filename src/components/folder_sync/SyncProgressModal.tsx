@@ -1,5 +1,5 @@
 import { Show } from "solid-js";
-import { CheckCircle2, Loader2, XCircle, AlertTriangle, ShieldCheck } from "lucide-solid";
+import { CheckCircle2, Loader2, AlertTriangle } from "lucide-solid";
 import { SyncProgressEvent, SyncResult } from "../../types/folder_sync";
 import { useI18n } from "../../context/I18nContext";
 

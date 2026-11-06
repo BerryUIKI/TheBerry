@@ -4,12 +4,10 @@ import {
   FileOutput,
   FolderOpen,
   Download,
-  Image as ImageIcon,
   CheckCircle2,
-  Layers,
   RefreshCw,
 } from "lucide-solid";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open } from "@tauri-apps/plugin-dialog";
 import * as pdfjsLib from "pdfjs-dist";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
@@ -21,15 +19,13 @@ interface Props {
 
 export function PdfToImagesModal(props: Props) {
   const { language } = useI18n();
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
 
-  const [pdfPath, setPdfPath] = createSignal("");
   const [pdfName, setPdfName] = createSignal("");
   const [totalPages, setTotalPages] = createSignal(0);
   const [selectedPages, setSelectedPages] = createSignal<Set<number>>(new Set());
   const [format, setFormat] = createSignal<"png" | "jpeg" | "webp">("png");
   const [scale, setScale] = createSignal<number>(2); // 2x default for crisp quality
-  const [loading, setLoading] = createSignal(false);
   const [exporting, setExporting] = createSignal(false);
   const [progressText, setProgressText] = createSignal("");
 
@@ -48,10 +44,7 @@ export function PdfToImagesModal(props: Props) {
       });
 
       if (selected && typeof selected === "string") {
-        setLoading(true);
-        setPdfPath(selected);
-        const name = selected.split(/[/\\]/).pop() || "document.pdf";
-        setPdfName(name);
+        setPdfName(selected.split(/[/\\]/).pop() || "document.pdf");
 
         const res = await fetch(`http://asset.localhost/${selected.replace(/\\/g, "/")}`);
         const buf = await res.arrayBuffer();
@@ -73,8 +66,6 @@ export function PdfToImagesModal(props: Props) {
       }
     } catch (e) {
       toastError(language() === "zh" ? "打开 PDF 失败" : "Failed to open PDF", String(e));
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -87,7 +78,7 @@ export function PdfToImagesModal(props: Props) {
 
   const toggleSelectAll = () => {
     if (selectedPages().size === totalPages()) {
-      setSelectedPages(new Set());
+      setSelectedPages(new Set<number>());
     } else {
       const all = new Set<number>();
       for (let i = 1; i <= totalPages(); i++) all.add(i);

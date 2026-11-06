@@ -19,9 +19,6 @@ export function getDefaultNavigationState(): NavigationState {
 
 export function loadNavigationConfig(): NavigationState {
   try {
-    if (typeof localStorage === "undefined") {
-      return getDefaultNavigationState();
-    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return getDefaultNavigationState();
@@ -58,16 +55,8 @@ export function loadNavigationConfig(): NavigationState {
 }
 
 export function saveNavigationConfig(state: NavigationState): void {
-  try {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("navigation-state-changed", { detail: state }));
-    }
-  } catch (e) {
-    console.warn("Failed to save navigation config to localStorage:", e);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  window.dispatchEvent(new CustomEvent("navigation-state-changed", { detail: state }));
 }
 
 export function reorderSidebarItems(fromIndex: number, toIndex: number): NavItemConfig[] {

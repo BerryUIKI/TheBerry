@@ -69,7 +69,7 @@ export function QrCodeModal(props: Props) {
     if (!url) return;
     const a = document.createElement("a");
     a.href = url;
-    a.download = qrcode_.png;
+    a.download = "qrcode.png";
     a.click();
     success(language() === "zh" ? "二维码图片已保存" : "QR code image saved");
   };

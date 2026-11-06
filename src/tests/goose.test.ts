@@ -150,25 +150,25 @@ describe("Goose AI Service & Types", () => {
 
   it("handles Ollama daemon status, start, and stop methods", async () => {
     const mockOllamaStatus = {
-      installed: true,
-      running: true,
+      is_running: true,
+      is_installed: true,
       port: 11434,
       binary_path: "C:\\Users\\ArtSu\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
       models: ["qwen2.5:3b"],
-      error: null,
+      error_message: null,
     };
 
     vi.mocked(invoke).mockResolvedValueOnce(mockOllamaStatus);
     const { getOllamaStatus, startOllamaDaemon, stopOllamaDaemon } = await import("../services/goose");
 
     const st = await getOllamaStatus();
-    expect(st.running).toBe(true);
+    expect(st.is_running).toBe(true);
     expect(st.port).toBe(11434);
     expect(invoke).toHaveBeenCalledWith("get_ollama_status", undefined);
 
     vi.mocked(invoke).mockResolvedValueOnce(mockOllamaStatus);
     const startRes = await startOllamaDaemon();
-    expect(startRes.running).toBe(true);
+    expect(startRes.is_running).toBe(true);
     expect(invoke).toHaveBeenCalledWith("start_ollama_daemon", undefined);
 
     vi.mocked(invoke).mockResolvedValueOnce(undefined);

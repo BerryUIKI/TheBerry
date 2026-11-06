@@ -450,42 +450,6 @@ impl UpdaterService {
         Ok(dest)
     }
 
-    pub fn execute_installer(installer_path: &Path) -> Result<(), String> {
-        if !installer_path.exists() {
-            return Err("Installer file does not exist on disk".to_string());
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            Command::new("cmd")
-                .args(["/c", "start", "", installer_path.to_str().unwrap_or_default()])
-                .spawn()
-                .map_err(|e| format!("Failed to launch installer: {}", e))?;
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            Command::new("open")
-                .arg(installer_path)
-                .spawn()
-                .map_err(|e| format!("Failed to open disk image: {}", e))?;
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            Command::new("chmod")
-                .args(["+x", installer_path.to_str().unwrap_or_default()])
-                .status()
-                .map_err(|e| format!("Failed to set permissions: {}", e))?;
-
-            Command::new(installer_path)
-                .spawn()
-                .map_err(|e| format!("Failed to run AppImage: {}", e))?;
-        }
-
-        Ok(())
-    }
-
     /// Background daemon that silently checks GitHub for updates once every 24 hours
     pub fn start_daily_check_daemon(app_handle: AppHandle, mut shutdown_rx: tokio::sync::watch::Receiver<bool>) {
         tauri::async_runtime::spawn(async move {

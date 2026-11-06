@@ -1,5 +1,5 @@
 import { createSignal, For } from "solid-js";
-import { Plus, Trash2, X, SlidersHorizontal, RotateCcw } from "lucide-solid";
+import { X, SlidersHorizontal, RotateCcw } from "lucide-solid";
 import { PathFilter } from "../../types/folder_sync";
 import { useI18n } from "../../context/I18nContext";
 

@@ -232,10 +232,6 @@ impl FolderSyncService {
         }
     }
 
-    pub fn is_realtime_active(&self, profile_id: &str) -> bool {
-        self.watcher_manager.is_watching(profile_id)
-    }
-
     // --- History in redb ---
 
     fn save_history(&self, result: &SyncResult) -> Result<(), String> {

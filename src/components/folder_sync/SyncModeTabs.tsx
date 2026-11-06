@@ -2,8 +2,6 @@ import { For } from "solid-js";
 import {
   ArrowLeftRight,
   Copy,
-  FolderGit2,
-  GitCompare,
   Layers,
   ShieldCheck,
   SlidersHorizontal,

@@ -23,7 +23,6 @@ import {
   FileText,
   FileImage,
   FileArchive,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Eye,
@@ -41,7 +40,6 @@ export function FileSearchView() {
   const [results, setResults] = createSignal<SearchResultItem[]>([]);
   const [searching, setSearching] = createSignal(false);
   const [fileType, setFileType] = createSignal<SearchQuery["file_type_filter"]>("all");
-  const [caseSensitive, setCaseSensitive] = createSignal(false);
   const [copiedPath, setCopiedPath] = createSignal<string | null>(null);
   const [selectedItem, setSelectedItem] = createSignal<SearchResultItem | null>(null);
 
@@ -56,7 +54,7 @@ export function FileSearchView() {
       const list = await getSystemDrives();
       setDrives(list);
       if (list.length > 0 && !selectedRoot()) {
-        setSelectedRoot(list[0].mount_point);
+        setSelectedRoot(list[0].path);
       }
     } catch (e) {
       console.warn("Failed to load system drives:", e);
@@ -110,7 +108,6 @@ export function FileSearchView() {
       const list = await searchFiles({
         pattern: q,
         search_root: selectedRoot() || undefined,
-        case_sensitive: caseSensitive(),
         file_type_filter: fileType(),
         max_results: 200,
       });
@@ -246,11 +243,11 @@ export function FileSearchView() {
             {(d) => (
               <button
                 onClick={() => {
-                  setSelectedRoot(d.mount_point);
+                  setSelectedRoot(d.path);
                   handleSearch();
                 }}
                 class={`px-2.5 py-1 text-xs rounded-lg flex items-center space-x-1.5 transition-all border active:scale-95 ${
-                  selectedRoot() === d.mount_point
+                  selectedRoot() === d.path
                     ? "bg-primary text-primary-foreground border-primary font-semibold shadow-xs"
                     : "bg-card text-muted-foreground hover:text-foreground border-border hover:bg-secondary/70"
                 }`}

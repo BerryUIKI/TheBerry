@@ -1,5 +1,5 @@
 import { createSignal, For, Show } from "solid-js";
-import { Bookmark, Plus, Trash2, X, Play, Activity } from "lucide-solid";
+import { Bookmark, Plus, Trash2, X, Activity } from "lucide-solid";
 import { SyncProfile } from "../../types/folder_sync";
 import { folderSyncDeleteProfile, folderSyncToggleRealtime } from "../../services/folderSync";
 import { useToast } from "../../context/ToastContext";

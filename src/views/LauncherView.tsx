@@ -21,14 +21,13 @@ import {
   FolderOpen,
   Layers,
   Sparkles,
-  Check,
   CheckSquare,
   Square,
   X,
 } from "lucide-solid";
 
 export function LauncherView() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const { t } = useI18n();
   const [items, setItems] = createSignal<LauncherItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -58,7 +57,6 @@ export function LauncherView() {
   const [discoverySearch, setDiscoverySearch] = createSignal("");
   const [selectedApps, setSelectedApps] = createSignal<Set<string>>(new Set());
   const [scanning, setScanning] = createSignal(false);
-  const [importSuccessMessage, setImportSuccessMessage] = createSignal<string | null>(null);
 
   const loadItems = async () => {
     try {
@@ -167,7 +165,7 @@ export function LauncherView() {
 
   const handleCloseModal = () => {
     if (hasUnsavedChanges()) {
-      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+      if (!window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
         return;
       }
     }
@@ -267,7 +265,7 @@ export function LauncherView() {
       filteredDiscoveredApps().forEach((a) => all.add(a.exec_path));
       setSelectedApps(all);
     } else {
-      setSelectedApps(new Set());
+      setSelectedApps(new Set<string>());
     }
   };
 
@@ -323,14 +321,6 @@ export function LauncherView() {
           </button>
         </div>
       </div>
-
-      {/* Success banner */}
-      <Show when={importSuccessMessage()}>
-        <div class="p-2.5 bg-green-500/10 border border-green-500/30 text-green-500 rounded-md text-xs flex items-center space-x-2">
-          <Check size={14} />
-          <span>{importSuccessMessage()}</span>
-        </div>
-      </Show>
 
       {/* Search & Category Filter */}
       <div class="flex items-center space-x-3">

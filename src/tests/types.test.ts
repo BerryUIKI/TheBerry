@@ -12,6 +12,10 @@ describe("Frontend Type Model Contracts", () => {
       content_type: "text",
       content: "const a = 1;",
       preview: "const a = 1;",
+      media_path: null,
+      media_data_url: null,
+      image_width: null,
+      image_height: null,
       is_pinned: false,
       char_count: 12,
       created_at: new Date().toISOString(),
@@ -87,7 +91,7 @@ describe("Frontend Type Model Contracts", () => {
 
   it("validates AppConfig structure with language preferences and shortcuts", () => {
     const config: import("../types/config").AppConfig = {
-      version: "0.1.17",
+      version: "0.1.18",
       theme: "dark",
       language: "en",
       close_to_tray: true,
@@ -95,6 +99,8 @@ describe("Frontend Type Model Contracts", () => {
       global_shortcuts_enabled: true,
       hud_shortcut: "Alt+Space",
       clipboard_history_limit: 200,
+      clipboard_monitor_enabled: false,
+      quicklook_enabled: true,
       custom_data_dir: "C:\\data",
     };
 
@@ -107,10 +113,10 @@ describe("Frontend Type Model Contracts", () => {
   it("validates SystemDrive schema structure", () => {
     const drive: SystemDrive = {
       name: "Local Disk (C:)",
-      mount_point: "C:\\",
+      path: "C:\\",
     };
 
     expect(drive.name).toBe("Local Disk (C:)");
-    expect(drive.mount_point).toBe("C:\\");
+    expect(drive.path).toBe("C:\\");
   });
 });

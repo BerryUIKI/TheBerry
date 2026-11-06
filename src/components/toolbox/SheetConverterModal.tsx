@@ -1,4 +1,4 @@
-import { createSignal, Show, For, onCleanup } from "solid-js";
+import { createSignal, Show, For } from "solid-js";
 import {
   X,
   FileSpreadsheet,
@@ -8,9 +8,6 @@ import {
   Check,
   Table,
   Layers,
-  ArrowRightLeft,
-  Settings2,
-  FileText,
 } from "lucide-solid";
 import * as XLSX from "xlsx";
 import { open, save } from "@tauri-apps/plugin-dialog";
@@ -26,7 +23,7 @@ type ExportTarget = "xlsx" | "csv" | "tsv" | "json";
 
 export function SheetConverterModal(props: Props) {
   const { language } = useI18n();
-  const { success, error: toastError, info } = useToast();
+  const { success, error: toastError } = useToast();
 
   const [fileName, setFileName] = createSignal<string>("");
   const [workbook, setWorkbook] = createSignal<XLSX.WorkBook | null>(null);
@@ -105,24 +102,9 @@ export function SheetConverterModal(props: Props) {
       });
 
       if (selected && typeof selected === "string") {
-        const response = await fetch(`tauri://localhost/${encodeURIComponent(selected)}`).catch(() => null);
-        // If local tauri fetch not direct, read via array buffer in Tauri plugin or FileReader
-        // In Tauri v2, let's use input fetch or binary read
-        const fileContent = await window.__TAURI__?.core.invoke<number[]>("plugin:fs|read_file", {
-          path: selected,
-        }).catch(() => null);
-
-        let wb: XLSX.WorkBook;
-        if (fileContent) {
-          const u8 = new Uint8Array(fileContent);
-          wb = XLSX.read(u8, { type: "array" });
-        } else {
-          // Fallback fetch
-          const res = await fetch(`http://asset.localhost/${selected.replace(/\\/g, "/")}`);
-          const buf = await res.arrayBuffer();
-          wb = XLSX.read(buf, { type: "array" });
-        }
-
+        const res = await fetch(`http://asset.localhost/${selected.replace(/\\/g, "/")}`);
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
         const name = selected.split(/[/\\]/).pop() || "spreadsheet";
         loadWorkbookData(wb, name);
         success(language() === "zh" ? "已载入表格文件" : "Workbook loaded successfully", name);

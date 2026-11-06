@@ -164,11 +164,11 @@ describe("View Integration Tests", () => {
 
     it("fetches system drives and searches files", async () => {
       vi.mocked(invoke).mockResolvedValueOnce([
-        { mount_point: "C:\\", name: "Local Disk (C:)", total_space_bytes: 512000000, available_space_bytes: 256000000 },
+        { path: "C:\\", name: "Local Disk (C:)" },
       ]);
       const drives = await getSystemDrives();
       expect(drives).toHaveLength(1);
-      expect(drives[0].mount_point).toBe("C:\\");
+      expect(drives[0].path).toBe("C:\\");
 
       vi.mocked(invoke).mockResolvedValueOnce(mockFiles);
       const files = await searchFiles({
@@ -207,9 +207,11 @@ describe("View Integration Tests", () => {
         description: "Code editing redefined",
         exec_path: "C:\\Program Files\\VSCode\\Code.exe",
         arguments: ["."],
-        icon_path: null,
         category: "Development",
         is_favorite: true,
+        launch_count: 0,
+        is_batch: false,
+        batch_commands: [],
         created_at: "2026-09-02T08:00:00Z",
       },
       {
@@ -218,9 +220,11 @@ describe("View Integration Tests", () => {
         description: "Web Browser",
         exec_path: "C:\\Program Files\\Google\\Chrome\\chrome.exe",
         arguments: [],
-        icon_path: null,
         category: "Internet",
         is_favorite: false,
+        launch_count: 0,
+        is_batch: false,
+        batch_commands: [],
         created_at: "2026-09-02T08:05:00Z",
       },
     ];
@@ -341,9 +345,10 @@ describe("View Integration Tests", () => {
       theme: "dark",
       language: "en",
       close_to_tray: true,
-      launch_at_startup: true,
+      autostart: true,
       global_shortcuts_enabled: true,
       hud_shortcut: "Alt+Space",
+      clipboard_monitor_enabled: false,
       quicklook_enabled: true,
       clipboard_history_limit: 200,
       custom_data_dir: "C:\\Users\\User\\.the-berry",
@@ -358,7 +363,7 @@ describe("View Integration Tests", () => {
     });
 
     it("updates configuration preferences", async () => {
-      const updatedConfig = { ...mockConfig, theme: "light" };
+      const updatedConfig: AppConfig = { ...mockConfig, theme: "light" };
       vi.mocked(invoke).mockResolvedValueOnce(updatedConfig);
 
       const res = await updateConfig(updatedConfig);
