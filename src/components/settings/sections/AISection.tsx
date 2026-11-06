@@ -10,6 +10,10 @@ interface AISectionProps {
 
 export function AISection(props: AISectionProps) {
   const { t } = useI18n();
+  const isConfigured = () => {
+    const cfg = props.aiConfig();
+    return Boolean(cfg && (cfg.active_provider === "local" || cfg.active_provider === "ollama" || cfg.api_key.trim()));
+  };
 
   return (
     <div class="space-y-4">
@@ -39,7 +43,7 @@ export function AISection(props: AISectionProps) {
 
         <div class="pt-2 border-t border-border flex items-center justify-between">
           <span class="text-[11px] text-muted-foreground">
-            {props.aiConfig()?.is_configured ? "Provider credentials configured" : "Setup provider key or local model"}
+            {isConfigured() ? "Provider credentials configured" : "Setup provider key or local model"}
           </span>
 
           <button

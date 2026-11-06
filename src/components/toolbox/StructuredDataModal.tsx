@@ -1,5 +1,5 @@
 import { createSignal, Show } from "solid-js";
-import { X, Braces, ArrowRightLeft, Copy, Check, Sparkles, CheckCircle2, AlertCircle } from "lucide-solid";
+import { X, Braces, ArrowRightLeft, Copy, Check, Sparkles, AlertCircle } from "lucide-solid";
 import { load as yamlLoad, dump as yamlDump } from "js-yaml";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
@@ -211,7 +211,7 @@ export function StructuredDataModal(props: Props) {
             <div class="flex flex-col h-full space-y-1.5 min-h-0">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold text-foreground uppercase tracking-wider">
-                  {language() === "zh" ? 输入 () : Input ()}
+                  {language() === "zh" ? "输入" : "Input"}
                 </span>
                 <button
                   type="button"
@@ -233,7 +233,7 @@ export function StructuredDataModal(props: Props) {
             <div class="flex flex-col h-full space-y-1.5 min-h-0">
               <div class="flex items-center justify-between">
                 <span class="text-xs font-semibold text-foreground uppercase tracking-wider">
-                  {language() === "zh" ? 输出 () : Output ()}
+                  {language() === "zh" ? "输出" : "Output"}
                 </span>
                 <Show when={outputText()}>
                   <button
