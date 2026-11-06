@@ -36,7 +36,7 @@ impl AppState {
         let shutdown_flag = Arc::new(AtomicBool::new(false));
         let (shutdown_tx, _) = tokio::sync::watch::channel(false);
 
-        let mut initial_monitor = true;
+        let mut initial_monitor = false;
 
         // If already initialized, attempt to open the database and load config
         if let Some(data_dir) = config_manager.get_data_dir() {
@@ -44,7 +44,9 @@ impl AppState {
                 if let Ok(cfg) = config_manager.load_app_config(&data_dir) {
                     initial_monitor = cfg.clipboard_monitor_enabled;
                 }
-                let _ = db_manager.initialize(&data_dir);
+                if let Err(error) = db_manager.initialize(&data_dir) {
+                    tracing::warn!("Failed to initialize database at startup: {}", error);
+                }
             }
         }
 
