@@ -1,27 +1,20 @@
 import { LocalRuntimePanel } from "./LocalRuntimePanel";
 import { isRuntimePreparing, createGenerationWatchdog } from "../../services/localRuntime";
 import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
-import { 
-  Sparkles, 
-  X, 
-  Send, 
-  Bot, 
-  User, 
-  Copy, 
-  Check, 
-  RefreshCw, 
-  Power, 
+import {
+  X,
+  Send,
+  User,
+  Copy,
+  Check,
   Trash2,
   AlertCircle,
-  ExternalLink,
   Settings,
   Square,
 } from "lucide-solid";
-import { 
-  getGooseStatus, 
-  startGooseDaemon, 
-  stopGooseDaemon, 
-  sendGooseMessage, 
+import {
+  getGooseStatus,
+  sendGooseMessage,
   abortGooseMessage,
   onGooseStreamChunk,
   getAIConfig,
@@ -54,7 +47,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
   createEffect(() => {
     try {
       const msgs = messages();
-      if (Array.isArray(msgs) && msgs.length > 0) {
+      if (msgs.length > 0) {
         const cleaned = msgs.slice(-50).map((m) => ({ ...m, isStreaming: false }));
         localStorage.setItem("berry_goose_messages", JSON.stringify(cleaned));
       }
@@ -70,23 +63,18 @@ export function GooseSidebar(props: GooseSidebarProps) {
   const [aiConfig, setAiConfig] = createSignal<AIConfig | null>(null);
   const [sessionId, setSessionId] = createSignal("sess_" + Math.random().toString(36).substring(2, 9));
   const [copiedId, setCopiedId] = createSignal<string | null>(null);
-  const [isStarting, setIsStarting] = createSignal(false);
   const [showConfigModal, setShowConfigModal] = createSignal(false);
 
   let messagesEndRef: HTMLDivElement | undefined;
   let inputRef: HTMLInputElement | undefined;
 
   const fetchStatusAndConfig = async () => {
-    try {
-      const [resStatus, resConfig] = await Promise.allSettled([
-        getGooseStatus(),
-        getAIConfig(),
-      ]);
-      if (resStatus.status === "fulfilled") setStatus(resStatus.value);
-      if (resConfig.status === "fulfilled") setAiConfig(resConfig.value);
-    } catch (e) {
-      console.warn("Failed to fetch Goose status and AI config:", e);
-    }
+    const [resStatus, resConfig] = await Promise.allSettled([
+      getGooseStatus(),
+      getAIConfig(),
+    ]);
+    if (resStatus.status === "fulfilled") setStatus(resStatus.value);
+    if (resConfig.status === "fulfilled") setAiConfig(resConfig.value);
   };
 
   onMount(() => {
@@ -111,7 +99,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       resetTimeoutWatchdog();
 
       setMessages((prev) => {
-        const list = Array.isArray(prev) ? [...prev] : [];
+        const list = [...prev];
         const lastMsg = list[list.length - 1];
         if (lastMsg && lastMsg.sender === "assistant" && lastMsg.isStreaming) {
           list[list.length - 1] = {
@@ -213,9 +201,8 @@ export function GooseSidebar(props: GooseSidebarProps) {
     }
     if (isGenerating()) return;
 
-    // Retrieve prompt value from either signal or DOM input element to avoid sync lag
-    const rawVal = inputRef?.value?.trim() ? inputRef.value : inputValue();
-    const prompt = (rawVal || "").trim();
+    // Retrieve prompt value from the controlled input signal
+    const prompt = inputValue().trim();
     if (!prompt) {
       inputRef?.focus();
       return;
@@ -230,12 +217,9 @@ export function GooseSidebar(props: GooseSidebarProps) {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
 
-    setMessages((prev) => (Array.isArray(prev) ? [...prev, userMessage] : [userMessage]));
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
-    if (inputRef) {
-      inputRef.value = "";
-      inputRef.focus();
-    }
+    inputRef?.focus();
     setIsGenerating(true);
     resetTimeoutWatchdog();
 
@@ -248,7 +232,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isStreaming: true,
     };
-    setMessages((prev) => (Array.isArray(prev) ? [...prev, assistantMessage] : [assistantMessage]));
+    setMessages((prev) => [...prev, assistantMessage]);
 
     // Check if provider requires an API key and user hasn't set one
     const activeProv = (aiConfig()?.active_provider || status()?.active_provider || "gemini").toLowerCase();
@@ -259,7 +243,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       clearTimeoutWatchdog();
       setIsGenerating(false);
       setMessages((prev) => {
-        const updated = Array.isArray(prev) ? [...prev] : [];
+        const updated = [...prev];
         const lastIdx = updated.length - 1;
         if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
           updated[lastIdx] = {
@@ -291,7 +275,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
       console.error("Failed to send prompt to AI engine:", err);
       setIsGenerating(false);
       setMessages((prev) => {
-        const updated = Array.isArray(prev) ? [...prev] : [];
+        const updated = [...prev];
         const lastIdx = updated.length - 1;
         if (lastIdx >= 0 && updated[lastIdx].sender === "assistant") {
           updated[lastIdx] = {
@@ -320,22 +304,6 @@ export function GooseSidebar(props: GooseSidebarProps) {
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error("Copy message failed:", err);
-    }
-  };
-
-  const handleToggleDaemon = async () => {
-    setIsStarting(true);
-    try {
-      if (status()?.is_running) {
-        await stopGooseDaemon();
-      } else {
-        await startGooseDaemon();
-      }
-      await fetchStatusAndConfig();
-    } catch (e) {
-      console.error("Daemon toggle error:", e);
-    } finally {
-      setIsStarting(false);
     }
   };
 
@@ -578,7 +546,7 @@ export function GooseSidebar(props: GooseSidebarProps) {
                   }}
                   title="Send Message (Enter)"
                   class={`p-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-all flex items-center justify-center shadow-sm active:scale-95 cursor-pointer ${
-                    !(inputValue().trim() || inputRef?.value?.trim()) ? "opacity-50" : ""
+                    !inputValue().trim() ? "opacity-50" : ""
                   }`}
                 >
                   <Send size={14} class="pointer-events-none" />
