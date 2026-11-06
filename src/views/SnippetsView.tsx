@@ -30,7 +30,7 @@ import {
 } from "lucide-solid";
 
 export function SnippetsView() {
-  const { success, error, info } = useToast();
+  const { success, error } = useToast();
   const { t } = useI18n();
   const [snippets, setSnippets] = createSignal<SnippetItem[]>([]);
   const [searchQuery, setSearchQuery] = createSignal("");
@@ -201,7 +201,7 @@ export function SnippetsView() {
 
   const handleCloseModal = () => {
     if (hasUnsavedChanges()) {
-      if (typeof window !== "undefined" && window.confirm && !window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
+      if (!window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
         return;
       }
     }

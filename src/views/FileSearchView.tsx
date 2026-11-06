@@ -23,7 +23,6 @@ import {
   FileText,
   FileImage,
   FileArchive,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown,
   Eye,
@@ -41,7 +40,6 @@ export function FileSearchView() {
   const [results, setResults] = createSignal<SearchResultItem[]>([]);
   const [searching, setSearching] = createSignal(false);
   const [fileType, setFileType] = createSignal<SearchQuery["file_type_filter"]>("all");
-  const [caseSensitive, setCaseSensitive] = createSignal(false);
   const [copiedPath, setCopiedPath] = createSignal<string | null>(null);
   const [selectedItem, setSelectedItem] = createSignal<SearchResultItem | null>(null);
 
@@ -110,7 +108,6 @@ export function FileSearchView() {
       const list = await searchFiles({
         pattern: q,
         search_root: selectedRoot() || undefined,
-        case_sensitive: caseSensitive(),
         file_type_filter: fileType(),
         max_results: 200,
       });
