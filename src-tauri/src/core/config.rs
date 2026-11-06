@@ -11,43 +11,18 @@ pub struct BootstrapConfig {
     pub initialized: bool,
 }
 
-fn default_app_language() -> String {
-    "en".to_string()
-}
-
-fn default_global_shortcuts_enabled() -> bool {
-    true
-}
-
-fn default_hud_shortcut() -> String {
-    "Alt+Space".to_string()
-}
-
-fn default_clipboard_monitor_enabled() -> bool {
-    false
-}
-
-fn default_quicklook_enabled() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AppConfig {
     pub version: String,
     pub theme: String, // "dark" | "light" | "system"
-    #[serde(default = "default_app_language")]
     pub language: String, // "en" | "zh"
     pub close_to_tray: bool,
     pub autostart: bool,
-    #[serde(default = "default_global_shortcuts_enabled")]
     pub global_shortcuts_enabled: bool,
-    #[serde(default = "default_hud_shortcut")]
     pub hud_shortcut: String,
     pub clipboard_history_limit: usize,
-    #[serde(default = "default_clipboard_monitor_enabled")]
     pub clipboard_monitor_enabled: bool,
-    #[serde(default = "default_quicklook_enabled")]
     pub quicklook_enabled: bool,
     pub custom_data_dir: String,
 }
@@ -55,7 +30,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            version: "0.1.17".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
             theme: "dark".to_string(),
             language: "en".to_string(),
             close_to_tray: true,
