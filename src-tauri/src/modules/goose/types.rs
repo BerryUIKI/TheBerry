@@ -43,27 +43,6 @@ pub struct GooseStreamChunk {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GooseConfig {
-    pub binary_path: Option<String>,
-    pub default_port: Option<u16>,
-    pub auto_start: bool,
-    pub default_provider: Option<String>,
-    pub default_model: Option<String>,
-}
-
-impl Default for GooseConfig {
-    fn default() -> Self {
-        Self {
-            binary_path: None,
-            default_port: None,
-            auto_start: false,
-            default_provider: Some("openai".to_string()),
-            default_model: Some("gpt-4o".to_string()),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomMcpServer {
     pub name: String,
     pub command: String,

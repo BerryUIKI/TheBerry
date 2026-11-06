@@ -75,13 +75,7 @@ impl QuickLookService {
             }
         }
 
-        // 2. Check workspace dev directory
-        let dev_candidate = PathBuf::from(r"F:\dev\TheBerry\src-tauri\resources\quicklook\QuickLook.exe");
-        if dev_candidate.is_file() {
-            return Some(dev_candidate);
-        }
-
-        // 3. Check PATH
+        // 2. Check PATH
         if let Ok(path_var) = std::env::var("PATH") {
             for dir in std::env::split_paths(&path_var) {
                 let candidate = dir.join("QuickLook.exe");
@@ -91,7 +85,7 @@ impl QuickLookService {
             }
         }
 
-        // 4. Check WindowsApps Store QuickLook
+        // 3. Check WindowsApps Store QuickLook
         if let Ok(prog_files) = std::env::var("ProgramFiles") {
             let win_apps = Path::new(&prog_files).join("WindowsApps");
             if win_apps.is_dir() {
@@ -109,7 +103,7 @@ impl QuickLookService {
             }
         }
 
-        // 5. Check standard installation directories
+        // 4. Check standard installation directories
         if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
             let candidate = Path::new(&local_app_data)
                 .join("Programs")
