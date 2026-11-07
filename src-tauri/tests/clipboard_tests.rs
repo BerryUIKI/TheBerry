@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tempfile::tempdir;
-use the_berry_lib::core::database::DatabaseManager;
+use the_berry_lib::core::database::{DatabaseManager, CLIPBOARD_TABLE};
 use the_berry_lib::modules::clipboard::service::ClipboardService;
 
 #[test]
@@ -118,4 +118,24 @@ fn test_clipboard_search_history() {
     let pinned_hits = service.search_history("", None, Some(true), None).unwrap();
     assert_eq!(pinned_hits.len(), 1);
     assert_eq!(pinned_hits[0].id, item1.id);
+}
+
+#[test]
+fn test_malformed_clipboard_row_is_reported() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(temp.path()).expect("failed to init db");
+
+    let write_txn = db_manager.get_db().expect("db").begin_write().expect("write txn");
+    {
+        let mut table = write_txn.open_table(CLIPBOARD_TABLE).expect("open table");
+        table
+            .insert("broken", b"not-json".as_slice())
+            .expect("insert malformed row");
+    }
+    write_txn.commit().expect("commit");
+
+    let service = ClipboardService::new(db_manager);
+    let error = service.get_history().expect_err("malformed row should fail");
+    assert!(error.contains("decode clipboard item row"), "unexpected error: {error}");
 }

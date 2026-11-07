@@ -21,7 +21,7 @@ export function StructuredDataModal(props: Props) {
     JSON.stringify(
       {
         name: "TheBerry",
-        version: "0.1.18",
+        version: "0.1.19",
         features: ["clipboard", "launcher", "snippets", "file-search", "toolbox"],
         settings: {
           theme: "system",
@@ -88,8 +88,8 @@ export function StructuredDataModal(props: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       success(language() === "zh" ? "已复制输出内容" : "Copied output to clipboard");
-    } catch {
-      // ignore
+    } catch (e) {
+      toastError(language() === "zh" ? "复制失败" : "Copy failed", String(e));
     }
   };
 

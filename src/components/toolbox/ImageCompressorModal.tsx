@@ -13,6 +13,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
 import { compressImages, CompressResult, CompressTask } from "../../services/toolbox";
+import { formatBytes } from "../../utils/format";
 
 interface Props {
   isOpen: boolean;
@@ -36,14 +37,6 @@ export function ImageCompressorModal(props: Props) {
   const [outputDir, setOutputDir] = createSignal<string>("");
   const [loading, setLoading] = createSignal(false);
   const [results, setResults] = createSignal<CompressResult[]>([]);
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
 
   const handleSelectFiles = async () => {
     try {

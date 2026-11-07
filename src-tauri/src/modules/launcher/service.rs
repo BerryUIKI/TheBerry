@@ -53,11 +53,11 @@ impl LauncherService {
         let table = read_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
 
         let mut items = Vec::new();
-        let mut iter = table.iter().map_err(|e| e.to_string())?;
-        while let Some(Ok((_key, val))) = iter.next() {
-            if let Ok(item) = serde_json::from_slice::<LauncherItem>(val.value()) {
-                items.push(item);
-            }
+        for entry in table.iter().map_err(|e| format!("Failed to iterate launcher items: {e}"))? {
+            let (_key, val) = entry.map_err(|e| format!("Failed to read launcher item row: {e}"))?;
+            let item = serde_json::from_slice::<LauncherItem>(val.value())
+                .map_err(|e| format!("Failed to decode launcher item row: {e}"))?;
+            items.push(item);
         }
 
         items.sort_by(|a, b| {
@@ -76,17 +76,21 @@ impl LauncherService {
         let id = payload.id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
         let mut launch_count = 0;
-        let created_at = now;
+        let mut created_at = now;
 
-        // Keep existing launch count and created_at if updating
-        if let Ok(read_txn) = db.begin_read() {
-            if let Ok(table) = read_txn.open_table(LAUNCHER_TABLE) {
-                if let Ok(Some(val)) = table.get(id.as_str()) {
-                    if let Ok(existing) = serde_json::from_slice::<LauncherItem>(val.value()) {
-                        launch_count = existing.launch_count;
-                    }
-                }
-            }
+        // Keep the existing launch count and creation time when updating.
+        let read_txn = db.begin_read().map_err(|e| format!("Failed to read launcher item: {e}"))?;
+        let table = read_txn
+            .open_table(LAUNCHER_TABLE)
+            .map_err(|e| format!("Failed to open launcher table: {e}"))?;
+        if let Some(val) = table
+            .get(id.as_str())
+            .map_err(|e| format!("Failed to load launcher item: {e}"))?
+        {
+            let existing = serde_json::from_slice::<LauncherItem>(val.value())
+                .map_err(|e| format!("Failed to decode existing launcher item: {e}"))?;
+            launch_count = existing.launch_count;
+            created_at = existing.created_at;
         }
 
         let item = LauncherItem {

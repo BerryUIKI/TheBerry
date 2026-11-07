@@ -53,11 +53,11 @@ impl ClipboardService {
         let table = read_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
 
         let mut items = Vec::new();
-        let mut iter = table.iter().map_err(|e| e.to_string())?;
-        while let Some(Ok((_key, val))) = iter.next() {
-            if let Ok(item) = serde_json::from_slice::<ClipboardItem>(val.value()) {
-                items.push(item);
-            }
+        for entry in table.iter().map_err(|e| format!("Failed to iterate clipboard items: {e}"))? {
+            let (_key, val) = entry.map_err(|e| format!("Failed to read clipboard item row: {e}"))?;
+            let item = serde_json::from_slice::<ClipboardItem>(val.value())
+                .map_err(|e| format!("Failed to decode clipboard item row: {e}"))?;
+            items.push(item);
         }
 
         // Sort: pinned first, then newest first
@@ -162,17 +162,6 @@ impl ClipboardService {
                 .ok_or_else(|| "Failed to construct ImageBuffer from raw RGBA bytes".to_string())?;
         let dynamic_img = DynamicImage::ImageRgba8(img_buffer);
 
-        // Optionally persist image PNG to <data_dir>/media/
-        let media_path = if let Some(root) = data_dir {
-            let media_dir = root.join("media");
-            let _ = std::fs::create_dir_all(&media_dir);
-            let file_path = media_dir.join(format!("clip_{}.png", id));
-            let _ = dynamic_img.save_with_format(&file_path, ImageFormat::Png);
-            Some(file_path.to_string_lossy().to_string())
-        } else {
-            None
-        };
-
         // Create base64 thumbnail data URL for fast frontend rendering (resize if large)
         let thumbnail = if width > 320 || height > 240 {
             dynamic_img.thumbnail(320, 240)
@@ -181,8 +170,24 @@ impl ClipboardService {
         };
 
         let mut png_bytes: Vec<u8> = Vec::new();
-        let _ = thumbnail.write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png);
+        thumbnail
+            .write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode clipboard thumbnail: {e}"))?;
         let data_url = format!("data:image/png;base64,{}", BASE64.encode(&png_bytes));
+
+        // Optionally persist image PNG to <data_dir>/media/
+        let media_path = if let Some(root) = data_dir {
+            let media_dir = root.join("media");
+            std::fs::create_dir_all(&media_dir)
+                .map_err(|e| format!("Failed to create clipboard media directory: {e}"))?;
+            let file_path = media_dir.join(format!("clip_{}.png", id));
+            dynamic_img
+                .save_with_format(&file_path, ImageFormat::Png)
+                .map_err(|e| format!("Failed to save clipboard image: {e}"))?;
+            Some(file_path.to_string_lossy().to_string())
+        } else {
+            None
+        };
 
         let item = ClipboardItem {
             id,
@@ -258,12 +263,12 @@ impl ClipboardService {
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
             let mut to_remove = Vec::new();
-            let mut iter = table.iter().map_err(|e| e.to_string())?;
-            while let Some(Ok((key, val))) = iter.next() {
-                if let Ok(item) = serde_json::from_slice::<ClipboardItem>(val.value()) {
-                    if !item.is_pinned {
-                        to_remove.push(key.value().to_string());
-                    }
+            for entry in table.iter().map_err(|e| format!("Failed to iterate clipboard items: {e}"))? {
+                let (key, val) = entry.map_err(|e| format!("Failed to read clipboard item row: {e}"))?;
+                let item = serde_json::from_slice::<ClipboardItem>(val.value())
+                    .map_err(|e| format!("Failed to decode clipboard item row: {e}"))?;
+                if !item.is_pinned {
+                    to_remove.push(key.value().to_string());
                 }
             }
             for key in to_remove {
@@ -327,6 +332,7 @@ impl ClipboardService {
                 let mut last_text = String::new();
                 let mut last_img_hash: u64 = 0;
                 let mut clipboard_opt: Option<arboard::Clipboard> = arboard::Clipboard::new().ok();
+                let data_dir = crate::core::config::ConfigManager::new().get_data_dir();
 
                 #[cfg(target_os = "windows")]
                 let mut last_seq = unsafe { win32::GetClipboardSequenceNumber() };
@@ -401,8 +407,11 @@ impl ClipboardService {
                                         if !trimmed.is_empty() && trimmed != last_text {
                                             last_text = trimmed.clone();
                                             let service = ClipboardService::new(db_manager.clone());
-                                            if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
-                                                let _ = app_handle.emit("clipboard-updated", item);
+                                            match service.add_item(trimmed, "text".to_string()) {
+                                                Ok(item) => {
+                                                    let _ = app_handle.emit("clipboard-updated", item);
+                                                }
+                                                Err(error) => tracing::warn!("Failed to record clipboard text entry: {error}"),
                                             }
                                         }
                                     }
@@ -424,14 +433,16 @@ impl ClipboardService {
                                             if hash != last_img_hash {
                                                 last_img_hash = hash;
                                                 let service = ClipboardService::new(db_manager.clone());
-                                                let root_dir = crate::core::config::ConfigManager::new().get_data_dir();
-                                                if let Ok(item) = service.add_image_item(
+                                                match service.add_image_item(
                                                     w,
                                                     h,
                                                     &img_data.bytes,
-                                                    root_dir.as_deref(),
+                                                    data_dir.as_deref(),
                                                 ) {
-                                                    let _ = app_handle.emit("clipboard-updated", item);
+                                                    Ok(item) => {
+                                                        let _ = app_handle.emit("clipboard-updated", item);
+                                                    }
+                                                    Err(error) => tracing::warn!("Failed to record clipboard image entry: {error}"),
                                                 }
                                             }
                                         }
@@ -469,8 +480,11 @@ impl ClipboardService {
                                     if trimmed != last_text {
                                         last_text = trimmed.clone();
                                         let service = ClipboardService::new(db_manager.clone());
-                                        if let Ok(item) = service.add_item(trimmed, "text".to_string()) {
-                                            let _ = app_handle.emit("clipboard-updated", item);
+                                        match service.add_item(trimmed, "text".to_string()) {
+                                            Ok(item) => {
+                                                let _ = app_handle.emit("clipboard-updated", item);
+                                            }
+                                            Err(error) => tracing::warn!("Failed to record clipboard text entry: {error}"),
                                         }
                                     }
                                 }
@@ -491,14 +505,16 @@ impl ClipboardService {
                                         if hash != last_img_hash {
                                             last_img_hash = hash;
                                             let service = ClipboardService::new(db_manager.clone());
-                                            let root_dir = crate::core::config::ConfigManager::new().get_data_dir();
-                                            if let Ok(item) = service.add_image_item(
+                                            match service.add_image_item(
                                                 w,
                                                 h,
                                                 &img_data.bytes,
-                                                root_dir.as_deref(),
+                                                data_dir.as_deref(),
                                             ) {
-                                                let _ = app_handle.emit("clipboard-updated", item);
+                                                Ok(item) => {
+                                                    let _ = app_handle.emit("clipboard-updated", item);
+                                                }
+                                                Err(error) => tracing::warn!("Failed to record clipboard image entry: {error}"),
                                             }
                                         }
                                     }

@@ -10,6 +10,7 @@ import { previewWithQuickLook } from "../services/quicklook";
 import { copyToSystemClipboard } from "../services/clipboard";
 import { useToast } from "../context/ToastContext";
 import { useI18n } from "../context/I18nContext";
+import { formatBytes } from "../utils/format";
 import {
   Search,
   Folder,
@@ -197,14 +198,6 @@ export function FileSearchView() {
     );
   };
 
-  const formatSize = (bytes: number) => {
-    if (bytes === 0) return "--";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
-
   const getFileIcon = (item: SearchResultItem) => {
     if (item.is_dir) return <Folder size={15} class="text-amber-500 flex-shrink-0" />;
     const ext = item.extension.toLowerCase();
@@ -370,7 +363,7 @@ export function FileSearchView() {
 
                   <div class="flex items-center space-x-3 flex-shrink-0 ml-3">
                     <span class="text-[11px] text-muted-foreground font-mono w-16 text-right">
-                      {formatSize(item.size_bytes)}
+                      {item.size_bytes === 0 ? "--" : formatBytes(item.size_bytes)}
                     </span>
 
                     <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -23,6 +23,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { getFilePreviewInfo } from "../../services/quicklook";
 import { openFilePath, revealInExplorer } from "../../services/fileSearch";
+import { formatBytes } from "../../utils/format";
 import { FilePreviewInfo } from "../../types/quicklook";
 import { useToast } from "../../context/ToastContext";
 import { parseDelimitedRows } from "../../utils/delimitedText";
@@ -217,13 +218,6 @@ export function QuickLookModal() {
     });
   });
 
-  const formatSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-  };
-
   const getCategoryIcon = (category: string) => {
     switch (category) {
       case "image": return <ImageIcon size={16} class="text-rose-400" />;
@@ -294,7 +288,7 @@ export function QuickLookModal() {
             <div class="flex items-center space-x-2 flex-shrink-0">
               <Show when={previewInfo()?.size_bytes}>
                 <span class="text-xs font-mono text-muted-foreground mr-2">
-                  {formatSize(previewInfo()!.size_bytes)}
+                  {formatBytes(previewInfo()!.size_bytes)}
                 </span>
               </Show>
 
@@ -496,7 +490,7 @@ export function QuickLookModal() {
                     </div>
                     <div class="text-center space-y-1">
                       <p class="text-base font-semibold text-foreground">{previewInfo()?.name}</p>
-                      <p class="text-xs font-mono text-muted-foreground">{formatSize(previewInfo()!.size_bytes)}</p>
+                      <p class="text-xs font-mono text-muted-foreground">{formatBytes(previewInfo()!.size_bytes)}</p>
                     </div>
                     <audio
                       src={previewInfo()?.base64_data || ""}
@@ -655,7 +649,7 @@ export function QuickLookModal() {
                     <div class="space-y-1">
                       <p class="text-base font-semibold text-foreground">{previewInfo()?.name}</p>
                       <p class="text-xs font-mono text-muted-foreground">
-                        {formatSize(previewInfo()!.size_bytes)} • {previewInfo()?.mime_type}
+                        {formatBytes(previewInfo()!.size_bytes)} • {previewInfo()?.mime_type}
                       </p>
                     </div>
                     <button
