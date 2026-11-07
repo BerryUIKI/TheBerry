@@ -2,6 +2,7 @@ import { Show } from "solid-js";
 import { CheckCircle2, Loader2, AlertTriangle } from "lucide-solid";
 import { SyncProgressEvent, SyncResult } from "../../types/folder_sync";
 import { useI18n } from "../../context/I18nContext";
+import { formatBytes } from "../../utils/format";
 
 interface SyncProgressModalProps {
   isOpen: boolean;
@@ -14,14 +15,6 @@ interface SyncProgressModalProps {
 
 export function SyncProgressModal(props: SyncProgressModalProps) {
   const { language } = useI18n();
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
 
   const percent = () => {
     if (!props.progress || props.progress.total_bytes === 0) {
