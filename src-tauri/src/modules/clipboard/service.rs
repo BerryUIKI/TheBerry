@@ -53,11 +53,11 @@ impl ClipboardService {
         let table = read_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
 
         let mut items = Vec::new();
-        let mut iter = table.iter().map_err(|e| e.to_string())?;
-        while let Some(Ok((_key, val))) = iter.next() {
-            if let Ok(item) = serde_json::from_slice::<ClipboardItem>(val.value()) {
-                items.push(item);
-            }
+        for entry in table.iter().map_err(|e| format!("Failed to iterate clipboard items: {e}"))? {
+            let (_key, val) = entry.map_err(|e| format!("Failed to read clipboard item row: {e}"))?;
+            let item = serde_json::from_slice::<ClipboardItem>(val.value())
+                .map_err(|e| format!("Failed to decode clipboard item row: {e}"))?;
+            items.push(item);
         }
 
         // Sort: pinned first, then newest first
@@ -258,12 +258,12 @@ impl ClipboardService {
         {
             let mut table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
             let mut to_remove = Vec::new();
-            let mut iter = table.iter().map_err(|e| e.to_string())?;
-            while let Some(Ok((key, val))) = iter.next() {
-                if let Ok(item) = serde_json::from_slice::<ClipboardItem>(val.value()) {
-                    if !item.is_pinned {
-                        to_remove.push(key.value().to_string());
-                    }
+            for entry in table.iter().map_err(|e| format!("Failed to iterate clipboard items: {e}"))? {
+                let (key, val) = entry.map_err(|e| format!("Failed to read clipboard item row: {e}"))?;
+                let item = serde_json::from_slice::<ClipboardItem>(val.value())
+                    .map_err(|e| format!("Failed to decode clipboard item row: {e}"))?;
+                if !item.is_pinned {
+                    to_remove.push(key.value().to_string());
                 }
             }
             for key in to_remove {
