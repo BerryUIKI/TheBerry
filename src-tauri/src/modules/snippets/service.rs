@@ -68,6 +68,21 @@ impl SnippetService {
         let now = Utc::now();
         let id = payload.id.unwrap_or_else(|| Uuid::new_v4().to_string());
 
+        let mut created_at = now;
+        // Keep the original creation time when updating.
+        let read_txn = db.begin_read().map_err(|e| format!("Failed to read snippet: {e}"))?;
+        let table = read_txn
+            .open_table(SNIPPETS_TABLE)
+            .map_err(|e| format!("Failed to open snippets table: {e}"))?;
+        if let Some(val) = table
+            .get(id.as_str())
+            .map_err(|e| format!("Failed to load snippet: {e}"))?
+        {
+            let existing = serde_json::from_slice::<SnippetItem>(val.value())
+                .map_err(|e| format!("Failed to decode existing snippet: {e}"))?;
+            created_at = existing.created_at;
+        }
+
         let item = SnippetItem {
             id: id.clone(),
             title: payload.title,
@@ -77,7 +92,7 @@ impl SnippetService {
             category: payload.category.unwrap_or_else(|| "General".to_string()),
             tags: payload.tags.unwrap_or_default(),
             is_favorite: payload.is_favorite.unwrap_or(false),
-            created_at: now,
+            created_at,
             updated_at: now,
         };
 
