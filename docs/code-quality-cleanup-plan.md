@@ -1,6 +1,6 @@
 # Code Quality Cleanup & Release Plan
 
-Status: completed (2026-11-06)
+Status: 0.1.18 shipped; 0.1.19 prepared (2026-11-07)
 Baseline: `v0.1.17`, `dev` at `586878c`
 
 This plan tracks the cleanup that came out of the full over-defensiveness review. The work was split so every PR stayed small and independently reviewable.
@@ -26,23 +26,24 @@ This plan tracks the cleanup that came out of the full over-defensiveness review
 | [#206](https://github.com/BerryUIKI/TheBerry/issues/206) | Backend over-defensive cleanup | [#212](https://github.com/BerryUIKI/TheBerry/pull/212), [#213](https://github.com/BerryUIKI/TheBerry/pull/213) |
 | [#207](https://github.com/BerryUIKI/TheBerry/issues/207) | Frontend over-defensive cleanup | [#214](https://github.com/BerryUIKI/TheBerry/pull/214) |
 | [#208](https://github.com/BerryUIKI/TheBerry/issues/208) | Add `tsc --noEmit` to CI | [#215](https://github.com/BerryUIKI/TheBerry/pull/215) |
+| [#218](https://github.com/BerryUIKI/TheBerry/issues/218) | Surface database read/persistence errors | [#220](https://github.com/BerryUIKI/TheBerry/pull/220), [#222](https://github.com/BerryUIKI/TheBerry/pull/222) |
+| [#219](https://github.com/BerryUIKI/TheBerry/issues/219) | Share byte formatting and audit catch blocks | [#221](https://github.com/BerryUIKI/TheBerry/pull/221), [#223](https://github.com/BerryUIKI/TheBerry/pull/223) |
 
 The release plan itself was added in [#209](https://github.com/BerryUIKI/TheBerry/pull/209).
 
-## Remaining follow-ups
+## Follow-ups delivered in 0.1.19
 
-These are intentionally outside the 0.1.18 patch and can form 0.1.19 if desired:
-
-- Propagate DB row iteration errors instead of silently skipping malformed rows in snippets, launcher, clipboard, backup, and folder sync (#206).
-- Propagate persistence errors in launcher/snippet saves, backup import counts, and clipboard image writes (#206).
-- Extract the shared `formatBytes` helper used by nine frontend files (#207).
-- Audit the remaining `catch` blocks that log and continue for cases where surfacing the error would be more useful (#207).
+- Database row iteration errors now propagate in snippets, launcher, clipboard, folder sync, and backup export.
+- Launcher/snippet timestamps and launcher launch counts are preserved on update.
+- Backup restore, clipboard image persistence, and settings persistence now surface failures.
+- One shared `formatBytes`/`formatSpeed` utility replaces nine local copies.
+- Residual catch blocks were audited; user-facing failures show a toast or log.
 
 ## Release plan
 
-### 0.1.18 — Correctness and cleanup (patch)
+### 0.1.18 — Correctness and cleanup (patch, shipped)
 
-All fixes and cleanup from #199–#215 are already on `dev`. They ship together as one patch release because the cleanup changes are internal and the fixes are urgent.
+All fixes and cleanup from #199–#215 shipped as one patch release because the cleanup changes are internal and the fixes were urgent.
 
 Release gates:
 
@@ -55,9 +56,15 @@ Release gates:
 - Bump `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to `0.1.18`.
 - PR `dev` → `main`, tag `v0.1.18`.
 
-### 0.1.19 — Optional follow-up cleanup (patch)
+### 0.1.19 — Persistence hardening (patch)
 
-Only if the remaining follow-ups above are worth a separate release. No user-facing features.
+Contents:
+- #218 — database read/persistence errors, timestamp/launch-count preservation, backup restore failures, clipboard image persistence, settings persistence.
+- #219 — shared byte formatter and residual catch audit.
+
+Release gates: the same clippy/test/typecheck/build gates as 0.1.18.
+- Bump the three version files to `0.1.19`.
+- PR `dev` → `main`, tag `v0.1.19`.
 
 ### 0.2.0 — Next feature release
 
