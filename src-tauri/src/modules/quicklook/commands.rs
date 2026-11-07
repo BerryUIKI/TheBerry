@@ -26,12 +26,14 @@ pub async fn set_quicklook_enabled(
     state: State<'_, AppState>,
     enabled: bool,
 ) -> Result<QuickLookStatus, String> {
-    if let Some(root) = state.config_manager.get_data_dir() {
-        let patch = serde_json::json!({"quicklook_enabled": enabled});
-        let cfg = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone())
-            .map_err(|e| format!("Failed to save QuickLook setting: {e}"))?;
-        let _ = app.emit("config-changed", &cfg);
-    }
+    let root = state
+        .config_manager
+        .get_data_dir()
+        .ok_or_else(|| "Data directory is not initialized".to_string())?;
+    let patch = serde_json::json!({"quicklook_enabled": enabled});
+    let cfg = state.config_manager.patch_app_config(&root, patch.as_object().unwrap().clone())
+        .map_err(|e| format!("Failed to save QuickLook setting: {e}"))?;
+    let _ = app.emit("config-changed", &cfg);
 
     if enabled {
         let _ = QuickLookService::start_process();

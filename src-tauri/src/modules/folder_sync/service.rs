@@ -98,8 +98,10 @@ impl FolderSyncService {
         // Remove from active jobs
         self.active_jobs.lock().remove(&job_id);
 
-        // Save history to redb
-        let _ = self.save_history(&result);
+        // Save history to redb. Sync results must still return if history is unavailable.
+        if let Err(error) = self.save_history(&result) {
+            tracing::warn!("Failed to save sync history: {error}");
+        }
 
         Ok(result)
     }
