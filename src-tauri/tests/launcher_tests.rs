@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use tempfile::tempdir;
-use the_berry_lib::core::database::DatabaseManager;
+use the_berry_lib::core::database::{DatabaseManager, LAUNCHER_TABLE};
 use the_berry_lib::modules::launcher::service::{LauncherPayload, LauncherService};
 
 #[test]
@@ -57,6 +57,26 @@ fn test_launcher_crud_and_attributes() {
     let remaining = service.get_items().expect("get remaining");
     assert_eq!(remaining.len(), 1);
     assert_eq!(remaining[0].id, batch_item.id);
+}
+
+#[test]
+fn test_malformed_launcher_row_is_reported() {
+    let temp = tempdir().expect("failed to create temp dir");
+    let db_manager = Arc::new(DatabaseManager::new());
+    db_manager.initialize(temp.path()).expect("failed to init db");
+
+    let write_txn = db_manager.get_db().expect("db").begin_write().expect("write txn");
+    {
+        let mut table = write_txn.open_table(LAUNCHER_TABLE).expect("open table");
+        table
+            .insert("broken", b"not-json".as_slice())
+            .expect("insert malformed row");
+    }
+    write_txn.commit().expect("commit");
+
+    let service = LauncherService::new(db_manager);
+    let error = service.get_items().expect_err("malformed row should fail");
+    assert!(error.contains("decode launcher item row"), "unexpected error: {error}");
 }
 
 #[test]

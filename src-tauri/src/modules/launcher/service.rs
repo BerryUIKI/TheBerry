@@ -53,11 +53,11 @@ impl LauncherService {
         let table = read_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
 
         let mut items = Vec::new();
-        let mut iter = table.iter().map_err(|e| e.to_string())?;
-        while let Some(Ok((_key, val))) = iter.next() {
-            if let Ok(item) = serde_json::from_slice::<LauncherItem>(val.value()) {
-                items.push(item);
-            }
+        for entry in table.iter().map_err(|e| format!("Failed to iterate launcher items: {e}"))? {
+            let (_key, val) = entry.map_err(|e| format!("Failed to read launcher item row: {e}"))?;
+            let item = serde_json::from_slice::<LauncherItem>(val.value())
+                .map_err(|e| format!("Failed to decode launcher item row: {e}"))?;
+            items.push(item);
         }
 
         items.sort_by(|a, b| {
