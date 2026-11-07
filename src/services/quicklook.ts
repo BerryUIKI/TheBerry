@@ -72,7 +72,8 @@ export async function closeQuickLook(): Promise<void> {
   try {
     await safeInvoke<void>("quicklook_close");
   } catch (e) {
-    // Ignore close error if host is not running
+    // Closing is best-effort: the external host may already be stopped.
+    console.warn("QuickLook close failed:", e);
   }
 }
 
