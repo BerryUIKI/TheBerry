@@ -129,10 +129,11 @@ impl FolderSyncService {
             .iter()
             .map_err(|e| format!("Failed to iterate sync_profiles: {}", e))?;
 
-        for (_k, v) in iter.flatten() {
-            if let Ok(prof) = serde_json::from_slice::<SyncProfile>(v.value()) {
-                profiles.push(prof);
-            }
+        for entry in iter {
+            let (_key, value) = entry.map_err(|e| format!("Failed to read sync profile row: {e}"))?;
+            let profile = serde_json::from_slice::<SyncProfile>(value.value())
+                .map_err(|e| format!("Failed to decode sync profile row: {e}"))?;
+            profiles.push(profile);
         }
 
         profiles.sort_by_key(|b| std::cmp::Reverse(b.updated_at));
@@ -271,10 +272,11 @@ impl FolderSyncService {
             .iter()
             .map_err(|e| format!("Failed to iterate sync_history: {}", e))?;
 
-        for (_k, v) in iter.flatten() {
-            if let Ok(res) = serde_json::from_slice::<SyncResult>(v.value()) {
-                list.push(res);
-            }
+        for entry in iter {
+            let (_key, value) = entry.map_err(|e| format!("Failed to read sync history row: {e}"))?;
+            let result = serde_json::from_slice::<SyncResult>(value.value())
+                .map_err(|e| format!("Failed to decode sync history row: {e}"))?;
+            list.push(result);
         }
 
         // Limit results
