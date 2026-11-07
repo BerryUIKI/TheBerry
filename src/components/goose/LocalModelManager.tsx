@@ -12,17 +12,12 @@ import {
   removeLocalModel,
 } from "../../services/goose";
 import { LocalModel, LocalModelDownloadProgress } from "../../types/goose";
+import { formatBytes } from "../../utils/format";
 import { Check, Download, ExternalLink, FileUp, RefreshCw, Server, Trash2 } from "lucide-solid";
 
 interface Props {
   selectedModelId?: string | null;
   onSelectModel: (id: string) => void;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 ** 2) return `${bytes} B`;
-  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
 }
 
 function progressPercent(progress: LocalModelDownloadProgress): number {

@@ -5,6 +5,7 @@ import { previewWithQuickLook } from "../services/quicklook";
 import { ImageThumbnail } from "../components/imageConverter/ImageThumbnail";
 import { useToast } from "../context/ToastContext";
 import { useI18n } from "../context/I18nContext";
+import { formatBytes } from "../utils/format";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   Image,
@@ -325,14 +326,6 @@ export function ImageConverterView() {
       const failedCount = list.length - successfulCount;
       success(t("image_converter.results_summary", { success: String(successfulCount), failed: String(failedCount) }));
     }
-  };
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
   };
 
   const totalOriginalBytes = () => results().reduce((acc, r) => acc + r.original_size_bytes, 0);
