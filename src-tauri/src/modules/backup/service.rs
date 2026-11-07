@@ -32,6 +32,27 @@ pub struct BackupService {
     config_manager: Arc<ConfigManager>,
 }
 
+fn read_table_rows<T: serde::de::DeserializeOwned>(
+    read_txn: &redb::ReadTransaction,
+    table: redb::TableDefinition<&str, &[u8]>,
+    label: &str,
+) -> Result<Vec<T>, String> {
+    let table = read_txn
+        .open_table(table)
+        .map_err(|e| format!("Failed to open {label} table: {e}"))?;
+    let mut items = Vec::new();
+    for entry in table
+        .iter()
+        .map_err(|e| format!("Failed to iterate {label} rows: {e}"))?
+    {
+        let (_key, value) = entry.map_err(|e| format!("Failed to read {label} row: {e}"))?;
+        let item = serde_json::from_slice(value.value())
+            .map_err(|e| format!("Failed to decode {label} row: {e}"))?;
+        items.push(item);
+    }
+    Ok(items)
+}
+
 impl BackupService {
     pub fn new(db_manager: Arc<DatabaseManager>, config_manager: Arc<ConfigManager>) -> Self {
         Self {
@@ -45,38 +66,9 @@ impl BackupService {
         let db = self.db_manager.get_db()?;
         let read_txn = db.begin_read().map_err(|e| e.to_string())?;
 
-        // Read clipboard items
-        let mut clipboard_items = Vec::new();
-        if let Ok(table) = read_txn.open_table(CLIPBOARD_TABLE) {
-            let mut iter = table.iter().map_err(|e| e.to_string())?;
-            while let Some(Ok((_k, val))) = iter.next() {
-                if let Ok(item) = serde_json::from_slice::<ClipboardItem>(val.value()) {
-                    clipboard_items.push(item);
-                }
-            }
-        }
-
-        // Read snippets
-        let mut snippets = Vec::new();
-        if let Ok(table) = read_txn.open_table(SNIPPETS_TABLE) {
-            let mut iter = table.iter().map_err(|e| e.to_string())?;
-            while let Some(Ok((_k, val))) = iter.next() {
-                if let Ok(item) = serde_json::from_slice::<SnippetItem>(val.value()) {
-                    snippets.push(item);
-                }
-            }
-        }
-
-        // Read launcher items
-        let mut launcher_items = Vec::new();
-        if let Ok(table) = read_txn.open_table(LAUNCHER_TABLE) {
-            let mut iter = table.iter().map_err(|e| e.to_string())?;
-            while let Some(Ok((_k, val))) = iter.next() {
-                if let Ok(item) = serde_json::from_slice::<LauncherItem>(val.value()) {
-                    launcher_items.push(item);
-                }
-            }
-        }
+        let clipboard_items = read_table_rows::<ClipboardItem>(&read_txn, CLIPBOARD_TABLE, "clipboard")?;
+        let snippets = read_table_rows::<SnippetItem>(&read_txn, SNIPPETS_TABLE, "snippets")?;
+        let launcher_items = read_table_rows::<LauncherItem>(&read_txn, LAUNCHER_TABLE, "launcher")?;
 
         let config = self.config_manager.get_app_config();
 
