@@ -89,15 +89,16 @@ impl BackupService {
         let backup: FullBackupData = serde_json::from_str(json_content)
             .map_err(|e| format!("Invalid backup JSON structure: {}", e))?;
 
-        // Create safety backup snapshot before overwriting database
-        if let Ok(current_backup) = self.export_backup_json() {
-            if let Some(dir) = self.config_manager.get_data_dir() {
-                let safety_dir = dir.join("backups");
-                let _ = std::fs::create_dir_all(&safety_dir);
-                let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
-                let safety_file = safety_dir.join(format!("pre_restore_safety_{}.json", timestamp));
-                let _ = std::fs::write(safety_file, current_backup);
-            }
+        // Create a safety backup snapshot before overwriting the database.
+        if let Some(dir) = self.config_manager.get_data_dir() {
+            let current_backup = self.export_backup_json()?;
+            let safety_dir = dir.join("backups");
+            std::fs::create_dir_all(&safety_dir)
+                .map_err(|e| format!("Failed to create backup safety directory: {e}"))?;
+            let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+            let safety_file = safety_dir.join(format!("pre_restore_safety_{}.json", timestamp));
+            std::fs::write(safety_file, current_backup)
+                .map_err(|e| format!("Failed to write restore safety backup: {e}"))?;
         }
 
         let db = self.db_manager.get_db()?;
@@ -111,26 +112,32 @@ impl BackupService {
         {
             let mut clip_table = write_txn.open_table(CLIPBOARD_TABLE).map_err(|e| e.to_string())?;
             for item in &backup.clipboard_items {
-                if let Ok(bytes) = serde_json::to_vec(item) {
-                    let _ = clip_table.insert(item.id.as_str(), bytes.as_slice());
-                    clip_count += 1;
-                }
+                let bytes = serde_json::to_vec(item)
+                    .map_err(|e| format!("Failed to serialize clipboard item {}: {e}", item.id))?;
+                clip_table
+                    .insert(item.id.as_str(), bytes.as_slice())
+                    .map_err(|e| format!("Failed to restore clipboard item {}: {e}", item.id))?;
+                clip_count += 1;
             }
 
             let mut snip_table = write_txn.open_table(SNIPPETS_TABLE).map_err(|e| e.to_string())?;
             for item in &backup.snippets {
-                if let Ok(bytes) = serde_json::to_vec(item) {
-                    let _ = snip_table.insert(item.id.as_str(), bytes.as_slice());
-                    snip_count += 1;
-                }
+                let bytes = serde_json::to_vec(item)
+                    .map_err(|e| format!("Failed to serialize snippet {}: {e}", item.id))?;
+                snip_table
+                    .insert(item.id.as_str(), bytes.as_slice())
+                    .map_err(|e| format!("Failed to restore snippet {}: {e}", item.id))?;
+                snip_count += 1;
             }
 
             let mut launch_table = write_txn.open_table(LAUNCHER_TABLE).map_err(|e| e.to_string())?;
             for item in &backup.launcher_items {
-                if let Ok(bytes) = serde_json::to_vec(item) {
-                    let _ = launch_table.insert(item.id.as_str(), bytes.as_slice());
-                    launch_count += 1;
-                }
+                let bytes = serde_json::to_vec(item)
+                    .map_err(|e| format!("Failed to serialize launcher item {}: {e}", item.id))?;
+                launch_table
+                    .insert(item.id.as_str(), bytes.as_slice())
+                    .map_err(|e| format!("Failed to restore launcher item {}: {e}", item.id))?;
+                launch_count += 1;
             }
         }
 
@@ -138,7 +145,9 @@ impl BackupService {
 
         // Update config if data dir is available
         if let Some(dir) = self.config_manager.get_data_dir() {
-            let _ = self.config_manager.save_app_config(&dir, &backup.config);
+            self.config_manager
+                .save_app_config(&dir, &backup.config)
+                .map_err(|e| format!("Failed to restore configuration: {e}"))?;
         }
 
         Ok(BackupSummary {

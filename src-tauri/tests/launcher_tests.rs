@@ -9,7 +9,7 @@ fn test_launcher_crud_and_attributes() {
     let db_manager = Arc::new(DatabaseManager::new());
     db_manager.initialize(temp.path()).expect("failed to init db");
 
-    let service = LauncherService::new(db_manager);
+    let service = LauncherService::new(db_manager.clone());
 
     let item = service
         .save_item(LauncherPayload {
@@ -29,6 +29,39 @@ fn test_launcher_crud_and_attributes() {
     assert_eq!(item.name, "VS Code Editor");
     assert!(item.is_favorite);
     assert_eq!(item.launch_count, 0);
+    let original_created_at = item.created_at;
+
+    // Simulate a previously launched item, then update it through the service.
+    let mut launched = item.clone();
+    launched.launch_count = 5;
+    let write_txn = db_manager.get_db().expect("db").begin_write().expect("write txn");
+    {
+        let mut table = write_txn.open_table(LAUNCHER_TABLE).expect("open table");
+        table
+            .insert(
+                launched.id.as_str(),
+                serde_json::to_vec(&launched).expect("serialize launched item").as_slice(),
+            )
+            .expect("store launched item");
+    }
+    write_txn.commit().expect("commit");
+
+    let updated = service
+        .save_item(LauncherPayload {
+            id: Some(item.id.clone()),
+            name: "VS Code Editor Updated".to_string(),
+            description: Some(item.description.clone()),
+            exec_path: item.exec_path.clone(),
+            arguments: Some(item.arguments.clone()),
+            working_dir: item.working_dir.clone(),
+            category: Some(item.category.clone()),
+            is_favorite: Some(item.is_favorite),
+            is_batch: Some(item.is_batch),
+            batch_commands: Some(item.batch_commands.clone()),
+        })
+        .expect("update launcher item");
+    assert_eq!(updated.launch_count, 5);
+    assert_eq!(updated.created_at, original_created_at);
 
     let list = service.get_items().expect("get items");
     assert_eq!(list.len(), 1);

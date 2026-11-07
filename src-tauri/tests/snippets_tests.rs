@@ -26,6 +26,7 @@ fn test_snippet_crud_and_favorites() {
 
     assert_eq!(snippet.title, "Rust Mutex Boilerplate");
     assert_eq!(snippet.language, "rust");
+    let original_created_at = snippet.created_at;
 
     let list = service.get_snippets().expect("get snippets");
     assert_eq!(list.len(), 1);
@@ -46,6 +47,7 @@ fn test_snippet_crud_and_favorites() {
 
     assert!(updated.is_favorite);
     assert_eq!(updated.title, "Rust Mutex Boilerplate Updated");
+    assert_eq!(updated.created_at, original_created_at);
 
     // Delete snippet
     service.delete_snippet(&snippet.id).expect("delete snippet");
