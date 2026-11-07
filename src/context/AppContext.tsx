@@ -52,9 +52,7 @@ export function AppProvider(props: { children: JSX.Element }) {
         setShowSetupModal(false);
       }
     } catch (e) {
-      console.warn("Failed to check app status (running in browser or backend starting):", e);
-      // Default fallback for browser preview
-      setSuggestedDataDir("C:\\Users\\User\\Documents\\BerryAppData");
+      console.warn("Failed to check app status (backend starting):", e);
       setShowSetupModal(true);
     }
   };
