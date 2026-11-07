@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useI18n } from "../../context/I18nContext";
 import { useToast } from "../../context/ToastContext";
 import { calculateFileHash, FileChecksums } from "../../services/toolbox";
+import { formatBytes } from "../../utils/format";
 
 interface Props {
   isOpen: boolean;
@@ -19,14 +20,6 @@ export function FileHashModal(props: Props) {
   const [compareHash, setCompareHash] = createSignal("");
   const [copiedKey, setCopiedKey] = createSignal<string | null>(null);
   const [isDragging, setIsDragging] = createSignal(false);
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
 
   const processFile = async (path: string) => {
     setLoading(true);
@@ -180,7 +173,7 @@ export function FileHashModal(props: Props) {
                       <span class="text-[11px] text-muted-foreground font-mono truncate block">{data().file_path}</span>
                     </div>
                     <span class="text-xs font-mono font-medium text-primary px-2 py-0.5 bg-primary/10 rounded-md whitespace-nowrap">
-                      {formatBytes(data().file_size)}
+                      {formatBytes(data().file_size, 2)}
                     </span>
                   </div>
 

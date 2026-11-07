@@ -7,6 +7,7 @@ import {
 } from "lucide-solid";
 import { ComparisonManifest, CompareResult, SyncAction } from "../../types/folder_sync";
 import { useI18n } from "../../context/I18nContext";
+import { formatBytes } from "../../utils/format";
 
 interface ComparisonDiffTableProps {
   manifest: ComparisonManifest | null;
@@ -41,14 +42,6 @@ export function ComparisonDiffTable(props: ComparisonDiffTableProps) {
       return true;
     });
   });
-
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB", "TB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-  };
 
   const formatTimestamp = (secs: number) => {
     if (!secs) return "-";
