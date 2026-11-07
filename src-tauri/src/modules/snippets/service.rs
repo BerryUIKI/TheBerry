@@ -47,11 +47,11 @@ impl SnippetService {
         let table = read_txn.open_table(SNIPPETS_TABLE).map_err(|e| e.to_string())?;
 
         let mut items = Vec::new();
-        let mut iter = table.iter().map_err(|e| e.to_string())?;
-        while let Some(Ok((_key, val))) = iter.next() {
-            if let Ok(item) = serde_json::from_slice::<SnippetItem>(val.value()) {
-                items.push(item);
-            }
+        for entry in table.iter().map_err(|e| format!("Failed to iterate snippets: {e}"))? {
+            let (_key, val) = entry.map_err(|e| format!("Failed to read snippet row: {e}"))?;
+            let item = serde_json::from_slice::<SnippetItem>(val.value())
+                .map_err(|e| format!("Failed to decode snippet row: {e}"))?;
+            items.push(item);
         }
 
         items.sort_by(|a, b| {
