@@ -1,6 +1,8 @@
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { DownloadProgress, UpdateInfo } from "../../../types/updater";
 import { useI18n } from "../../../context/I18nContext";
+import { useToast } from "../../../context/ToastContext";
+import { exportDiagnostics } from "../../../services/diagnostics";
 import {
   Sparkles,
   RefreshCw,
@@ -9,6 +11,7 @@ import {
   ExternalLink,
   Zap,
   Info,
+  FileText,
 } from "lucide-solid";
 
 interface AboutSectionProps {
@@ -27,6 +30,23 @@ interface AboutSectionProps {
 
 export function AboutSection(props: AboutSectionProps) {
   const { t } = useI18n();
+  const { success, error } = useToast();
+  const [exporting, setExporting] = createSignal(false);
+
+  const handleExportDiagnostics = async () => {
+    setExporting(true);
+    try {
+      const path = await exportDiagnostics();
+      success(t("settings.diagnostics_saved", { path }));
+    } catch (err) {
+      error(
+        t("settings.diagnostics_failed"),
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div class="space-y-4">
@@ -188,6 +208,28 @@ export function AboutSection(props: AboutSectionProps) {
             <ExternalLink size={10} />
           </a>
         </div>
+      </div>
+
+      {/* Diagnostics Card */}
+      <div class="p-4 bg-card border border-border rounded-xl space-y-3 text-xs shadow-xs">
+        <h3 class="font-semibold text-foreground flex items-center space-x-2">
+          <FileText size={15} class="text-primary" />
+          <span>{t("settings.diagnostics_title")}</span>
+        </h3>
+        <p class="text-muted-foreground leading-relaxed">
+          {t("settings.diagnostics_desc")}
+        </p>
+        <button
+          type="button"
+          disabled={exporting()}
+          onClick={handleExportDiagnostics}
+          class="px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors border border-border disabled:opacity-50"
+        >
+          <Download size={13} />
+          <span>
+            {exporting() ? t("settings.exporting_diagnostics") : t("settings.export_diagnostics")}
+          </span>
+        </button>
       </div>
     </div>
   );

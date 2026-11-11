@@ -1,5 +1,6 @@
 pub mod config;
 pub mod database;
+pub mod logging;
 pub mod paths;
 
 use crate::modules::folder_sync::service::FolderSyncService;

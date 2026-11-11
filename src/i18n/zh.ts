@@ -243,6 +243,12 @@ export const zh = {
   "settings.update_now": "立即升级",
   "settings.downloading": "正在下载...",
   "settings.changelog": "更新日志",
+  "settings.diagnostics_title": "诊断与日志",
+  "settings.diagnostics_desc": "导出包含应用版本、平台、配置与最近日志的排查报告。报告不会包含 API 密钥。",
+  "settings.export_diagnostics": "导出诊断报告",
+  "settings.exporting_diagnostics": "正在导出...",
+  "settings.diagnostics_saved": "诊断报告已保存到 {path}",
+  "settings.diagnostics_failed": "导出诊断报告失败",
   "settings.storage_title": "本地持久化与数据存储 (redb + TOML)",
   "settings.storage_dir_label": "当前配置的数据存储根目录：",
   "settings.open_explorer": "打开文件夹",
@@ -509,4 +515,9 @@ export const zh = {
   "nav.drag_to_reorder": "按住拖动排序",
   "nav.navigation_manager_title": "侧边栏导航与布局",
   "nav.navigation_manager_desc": "自定义侧边栏项目排序、显示与隐藏、修改别名及恢复默认",
+  // Error boundary
+  "error_boundary.title": "界面出现错误",
+  "error_boundary.description": "界面遇到意外错误。你的数据保存在本地，不会丢失。",
+  "error_boundary.reset": "重试",
+  "error_boundary.reload": "重新加载",
 } as const;
