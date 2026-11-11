@@ -70,9 +70,13 @@ Release gates: the same clippy/test/typecheck/build gates as 0.1.18.
 - Bump the three version files to `0.1.19`.
 - PR `dev` → `main`, tag `v0.1.19`.
 
-### 0.2.0 — Next feature release
+### 0.2.0 — Trusted updates and diagnostics (minor, shipped)
 
-Reserved for feature work after the cleanup. Scope is not yet defined; it will be planned in a Milestone 4 specification.
+Published from `dev` after #229 and #230.
+
+Contents:
+- #229 — file logging with rotation, panic hook, error boundary, diagnostics export.
+- #230 — update asset pinning and SHA-256 verification, HUD capability, production CSP, signing scaffold, platform documentation.
 
 ## Branch and release rules
 
