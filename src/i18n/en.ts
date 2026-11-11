@@ -243,6 +243,12 @@ export const en = {
   "settings.update_now": "Update Now",
   "settings.downloading": "Downloading...",
   "settings.changelog": "Changelog",
+  "settings.diagnostics_title": "Diagnostics",
+  "settings.diagnostics_desc": "Export a report with the app version, platform, configuration, and recent logs for troubleshooting. API keys are never included.",
+  "settings.export_diagnostics": "Export Diagnostics",
+  "settings.exporting_diagnostics": "Exporting...",
+  "settings.diagnostics_saved": "Diagnostics saved to {path}",
+  "settings.diagnostics_failed": "Failed to export diagnostics",
   "settings.storage_title": "Storage & Persistence (redb + TOML)",
   "settings.storage_dir_label": "Configured Root Storage Directory:",
   "settings.open_explorer": "Open Folder",
@@ -509,4 +515,9 @@ export const en = {
   "nav.drag_to_reorder": "Drag to reorder",
   "nav.navigation_manager_title": "Sidebar Navigation & Layout",
   "nav.navigation_manager_desc": "Customize sidebar ordering, visibility, alias names, and defaults",
+  // Error boundary
+  "error_boundary.title": "Something went wrong",
+  "error_boundary.description": "The interface hit an unexpected error. Your data is stored locally and remains safe.",
+  "error_boundary.reset": "Try Again",
+  "error_boundary.reload": "Reload App",
 } as const;

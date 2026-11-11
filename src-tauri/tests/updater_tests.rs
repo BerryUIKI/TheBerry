@@ -68,3 +68,55 @@ fn test_get_updates_dir_resolution() {
     assert!(default_dir.to_str().unwrap().contains("updates") || default_dir.to_str().unwrap().contains("Updates"));
 }
 
+
+#[test]
+fn test_expected_asset_names_are_installable() {
+    let names = UpdaterService::expected_asset_names();
+    assert!(!names.is_empty());
+    for name in names {
+        assert!(
+            UpdaterService::is_installable_asset(name),
+            "{name} should be installable"
+        );
+    }
+    #[cfg(target_os = "windows")]
+    {
+        assert_eq!(names.len(), 1);
+        assert_eq!(names[0], "the-berry_windows_x64.exe");
+    }
+}
+
+#[test]
+fn test_installable_asset_rejects_checksums() {
+    assert!(UpdaterService::is_installable_asset("the-berry_windows_x64.exe"));
+    assert!(UpdaterService::is_installable_asset("the-berry_linux_x64.AppImage"));
+    assert!(UpdaterService::is_installable_asset("the-berry_macos_aarch64.dmg"));
+    assert!(!UpdaterService::is_installable_asset("the-berry_windows_x64.exe.sha256"));
+    assert!(!UpdaterService::is_installable_asset("the-berry_linux_x64.deb"));
+    assert!(!UpdaterService::is_installable_asset("notes.txt"));
+}
+
+#[test]
+fn test_parse_sha256_checksum() {
+    let digest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+    let parsed = UpdaterService::parse_sha256_checksum(&format!("{digest}  the-berry.exe\n"))
+        .expect("valid checksum should parse");
+    assert_eq!(parsed, digest);
+
+    assert!(UpdaterService::parse_sha256_checksum("").is_err());
+    assert!(UpdaterService::parse_sha256_checksum("abc").is_err());
+    assert!(UpdaterService::parse_sha256_checksum(&"z".repeat(64)).is_err());
+}
+
+#[test]
+fn test_sha256_file_matches_known_digest() {
+    let path = std::env::temp_dir().join(format!("theberry-sha256-{}.txt", std::process::id()));
+    std::fs::write(&path, b"abc").expect("failed to write test file");
+    let digest = UpdaterService::sha256_file(&path).expect("hashing failed");
+    let _ = std::fs::remove_file(&path);
+
+    assert_eq!(
+        digest,
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+}

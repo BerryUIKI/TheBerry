@@ -2,22 +2,22 @@
 
 ## Windows installer size
 
-Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14), [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15), [0.1.16 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.16), and [0.1.17 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.17).
+Sizes use decimal MB. Published baselines come from the [0.1.14 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.14), [0.1.15 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.15), [0.1.16 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.16), [0.1.17 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.17), [0.1.18 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.18), and [0.1.19 release](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.19).
 
-| Installer | Published 0.1.14 | Published 0.1.15 | Published 0.1.16 | Published 0.1.17 |
-| --- | ---: | ---: | ---: | ---: |
-| Windows EXE | 80.68 MB | 438.48 MB | 80.88 MB | 80.92 MB |
-| Windows MSI | 110.02 MB | 789.51 MB | 110.31 MB | 110.33 MB |
+| Installer | 0.1.14 | 0.1.15 | 0.1.16 | 0.1.17 | 0.1.18 | 0.1.19 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Windows EXE | 80.68 MB | 438.48 MB | 80.88 MB | 80.92 MB | 80.89 MB | 80.92 MB |
+| Windows MSI | 110.02 MB | 789.51 MB | 110.31 MB | 110.33 MB | 110.31 MB | 110.36 MB |
 
-The 0.1.17 pre-release local build (80.99 MB EXE, 110.51 MB MSI) matched the published artifacts. The 0.1.17 release published the Linux and macOS installers: 90.44 MB AppImage, 10.97 MB deb, and 11.58 MB macOS arm64 dmg.
+The 0.1.17 pre-release local build (80.99 MB EXE, 110.51 MB MSI) matched the published artifacts. The 0.1.17 release published the Linux and macOS installers: 90.44 MB AppImage, 10.97 MB deb, and 11.58 MB macOS arm64 dmg. 0.1.18 published a 90.50 MB AppImage, 11.00 MB deb, and 11.59 MB dmg; 0.1.19 published 90.45 MB, 10.97 MB, and 11.63 MB. Windows installers stayed within 0.03 MB of the 0.1.17 baseline across both patches.
 
 The MSI database contains 1,324 payload files, including `QuickLook.exe`, and no llama.cpp, ggml, cuBLAS, or CUDA runtime files. The generated NSIS file list also excludes AI runtimes. Shared configuration has no resource bundle; the Windows override contains only QuickLook. An automated configuration test protects these platform boundaries.
 
 ## Automated verification
 
-- `pnpm test`: 109 frontend tests passed, including explicit backend selection, cached/download size labels, progress restoration, cancellation, stale status protection, and preparation exceeding the generation watchdog timeout.
+- `pnpm test`: 112 frontend tests passed, including explicit backend selection, cached/download size labels, progress restoration, cancellation, stale status protection, and preparation exceeding the generation watchdog timeout.
 - `pnpm build`: production frontend build passed.
-- `cargo test --manifest-path src-tauri/Cargo.toml -j 2`: 75 backend unit and integration tests passed, including the Windows installation file-lock regression and the new cross-platform archive tests. Two optional tests remain ignored by default: hardware-fixture inference and live OS autostart changes. Hardware inference was exercised separately for all three Windows backends.
+- `cargo test --manifest-path src-tauri/Cargo.toml -j 2`: 82 backend unit and integration tests passed, including the Windows installation file-lock regression and the new cross-platform archive tests. Two optional tests remain ignored by default: hardware-fixture inference and live OS autostart changes. Hardware inference was exercised separately for all three Windows backends.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`: passed.
 - `pnpm tauri build`: Windows MSI and NSIS installers built successfully.
 

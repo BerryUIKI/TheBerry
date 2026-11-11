@@ -89,6 +89,66 @@ impl UpdaterService {
         }
     }
 
+    /// Exact release asset names the updater is allowed to install on this platform.
+    pub fn expected_asset_names() -> &'static [&'static str] {
+        #[cfg(target_os = "windows")]
+        {
+            &["the-berry_windows_x64.exe"]
+        }
+        #[cfg(target_os = "linux")]
+        {
+            &["the-berry_linux_x64.AppImage"]
+        }
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            &["the-berry_macos_aarch64.dmg"]
+        }
+        #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+        {
+            &["the-berry_macos_x64.dmg"]
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+        {
+            &[]
+        }
+    }
+
+    /// Installable assets never include the published checksum sidecar files.
+    pub fn is_installable_asset(name: &str) -> bool {
+        name.ends_with(".exe") || name.ends_with(".AppImage") || name.ends_with(".dmg")
+    }
+
+    /// Parses the first 64-hex-character token from a `sha256sum`-format file.
+    pub fn parse_sha256_checksum(text: &str) -> Result<String, String> {
+        let checksum = text.split_whitespace().next().unwrap_or("");
+        if checksum.len() == 64 && checksum.chars().all(|c| c.is_ascii_hexdigit()) {
+            Ok(checksum.to_ascii_lowercase())
+        } else {
+            Err("Checksum file does not contain a valid SHA-256 digest".to_string())
+        }
+    }
+
+    /// Computes the lowercase SHA-256 hex digest of a file.
+    pub fn sha256_file(path: &Path) -> Result<String, String> {
+        use sha2::{Digest, Sha256};
+        use std::io::Read;
+
+        let mut file = File::open(path)
+            .map_err(|e| format!("Failed to open {} for hashing: {e}", path.display()))?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0u8; 64 * 1024];
+        loop {
+            let read = file
+                .read(&mut buffer)
+                .map_err(|e| format!("Failed to hash {}: {e}", path.display()))?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+        }
+        Ok(format!("{:x}", hasher.finalize()))
+    }
+
     pub async fn check_latest_release(current_version: &str) -> Result<UpdateInfo, String> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(12))
@@ -124,22 +184,16 @@ impl UpdaterService {
 
         let has_update = Self::is_newer_version(current_version, &release.tag_name);
 
-        let target_keyword = Self::get_target_asset_keyword();
-        let matched_asset = release
-            .assets
+        let matched_asset = Self::expected_asset_names()
             .iter()
-            .find(|a| {
-                #[cfg(target_os = "windows")]
-                {
-                    a.name.contains(target_keyword) && a.name.ends_with(".exe")
-                }
-                #[cfg(not(target_os = "windows"))]
-                {
-                    a.name.contains(target_keyword)
-                }
-            })
-            .or_else(|| release.assets.iter().find(|a| a.name.contains(target_keyword)))
-            .or_else(|| release.assets.first());
+            .find_map(|name| release.assets.iter().find(|asset| asset.name == *name))
+            .or_else(|| {
+                let keyword = Self::get_target_asset_keyword();
+                release
+                    .assets
+                    .iter()
+                    .find(|asset| asset.name.contains(keyword) && Self::is_installable_asset(&asset.name))
+            });
 
         let download_url = matched_asset.map(|a| a.browser_download_url.clone());
         let asset_name = matched_asset.map(|a| a.name.clone());
@@ -185,6 +239,43 @@ impl UpdaterService {
                         .unwrap_or_else(|| PathBuf::from("."))
                         .join("TheBerryUpdates")
                 })
+        }
+    }
+
+    async fn fetch_sha256(client: &reqwest::Client, url: &str) -> Result<String, String> {
+        Self::validate_download_url(url)?;
+        let response = client
+            .get(url)
+            .header(USER_AGENT, "TheBerry-Desktop-App")
+            .send()
+            .await
+            .map_err(|e| format!("Checksum download failed: {e}"))?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "Update checksum is unavailable (HTTP {})",
+                response.status()
+            ));
+        }
+        let text = response
+            .text()
+            .await
+            .map_err(|e| format!("Failed to read checksum response: {e}"))?;
+        Self::parse_sha256_checksum(&text)
+    }
+
+    async fn verify_download(
+        client: &reqwest::Client,
+        download_url: &str,
+        file: &Path,
+    ) -> Result<(), String> {
+        let expected = Self::fetch_sha256(client, &format!("{download_url}.sha256")).await?;
+        let actual = Self::sha256_file(file)?;
+        if actual == expected {
+            Ok(())
+        } else {
+            Err(format!(
+                "Update checksum mismatch: expected {expected}, downloaded {actual}"
+            ))
         }
     }
 
@@ -300,6 +391,24 @@ impl UpdaterService {
         }
         std::fs::rename(&temp_destination, &destination)
             .map_err(|e| format!("Failed to finalize update package on disk: {}", e))?;
+
+        let _ = app_handle.emit(
+            "update-download-progress",
+            DownloadProgress {
+                bytes_downloaded: downloaded,
+                total_bytes: total_size,
+                percent: 99.9,
+                speed_bytes_per_sec: 0,
+                done: false,
+                status: "Verifying checksum...".to_string(),
+                file_path: None,
+            },
+        );
+
+        if let Err(error) = Self::verify_download(&client, download_url, &destination).await {
+            let _ = std::fs::remove_file(&destination);
+            return Err(error);
+        }
 
         let dest_str = destination.to_string_lossy().to_string();
 

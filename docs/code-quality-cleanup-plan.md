@@ -1,6 +1,6 @@
 # Code Quality Cleanup & Release Plan
 
-Status: 0.1.18 shipped; 0.1.19 prepared (2026-11-07)
+Status: cleanup complete; 0.1.18 and 0.1.19 shipped (2026-11-11)
 Baseline: `v0.1.17`, `dev` at `586878c`
 
 This plan tracks the cleanup that came out of the full over-defensiveness review. The work was split so every PR stayed small and independently reviewable.
@@ -43,6 +43,8 @@ The release plan itself was added in [#209](https://github.com/BerryUIKI/TheBerr
 
 ### 0.1.18 — Correctness and cleanup (patch, shipped)
 
+Published as [v0.1.18](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.18).
+
 All fixes and cleanup from #199–#215 shipped as one patch release because the cleanup changes are internal and the fixes were urgent.
 
 Release gates:
@@ -56,7 +58,9 @@ Release gates:
 - Bump `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` to `0.1.18`.
 - PR `dev` → `main`, tag `v0.1.18`.
 
-### 0.1.19 — Persistence hardening (patch)
+### 0.1.19 — Persistence hardening (patch, shipped)
+
+Published as [v0.1.19](https://github.com/BerryUIKI/TheBerry/releases/tag/v0.1.19).
 
 Contents:
 - #218 — database read/persistence errors, timestamp/launch-count preservation, backup restore failures, clipboard image persistence, settings persistence.
@@ -66,9 +70,13 @@ Release gates: the same clippy/test/typecheck/build gates as 0.1.18.
 - Bump the three version files to `0.1.19`.
 - PR `dev` → `main`, tag `v0.1.19`.
 
-### 0.2.0 — Next feature release
+### 0.2.0 — Trusted updates and diagnostics (minor, shipped)
 
-Reserved for feature work after the cleanup lands.
+Published from `dev` after #229 and #230.
+
+Contents:
+- #229 — file logging with rotation, panic hook, error boundary, diagnostics export.
+- #230 — update asset pinning and SHA-256 verification, HUD capability, production CSP, signing scaffold, platform documentation.
 
 ## Branch and release rules
 
