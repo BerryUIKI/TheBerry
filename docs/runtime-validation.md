@@ -17,7 +17,7 @@ The MSI database contains 1,324 payload files, including `QuickLook.exe`, and no
 
 - `pnpm test`: 112 frontend tests passed, including explicit backend selection, cached/download size labels, progress restoration, cancellation, stale status protection, and preparation exceeding the generation watchdog timeout.
 - `pnpm build`: production frontend build passed.
-- `cargo test --manifest-path src-tauri/Cargo.toml -j 2`: 75 backend unit and integration tests passed, including the Windows installation file-lock regression and the new cross-platform archive tests. Two optional tests remain ignored by default: hardware-fixture inference and live OS autostart changes. Hardware inference was exercised separately for all three Windows backends.
+- `cargo test --manifest-path src-tauri/Cargo.toml -j 2`: 82 backend unit and integration tests passed, including the Windows installation file-lock regression and the new cross-platform archive tests. Two optional tests remain ignored by default: hardware-fixture inference and live OS autostart changes. Hardware inference was exercised separately for all three Windows backends.
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`: passed.
 - `pnpm tauri build`: Windows MSI and NSIS installers built successfully.
 
