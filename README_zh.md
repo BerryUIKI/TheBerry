@@ -113,10 +113,12 @@ graph TD
 ## 🚀 快速上手与开发
 
 ### 环境准备
-- Windows 10 (1903+) 或 Windows 11 (x64)
+- Windows 10 (1903+) 或 Windows 11 (x64)、Linux x64、或 macOS Apple Silicon (arm64)
 - Node.js (v20+) 与 [pnpm](https://pnpm.io/)
 - [Rust & Cargo](https://www.rust-lang.org/tools/install) (1.78+)
-- *(可选)* [QuickLook](https://github.com/QL-Win/QuickLook) 用于空格键原生文件快速预览
+- *(可选，Windows)* [QuickLook](https://github.com/QL-Win/QuickLook) 用于空格键原生文件快速预览
+
+仅 Windows 可用的工具：原生 OCR、Word 转 PDF、QuickLook 集成与开始菜单 `.lnk` 扫描。其余工具在所有受支持平台可用；条形码扫描依赖 WebView 的 `BarcodeDetector` 支持。
 
 ### 开发调试命令
 ```bash

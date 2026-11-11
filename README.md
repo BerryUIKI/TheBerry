@@ -113,10 +113,12 @@ graph TD
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Windows 10 (version 1903+) or Windows 11 (x64)
+- Windows 10 (version 1903+) or Windows 11 (x64), Linux x64, or macOS Apple Silicon (arm64)
 - Node.js (v20+) & [pnpm](https://pnpm.io/)
 - [Rust & Cargo](https://www.rust-lang.org/tools/install) (1.78+)
-- *(Optional)* [QuickLook](https://github.com/QL-Win/QuickLook) for native desktop spacebar previews
+- *(Optional, Windows)* [QuickLook](https://github.com/QL-Win/QuickLook) for native desktop spacebar previews
+
+Windows-only tools: native OCR, Word-to-PDF, QuickLook integration, and the Start Menu `.lnk` scanner. All other tools run on every supported platform; barcode scanning depends on the webview's `BarcodeDetector` support.
 
 ### Development Commands
 ```bash
