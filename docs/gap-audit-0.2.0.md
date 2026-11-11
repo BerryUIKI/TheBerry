@@ -3,6 +3,7 @@
 Status: draft for review
 Date: 2026-11-11
 Baseline: `dev` at `f5a1aca` (0.1.19)
+Update: themes A and B shipped in 0.2.0 (#229, #230)
 
 ## Method
 
