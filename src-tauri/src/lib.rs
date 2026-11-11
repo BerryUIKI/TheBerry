@@ -10,6 +10,8 @@ use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, Shortcut, Shortcu
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    core::logging::init(core::config::ConfigManager::new().get_data_dir());
+
     let builder = tauri::Builder::default();
 
     // Detect duplicate launches before any other plugin or application data is initialized.
@@ -124,6 +126,8 @@ pub fn run() {
             commands::system::initialize_data_dir,
             commands::system::get_config,
             commands::system::update_config,
+            commands::diagnostics::log_frontend_error,
+            commands::diagnostics::export_diagnostics,
             // Window controls
             commands::window::minimize_window,
             commands::window::toggle_maximize_window,
