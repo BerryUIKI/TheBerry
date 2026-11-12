@@ -21,6 +21,11 @@ on:
         required: false
         type: boolean
         default: false
+      tag_name:
+        description: 'Existing tag to publish to (leave empty for the latest release)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -33,6 +38,8 @@ jobs:
   build-and-release:
     name: Build (${{ matrix.platform.os }} - ${{ matrix.platform.arch }})
     runs-on: ${{ matrix.platform.runs_on }}
+    env:
+      APPLE_SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -90,16 +97,19 @@ jobs:
       - name: Run Frontend Tests
         run: pnpm test
 
-      - name: Build Tauri Application
+      - name: Build Tauri Application (signed)
+        if: env.APPLE_SIGNING_CONFIGURED == 'true'
         env:
-          # macOS signing and notarization activate automatically when these secrets exist.
-          # Without them the macOS artifact is unsigned. See docs/release-signing.md.
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: pnpm tauri build
+
+      - name: Build Tauri Application (unsigned)
+        if: env.APPLE_SIGNING_CONFIGURED != 'true'
         run: pnpm tauri build
 
       - name: Prepare and Normalize Artifact Names & Checksums (Windows)
@@ -154,8 +164,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist-artifacts/*
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'latest' }}
-          name: ${{ github.ref_type == 'tag' && github.ref_name || 'TheBerry Latest Release' }}
+          tag_name: ${{ inputs.tag_name || (github.ref_type == 'tag' && github.ref_name || 'latest') }}
+          name: ${{ inputs.tag_name || (github.ref_type == 'tag' && github.ref_name || 'TheBerry Latest Release') }}
           generate_release_notes: true
           prerelease: ${{ inputs.prerelease || false }}
           draft: ${{ inputs.draft || false }}
